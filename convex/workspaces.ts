@@ -302,13 +302,18 @@ export const retry = mutation({
     if (workspace.status === "merge_failed") {
       retryStatus = "merging";
     } else if (workspace.status === "failed") {
-      // Check if the last run attempt was a review — if so, skip coding and go straight to review
+      // If coding already succeeded at some point, skip straight to review.
+      // Auto-retries after a review failure re-run the full lifecycle, creating
+      // new failed coding attempts — so we can't just check the last attempt type.
       const attempts = await ctx.db
         .query("runAttempts")
         .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
         .collect();
-      const lastAttempt = attempts[attempts.length - 1];
-      if (lastAttempt?.type === "review") {
+      const hasSuccessfulCoding = attempts.some(
+        (a) => a.type === "coding" && a.status === "succeeded",
+      );
+      const hasReviewAttempt = attempts.some((a) => a.type === "review");
+      if (hasSuccessfulCoding && hasReviewAttempt) {
         reviewRequested = true;
       }
     }

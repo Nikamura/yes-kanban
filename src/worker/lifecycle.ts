@@ -425,7 +425,7 @@ export async function runLifecycle(
   let previousSessionId: string | undefined;
   if (resumed) {
     try {
-      const lastSession = await convex.query(api.runAttempts.lastSession, { workspaceId });
+      const lastSession = await convex.query(api.runAttempts.lastSession, { workspaceId, type: "coding" });
       if (lastSession?.sessionId) {
         previousSessionId = lastSession.sessionId;
         console.log(`[lifecycle] found previous session ${previousSessionId} for workspace=${workspaceId}`);
