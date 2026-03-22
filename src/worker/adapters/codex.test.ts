@@ -187,28 +187,45 @@ describe("CodexAdapter", () => {
       expect(result.args[result.args.length - 1]).toBe("Continue the task");
     });
 
+    test("skips --ephemeral when resuming a session", () => {
+      const result = adapter.buildCommand({
+        config: makeConfig(),
+        prompt: "Continue",
+        cwd: "/tmp",
+        sessionId: "thread_abc123",
+      });
+      expect(result.args).not.toContain("--ephemeral");
+      expect(result.args).toContain("--skip-git-repo-check");
+    });
+
     describe("MCP config via CODEX_HOME", () => {
       let tempConfigPath: string;
+      let lastCodexHome: string | undefined;
       const testCwd = `/tmp/test-codex-mcp-${Date.now()}`;
 
       beforeEach(() => {
+        lastCodexHome = undefined;
         tempConfigPath = `/tmp/test-codex-mcp-config-${Date.now()}.json`;
       });
 
       afterEach(() => {
         try { rmSync(tempConfigPath); } catch { /* ignore */ }
-        // Clean up codex home directories
+        if (lastCodexHome) {
+          try { rmSync(lastCodexHome, { recursive: true }); } catch { /* ignore */ }
+        }
+      });
+
+      const buildWithMcp = (overrides: Record<string, unknown> = {}) => {
         const result = adapter.buildCommand({
           config: makeConfig(),
           prompt: "Task",
           cwd: testCwd,
           mcpConfigPath: tempConfigPath,
-        });
-        const codexHome = result.env["CODEX_HOME"];
-        if (codexHome) {
-          try { rmSync(codexHome, { recursive: true }); } catch { /* ignore */ }
-        }
-      });
+          ...overrides,
+        } as any);
+        lastCodexHome = result.env["CODEX_HOME"];
+        return result;
+      };
 
       test("sets CODEX_HOME when mcpConfigPath provided", () => {
         const mcpConfig = {
@@ -218,12 +235,7 @@ describe("CodexAdapter", () => {
         };
         require("node:fs").writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
 
-        const result = adapter.buildCommand({
-          config: makeConfig(),
-          prompt: "Task",
-          cwd: testCwd,
-          mcpConfigPath: tempConfigPath,
-        });
+        const result = buildWithMcp();
 
         expect(result.env["CODEX_HOME"]).toBeDefined();
         expect(result.env["CODEX_HOME"]).toContain("yes-kanban-codex-home");
@@ -237,12 +249,7 @@ describe("CodexAdapter", () => {
         };
         require("node:fs").writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
 
-        const result = adapter.buildCommand({
-          config: makeConfig(),
-          prompt: "Task",
-          cwd: testCwd,
-          mcpConfigPath: tempConfigPath,
-        });
+        const result = buildWithMcp();
 
         const tomlContent = readFileSync(`${result.env["CODEX_HOME"]}/config.toml`, "utf-8");
         expect(tomlContent).toContain("[mcp_servers.yes-kanban]");
@@ -258,12 +265,7 @@ describe("CodexAdapter", () => {
         };
         require("node:fs").writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
 
-        const result = adapter.buildCommand({
-          config: makeConfig(),
-          prompt: "Task",
-          cwd: testCwd,
-          mcpConfigPath: tempConfigPath,
-        });
+        const result = buildWithMcp();
 
         const tomlContent = readFileSync(`${result.env["CODEX_HOME"]}/config.toml`, "utf-8");
         expect(tomlContent).toContain('env = { GITHUB_TOKEN = "tok_123" }');
@@ -277,11 +279,7 @@ describe("CodexAdapter", () => {
         };
         require("node:fs").writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
 
-        const result = adapter.buildCommand({
-          config: makeConfig(),
-          prompt: "Task",
-          cwd: testCwd,
-          mcpConfigPath: tempConfigPath,
+        const result = buildWithMcp({
           allowedTools: ["mcp__yes-kanban__get_feedback", "mcp__yes-kanban__get_current_issue"],
         });
 
@@ -289,6 +287,23 @@ describe("CodexAdapter", () => {
         expect(tomlContent).toContain("enabled_tools");
         expect(tomlContent).toContain('"get_feedback"');
         expect(tomlContent).toContain('"get_current_issue"');
+      });
+
+      test("handles underscored server names in allowedTools", () => {
+        const mcpConfig = {
+          mcpServers: {
+            "my_server": { command: "node", args: ["server.js"] },
+          },
+        };
+        require("node:fs").writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
+
+        const result = buildWithMcp({
+          allowedTools: ["mcp__my_server__do_thing"],
+        });
+
+        const tomlContent = readFileSync(`${result.env["CODEX_HOME"]}/config.toml`, "utf-8");
+        expect(tomlContent).toContain("[mcp_servers.my_server]");
+        expect(tomlContent).toContain('enabled_tools = ["do_thing"]');
       });
 
       test("does not add enabled_tools for non-MCP allowed tools", () => {
@@ -299,11 +314,7 @@ describe("CodexAdapter", () => {
         };
         require("node:fs").writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
 
-        const result = adapter.buildCommand({
-          config: makeConfig(),
-          prompt: "Task",
-          cwd: testCwd,
-          mcpConfigPath: tempConfigPath,
+        const result = buildWithMcp({
           allowedTools: ["Read", "Write", "Bash"],
         });
 

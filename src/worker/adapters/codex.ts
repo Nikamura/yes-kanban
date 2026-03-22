@@ -16,10 +16,16 @@ function mcpJsonToToml(
   const enabledByServer: Record<string, string[]> = {};
   if (allowedTools) {
     for (const tool of allowedTools) {
-      const match = tool.match(/^mcp__([^_]+)__(.+)$/);
-      if (match) {
-        const server = match[1]!;
-        const toolName = match[2]!;
+      const sepIdx = tool.indexOf("__");
+      if (sepIdx === -1) continue;
+      const rest = tool.slice(sepIdx + 2);
+      const sepIdx2 = rest.indexOf("__");
+      if (sepIdx2 === -1) continue;
+      const prefix = tool.slice(0, sepIdx);
+      if (prefix !== "mcp") continue;
+      const server = rest.slice(0, sepIdx2);
+      const toolName = rest.slice(sepIdx2 + 2);
+      if (server && toolName) {
         (enabledByServer[server] ??= []).push(toolName);
       }
     }
@@ -80,8 +86,12 @@ export class CodexAdapter implements IAgentAdapter {
       cmdArgs = ["exec", "--json"];
     }
 
-    // Always add isolation flags for automated runs
-    cmdArgs.push("--ephemeral", "--skip-git-repo-check");
+    // Isolation flags for automated runs
+    // Skip --ephemeral when resuming — it would conflict with reading the persisted session
+    if (!args.sessionId) {
+      cmdArgs.push("--ephemeral");
+    }
+    cmdArgs.push("--skip-git-repo-check");
 
     // Permission mode
     if (mode === "dangerously-skip-permissions") {
