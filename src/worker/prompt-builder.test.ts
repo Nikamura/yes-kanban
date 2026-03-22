@@ -369,6 +369,89 @@ describe("buildPlanningPrompt", () => {
     expect(prompt).toContain("mcp__yes-kanban__ask_question");
   });
 
+  test("includes expanded exploration guidance", () => {
+    const prompt = buildPlanningPrompt(
+      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      [],
+    );
+    expect(prompt).toContain("Trace code paths related to the task");
+    expect(prompt).toContain("Identify existing patterns, utilities, and abstractions");
+    expect(prompt).toContain("Note tests that cover the affected areas");
+  });
+
+  test("includes expanded exploration guidance with deep research", () => {
+    const prompt = buildPlanningPrompt(
+      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      true, // deepResearch
+    );
+    expect(prompt).toContain("Trace code paths related to the task");
+    expect(prompt).toContain("Identify existing patterns, utilities, and abstractions");
+    // deep research specific content still present
+    expect(prompt).toContain("Research online");
+    expect(prompt).toContain("WebSearch");
+    expect(prompt).toContain("WebFetch");
+  });
+
+  test("omits online research tools when deepResearch is false", () => {
+    const prompt = buildPlanningPrompt(
+      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      [],
+    );
+    expect(prompt).not.toContain("Research online");
+    expect(prompt).not.toContain("WebSearch");
+    expect(prompt).not.toContain("WebFetch");
+  });
+
+  test("uses 3-step numbering without deep research", () => {
+    const prompt = buildPlanningPrompt(
+      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      [],
+    );
+    expect(prompt).toContain("2. **Ask clarifying questions**");
+    expect(prompt).toContain("3. **Create a plan**");
+    expect(prompt).not.toContain("4. **Create a plan**");
+  });
+
+  test("uses 4-step numbering with deep research", () => {
+    const prompt = buildPlanningPrompt(
+      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      true,
+    );
+    expect(prompt).toContain("2. **Research online**");
+    expect(prompt).toContain("3. **Ask clarifying questions**");
+    expect(prompt).toContain("4. **Create a plan**");
+  });
+
+  test("includes expanded plan structure guidance", () => {
+    const prompt = buildPlanningPrompt(
+      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      [],
+    );
+    expect(prompt).toContain("list every file to be modified or created");
+    expect(prompt).toContain("step-by-step implementation order");
+    expect(prompt).toContain("backwards compatibility concerns");
+    expect(prompt).toContain("types of tests needed");
+  });
+
+  test("includes quality bar guidance", () => {
+    const prompt = buildPlanningPrompt(
+      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      [],
+    );
+    expect(prompt).toContain("junior engineer could implement the task from the plan alone");
+    expect(prompt).toContain("concrete file paths, function names, and code references");
+  });
+
   test("includes user feedback on previous plan", () => {
     const prompt = buildPlanningPrompt(
       { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,

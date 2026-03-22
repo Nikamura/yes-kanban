@@ -311,6 +311,10 @@ export function buildPlanningPrompt(
   parts.push("You are in the **planning phase**. Your job is to create an implementation plan before any code is written.");
   parts.push("");
   parts.push("1. **Explore the codebase** — read relevant files to understand the current architecture.");
+  parts.push("   - Read the files most likely affected by the change");
+  parts.push("   - Trace code paths related to the task (entry points, data flow, dependencies)");
+  parts.push("   - Identify existing patterns, utilities, and abstractions that should be reused");
+  parts.push("   - Note tests that cover the affected areas");
   if (deepResearch) {
     parts.push("2. **Research online** — you have `WebSearch` and `WebFetch` tools available. Use them to research relevant documentation, APIs, best practices, or any external information that would improve your plan.");
     parts.push("3. **Ask clarifying questions** — use the `mcp__yes-kanban__ask_question` MCP tool for anything ambiguous.");
@@ -319,10 +323,12 @@ export function buildPlanningPrompt(
     parts.push("2. **Ask clarifying questions** — use the `mcp__yes-kanban__ask_question` MCP tool for anything ambiguous.");
     parts.push("3. **Create a plan** — use the `mcp__yes-kanban__submit_plan` MCP tool to submit a structured plan covering:");
   }
-  parts.push("   - Key changes needed (files, components, database schema)");
-  parts.push("   - Implementation approach and architecture decisions");
-  parts.push("   - Risks and edge cases");
-  parts.push("   - Testing strategy");
+  parts.push("   - **Key changes needed**: list every file to be modified or created, describe what changes and why for each, include schema changes, new API endpoints, and UI changes");
+  parts.push("   - **Implementation approach**: step-by-step implementation order, explain architectural decisions and trade-offs, reference existing codebase patterns to follow, call out any new dependencies");
+  parts.push("   - **Risks and edge cases**: backwards compatibility concerns, data migration needs, error scenarios, performance implications, concurrent access issues");
+  parts.push("   - **Testing strategy**: types of tests needed (unit, integration, e2e), specific test files to modify or create, key scenarios to cover including happy path and error cases");
+  parts.push("");
+  parts.push("A good plan is one where a junior engineer could implement the task from the plan alone, with minimal ambiguity. Use concrete file paths, function names, and code references. Explain *why* each change is needed, not just *what* to change.");
   parts.push("");
   parts.push("**Do NOT write any code during this phase.** Only explore, ask questions, and submit a plan.");
   parts.push("**CRITICAL:** You MUST submit your plan by calling the `mcp__yes-kanban__submit_plan` MCP tool. Do NOT use Claude Code's built-in plan mode or ExitPlanMode — those are disabled. The only way to submit is via the MCP tool.");
