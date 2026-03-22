@@ -141,7 +141,7 @@ describe("GitWorktreeManager", () => {
     try {
       await manager.createWorktrees({
         workspaceId: "ws-fail",
-          simpleId: "TASK-99",
+        simpleId: "TASK-99",
         repos: [{ _id: "r1", path: repoDir, slug: "repo", defaultBranch: "nonexistent", scriptTimeoutMs: 10000 } as any],
       });
       expect(true).toBe(false); // Should not reach here
