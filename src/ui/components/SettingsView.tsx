@@ -3,13 +3,11 @@ import { api } from "../../../convex/_generated/api";
 import { useState, useEffect, useCallback } from "react";
 import Editor from "@monaco-editor/react";
 import type { Id } from "../../../convex/_generated/dataModel";
-import type { ImportedIssue } from "../../worker/importers/index";
 import { PromptTemplatesSection } from "./PromptTemplatesSection";
 import { IssueTemplatesSection } from "./IssueTemplatesSection";
 import { RecurrenceRulesSection } from "./RecurrenceRulesSection";
 import { NotificationPrefsSection } from "./NotificationPrefsSection";
 import { WebhookDeliveriesSection } from "./WebhookDeliveriesSection";
-import { parseGitHubIssues } from "../../worker/importers/github";
 import {
   type AgentAdvancedForm,
   parseEnvString,
@@ -19,9 +17,6 @@ import {
   parseOptionalStringArray,
   validateAgentAdvanced,
 } from "./agentConfigUtils";
-import { parseLinearCsv } from "../../worker/importers/linear";
-import { parseJiraCsv } from "../../worker/importers/jira";
-import { parseGenericCsv } from "../../worker/importers/csv";
 
 const AGENT_TYPES = [
   { value: "claude-code", label: "Claude Code" },
@@ -262,25 +257,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
   // Danger zone state
   const [showDeleteProject, setShowDeleteProject] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
-
-  // Import state
-  const importIssues = useAction(api.importExport.importIssues);
-  // Export state
-  const exportIssues = useAction(api.importExport.exportIssues);
-  const [exportFormat, setExportFormat] = useState<"json" | "csv">("json");
-  const [exporting, setExporting] = useState(false);
-  const [importSource, setImportSource] = useState<"github" | "linear" | "jira" | "csv">("github");
-  const [importData, setImportData] = useState("");
-  const [parsedIssues, setParsedIssues] = useState<ImportedIssue[] | null>(null);
-  const [parseError, setParseError] = useState<string | null>(null);
-  const [importResult, setImportResult] = useState<{ imported: number; errors: string[] } | null>(null);
-  const [importing, setImporting] = useState(false);
-
-  const resetImportState = () => {
-    setParsedIssues(null);
-    setParseError(null);
-    setImportResult(null);
-  };
 
   // Convert DB MCP configs to standard JSON format for the editor
   useEffect(() => {
@@ -1554,177 +1530,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
         )}
 
         <WebhookDeliveriesSection projectId={projectId} />
-      </section>
-
-      <section className="settings-section">
-        <h2>Import Issues</h2>
-        <div className="import-tabs">
-          {(["github", "linear", "jira", "csv"] as const).map((source) => (
-            <button
-              key={source}
-              className={`btn btn-sm${importSource === source ? " btn-primary" : ""}`}
-              onClick={() => {
-                setImportSource(source);
-                resetImportState();
-              }}
-            >
-              {{ github: "GitHub Issues", linear: "Linear", jira: "Jira", csv: "CSV" }[source]}
-            </button>
-          ))}
-        </div>
-
-        <p className="import-hint">
-          {{
-            github: "Paste JSON from: gh issue list --json title,body,state,labels,number",
-            linear: "Paste CSV exported from Linear (Title,Description,Status,Priority,Labels,Identifier)",
-            jira: "Paste CSV exported from Jira (Summary,Description,Status,Priority,Labels,Issue key)",
-            csv: "Paste CSV with columns: Title,Description,Status,Priority,Tags,External ID",
-          }[importSource]}
-        </p>
-
-        <textarea
-          className="import-textarea"
-          placeholder="Paste your data here..."
-          value={importData}
-          onChange={(e) => {
-            setImportData(e.target.value);
-            resetImportState();
-          }}
-          rows={8}
-        />
-
-        <div className="import-actions">
-          <button
-            className="btn btn-sm"
-            disabled={!importData.trim()}
-            onClick={() => {
-              resetImportState();
-              try {
-                const parsers = {
-                  github: (data: string) => parseGitHubIssues(JSON.parse(data)),
-                  linear: parseLinearCsv,
-                  jira: parseJiraCsv,
-                  csv: parseGenericCsv,
-                };
-                const issues = parsers[importSource](importData);
-                if (issues.length === 0) {
-                  setParseError("No issues found in the pasted data.");
-                } else {
-                  setParsedIssues(issues);
-                }
-              } catch (err) {
-                setParseError(
-                  `Parse error: ${err instanceof Error ? err.message : String(err)}`
-                );
-              }
-            }}
-          >
-            Parse
-          </button>
-
-          {parsedIssues && (
-            <button
-              className="btn btn-primary btn-sm"
-              disabled={importing}
-              onClick={async () => {
-                setImporting(true);
-                try {
-                  const result = await importIssues({
-                    projectId,
-                    issues: parsedIssues,
-                  });
-                  setImportResult(result);
-                  setParsedIssues(null);
-                  setImportData("");
-                } catch (err) {
-                  setImportResult({
-                    imported: 0,
-                    errors: [err instanceof Error ? err.message : String(err)],
-                  });
-                } finally {
-                  setImporting(false);
-                }
-              }}
-            >
-              {importing ? "Importing..." : `Import ${parsedIssues.length} Issues`}
-            </button>
-          )}
-        </div>
-
-        {parseError && <div className="import-error">{parseError}</div>}
-
-        {importResult && (
-          <div className="import-result">
-            <span className="import-success">
-              {importResult.imported} issue{importResult.imported !== 1 ? "s" : ""} imported.
-            </span>
-            {importResult.errors.length > 0 && (
-              <div className="import-errors">
-                {importResult.errors.map((err, i) => (
-                  <div key={i} className="import-error">{err}</div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {parsedIssues && (
-          <div className="import-preview">
-            <h3>Preview ({parsedIssues.length} issues)</h3>
-            <div className="settings-table">
-              {parsedIssues.map((issue, i) => (
-                <div key={i} className="settings-row">
-                  <span className="import-preview-title">{issue.title}</span>
-                  <span className="meta-value">{issue.status}</span>
-                  {issue.priority && <span className="meta-value">{issue.priority}</span>}
-                  {issue.tags.length > 0 && (
-                    <span className="meta-value">{issue.tags.join(", ")}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </section>
-
-      <section className="settings-section">
-        <h2>Export Issues</h2>
-        <div className="import-tabs">
-          {(["json", "csv"] as const).map((format) => (
-            <button
-              key={format}
-              className={`btn btn-sm${exportFormat === format ? " btn-primary" : ""}`}
-              onClick={() => setExportFormat(format)}
-            >
-              {format.toUpperCase()}
-            </button>
-          ))}
-        </div>
-        <div className="import-actions">
-          <button
-            className="btn btn-primary btn-sm"
-            disabled={exporting}
-            onClick={async () => {
-              setExporting(true);
-              try {
-                const result = await exportIssues({ projectId, format: exportFormat });
-                const blob = new Blob([result], {
-                  type: exportFormat === "json" ? "application/json" : "text/csv",
-                });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `issues.${exportFormat}`;
-                a.click();
-                URL.revokeObjectURL(url);
-              } finally {
-                setExporting(false);
-              }
-            }}
-          >
-            {exporting ? "Exporting..." : `Export as ${exportFormat.toUpperCase()}`}
-          </button>
-        </div>
       </section>
 
       <section

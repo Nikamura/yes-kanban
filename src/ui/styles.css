@@ -3738,19 +3738,6 @@ button.log-expand-icon {
   background: #DC2626;
 }
 
-/* Import Section */
-.import-tabs {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-
-.import-hint {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-}
-
 .import-textarea {
   width: 100%;
   min-height: 120px;
@@ -3768,52 +3755,6 @@ button.log-expand-icon {
 .import-textarea:focus {
   outline: none;
   border-color: var(--primary);
-}
-
-.import-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-  align-items: center;
-}
-
-.import-error {
-  color: var(--danger, #EF4444);
-  font-size: 13px;
-  margin-top: 8px;
-}
-
-.import-result {
-  margin-top: 8px;
-}
-
-.import-success {
-  color: #10B981;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.import-errors {
-  margin-top: 4px;
-}
-
-.import-preview {
-  margin-top: 12px;
-}
-
-.import-preview h3 {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-}
-
-.import-preview-title {
-  font-weight: 600;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* Bulk Action Bar */
