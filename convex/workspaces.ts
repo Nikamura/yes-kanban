@@ -107,8 +107,12 @@ export const listForBranchCheck = query({
   },
 });
 
-/** Returns merged/cancelled workspaces that still have worktrees to clean up. */
-const CLEANUP_STATUSES = ["merged", "cancelled"] as const;
+/**
+ * Statuses where worktrees can be cleaned up.
+ * Excludes completed/changes_requested/conflict/merge_failed (user can still
+ * create PRs, retry, rebase) and pr_open (worktree needed for rebase/merge).
+ */
+const CLEANUP_STATUSES = ["merged", "cancelled", "failed", "test_failed"] as const;
 export const listReadyForCleanup = query({
   args: {},
   handler: async (ctx) => {
