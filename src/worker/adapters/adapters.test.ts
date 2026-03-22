@@ -4,7 +4,6 @@ import { ClaudeCodeAdapter } from "./claude-code";
 import { CodexAdapter } from "./codex";
 import { CursorAdapter } from "./cursor";
 import { PiAdapter } from "./pi";
-import { PlainTextAdapter } from "./plain-text";
 
 describe("getAdapter", () => {
   test("returns ClaudeCodeAdapter for claude-code", () => {
@@ -20,11 +19,6 @@ describe("getAdapter", () => {
   test("returns CodexAdapter for codex", () => {
     const adapter = getAdapter("codex");
     expect(adapter).toBeInstanceOf(CodexAdapter);
-  });
-
-  test("returns PlainTextAdapter for gemini", () => {
-    const adapter = getAdapter("gemini");
-    expect(adapter).toBeInstanceOf(PlainTextAdapter);
   });
 
   test("returns CursorAdapter for cursor", () => {

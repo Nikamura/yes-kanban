@@ -28,7 +28,6 @@ const AGENT_TYPES = [
 const DEFAULT_COMMANDS: Record<string, string> = {
   "claude-code": "claude",
   codex: "codex",
-  gemini: "gemini",
   cursor: "agent",
   pi: "pi",
 };
