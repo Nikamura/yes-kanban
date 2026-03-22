@@ -1,6 +1,4 @@
 import type { Doc } from "../../../convex/_generated/dataModel";
-import { PRIORITY_COLORS } from "../utils/constants";
-import { getDueDateInfo } from "../utils/dueDate";
 
 export function IssueCard({
   issue,
@@ -33,9 +31,6 @@ export function IssueCard({
   onLongPressEnd?: () => void;
   onStatusClick?: (e: React.MouseEvent) => void;
 }) {
-  const priorityColor = issue.priority ? PRIORITY_COLORS[issue.priority] : "var(--border)";
-  const stripeColor = issue.color ?? priorityColor;
-
   return (
     <div
       className={`issue-card ${selected ? "selected" : ""} ${isDragging ? "dragging" : ""} ${focused ? "focused" : ""}`}
@@ -56,10 +51,7 @@ export function IssueCard({
           }}
         />
       )}
-      <div
-        className="issue-card-priority-strip"
-        style={{ backgroundColor: stripeColor }}
-      />
+      <div className="issue-card-priority-strip" />
       <div className="issue-card-content">
         <div className="issue-card-header">
           <span className="issue-id">{issue.simpleId}</span>
@@ -76,19 +68,8 @@ export function IssueCard({
               ↓{behindMainBy}
             </span>
           )}
-          {issue.priority && (
-            <span
-              className="issue-priority"
-              style={{ color: PRIORITY_COLORS[issue.priority] }}
-            >
-              {issue.priority}
-            </span>
-          )}
         </div>
         <div className="issue-card-title">{issue.title}</div>
-        {issue.dueDate && (
-          <DueDateBadge dueDate={issue.dueDate} />
-        )}
         {issue.checklist && issue.checklist.length > 0 && (
           <ChecklistProgress checklist={issue.checklist} />
         )}
@@ -119,14 +100,5 @@ function ChecklistProgress({ checklist }: { checklist: { completed: boolean }[] 
       </div>
       <span className="checklist-card-progress-text">{done}/{total}</span>
     </div>
-  );
-}
-
-function DueDateBadge({ dueDate }: { dueDate: number }) {
-  const info = getDueDateInfo(dueDate);
-  return (
-    <span className={`due-date-badge ${info.className}`} title={new Date(dueDate).toLocaleDateString()}>
-      {info.label}
-    </span>
   );
 }

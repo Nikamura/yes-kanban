@@ -39,11 +39,6 @@ export function formatHistoryEntry(entry: {
     return `Status changed from ${oldVal} → ${newVal}`;
   }
 
-  if (entry.field === "priority") {
-    if (!oldVal) return `Priority set to ${newVal}`;
-    return `Priority changed from ${oldVal} → ${newVal}`;
-  }
-
   if (entry.field === "tags") {
     const oldTags: string[] = Array.isArray(oldVal) ? oldVal : [];
     const newTags: string[] = Array.isArray(newVal) ? newVal : [];
@@ -117,13 +112,6 @@ export function formatHistoryEntry(entry: {
     return `Blockers updated`;
   }
 
-  if (entry.field === "dueDate") {
-    if (newVal === undefined || newVal === null) return `Due date removed`;
-    const dateStr = new Date(newVal as number).toLocaleDateString();
-    if (oldVal === undefined || oldVal === null) return `Due date set to ${dateStr}`;
-    return `Due date changed to ${dateStr}`;
-  }
-
   if (entry.field === "deepResearch") {
     if (newVal === true) return "Deep research enabled";
     if (newVal === false) return "Deep research disabled";
@@ -132,14 +120,6 @@ export function formatHistoryEntry(entry: {
   if (entry.field === "autoMerge") {
     if (newVal === true) return "Auto merge enabled";
     if (newVal === false) return "Auto merge disabled";
-  }
-
-  if (entry.field === "color") {
-    const oldEmpty = oldVal === undefined || oldVal === null || oldVal === "";
-    const newEmpty = newVal === undefined || newVal === null || newVal === "";
-    if (newEmpty && !oldEmpty) return "Color removed";
-    if (!newEmpty && oldEmpty) return `Color set to ${String(newVal)}`;
-    if (!newEmpty && !oldEmpty) return `Color changed from ${String(oldVal)} → ${String(newVal)}`;
   }
 
   return `${entry.field} updated`;

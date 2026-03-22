@@ -2,7 +2,7 @@ import { describe, it, expect } from "bun:test";
 import { filterIssues, sortIssues } from "./boardFilters";
 
 // Minimal issue factory for testing
-function makeIssue(overrides: Record<string, any> = {}) {
+function makeIssue(overrides: Record<string, unknown> = {}) {
   return {
     _id: overrides["_id"] ?? "id1",
     _creationTime: 0,
@@ -10,9 +10,7 @@ function makeIssue(overrides: Record<string, any> = {}) {
     title: overrides["title"] ?? "Test issue",
     description: overrides["description"] ?? "",
     status: overrides["status"] ?? "To Do",
-    priority: "priority" in overrides ? overrides["priority"] : "medium",
     tags: overrides["tags"] ?? [],
-    dueDate: "dueDate" in overrides ? overrides["dueDate"] : undefined,
     position: overrides["position"] ?? 0,
     createdAt: overrides["createdAt"] ?? 1000,
     updatedAt: overrides["updatedAt"] ?? 2000,
@@ -24,43 +22,32 @@ function makeIssue(overrides: Record<string, any> = {}) {
 
 describe("filterIssues", () => {
   const issues = [
-    makeIssue({ _id: "a", title: "Fix login bug", simpleId: "P-1", priority: "urgent" }),
-    makeIssue({ _id: "b", title: "Add dashboard", simpleId: "P-2", priority: "high" }),
-    makeIssue({ _id: "c", title: "Update docs", simpleId: "P-3", priority: "low" }),
+    makeIssue({ _id: "a", title: "Fix login bug", simpleId: "P-1" }),
+    makeIssue({ _id: "b", title: "Add dashboard", simpleId: "P-2" }),
+    makeIssue({ _id: "c", title: "Update docs", simpleId: "P-3" }),
   ];
 
   it("returns all issues when no filters set", () => {
-    const result = filterIssues(issues, { search: "", filterPriority: "" });
+    const result = filterIssues(issues, { search: "" });
     expect(result).toHaveLength(3);
   });
 
-  it("filters by priority", () => {
-    const result = filterIssues(issues, { search: "", filterPriority: "urgent" });
-    expect(result).toHaveLength(1);
-    expect(result[0]!._id as string).toBe("a");
-  });
-
   it("filters by search on title", () => {
-    const result = filterIssues(issues, { search: "dashboard", filterPriority: "" });
+    const result = filterIssues(issues, { search: "dashboard" });
     expect(result).toHaveLength(1);
     expect(result[0]!._id as string).toBe("b");
   });
 
   it("filters by search on simpleId", () => {
-    const result = filterIssues(issues, { search: "P-3", filterPriority: "" });
+    const result = filterIssues(issues, { search: "P-3" });
     expect(result).toHaveLength(1);
     expect(result[0]!._id as string).toBe("c");
   });
 
   it("search is case-insensitive", () => {
-    const result = filterIssues(issues, { search: "FIX LOGIN", filterPriority: "" });
+    const result = filterIssues(issues, { search: "FIX LOGIN" });
     expect(result).toHaveLength(1);
     expect(result[0]!._id as string).toBe("a");
-  });
-
-  it("combines search and priority filters", () => {
-    const result = filterIssues(issues, { search: "fix", filterPriority: "low" });
-    expect(result).toHaveLength(0);
   });
 
   it("filters by status", () => {
@@ -69,7 +56,7 @@ describe("filterIssues", () => {
       makeIssue({ _id: "b", status: "In Progress" }),
       makeIssue({ _id: "c", status: "To Do" }),
     ];
-    const result = filterIssues(statusIssues, { search: "", filterPriority: "", filterStatus: "In Progress" });
+    const result = filterIssues(statusIssues, { search: "", filterStatus: "In Progress" });
     expect(result).toHaveLength(1);
     expect(result[0]!._id as string).toBe("b");
   });
@@ -79,7 +66,7 @@ describe("filterIssues", () => {
       makeIssue({ _id: "a", title: "Issue A", description: "contains the keyword" }),
       makeIssue({ _id: "b", title: "Issue B", description: "nothing here" }),
     ];
-    const result = filterIssues(descIssues, { search: "keyword", filterPriority: "", searchDescription: true });
+    const result = filterIssues(descIssues, { search: "keyword", searchDescription: true });
     expect(result).toHaveLength(1);
     expect(result[0]!._id as string).toBe("a");
   });
@@ -88,7 +75,7 @@ describe("filterIssues", () => {
     const descIssues = [
       makeIssue({ _id: "a", title: "Issue A", description: "contains the keyword" }),
     ];
-    const result = filterIssues(descIssues, { search: "keyword", filterPriority: "" });
+    const result = filterIssues(descIssues, { search: "keyword" });
     expect(result).toHaveLength(0);
   });
 
@@ -96,7 +83,6 @@ describe("filterIssues", () => {
     const wsStatuses = { a: { status: "coding" }, b: { status: "testing" }, c: { status: "completed" } };
     const result = filterIssues(issues, {
       search: "",
-      filterPriority: "",
       filterWorkspaceStatuses: new Set(["coding"]),
       workspaceStatuses: wsStatuses,
     });
@@ -108,7 +94,6 @@ describe("filterIssues", () => {
     const wsStatuses = { a: { status: "coding" }, b: { status: "testing" }, c: { status: "completed" } };
     const result = filterIssues(issues, {
       search: "",
-      filterPriority: "",
       filterWorkspaceStatuses: new Set(["coding", "testing"]),
       workspaceStatuses: wsStatuses,
     });
@@ -119,7 +104,6 @@ describe("filterIssues", () => {
     const wsStatuses = { a: { status: "coding" } };
     const result = filterIssues(issues, {
       search: "",
-      filterPriority: "",
       filterWorkspaceStatuses: new Set(["coding"]),
       workspaceStatuses: wsStatuses,
     });
@@ -131,7 +115,6 @@ describe("filterIssues", () => {
     const wsStatuses = { a: { status: "coding" } };
     const result = filterIssues(issues, {
       search: "",
-      filterPriority: "",
       filterWorkspaceStatuses: new Set(),
       workspaceStatuses: wsStatuses,
     });
@@ -148,16 +131,6 @@ describe("sortIssues", () => {
     ];
     issues.sort(sortIssues("position"));
     expect(issues.map((i) => i.position)).toEqual([1, 2, 3]);
-  });
-
-  it("sorts by priority (urgent first)", () => {
-    const issues = [
-      makeIssue({ priority: "low" }),
-      makeIssue({ priority: "urgent" }),
-      makeIssue({ priority: "high" }),
-    ];
-    issues.sort(sortIssues("priority"));
-    expect(issues.map((i) => i.priority)).toEqual(["urgent", "high", "low"]);
   });
 
   it("sorts by createdAt", () => {
@@ -178,16 +151,6 @@ describe("sortIssues", () => {
     ];
     issues.sort(sortIssues("updatedAt"));
     expect(issues.map((i) => i.updatedAt)).toEqual([1000, 3000, 5000]);
-  });
-
-  it("puts issues without priority last when sorting by priority", () => {
-    const issues = [
-      makeIssue({ priority: undefined }),
-      makeIssue({ priority: "high" }),
-    ];
-    issues.sort(sortIssues("priority"));
-    expect(issues[0].priority).toBe("high");
-    expect(issues[1].priority).toBeUndefined();
   });
 
   it("sorts by simpleId", () => {
@@ -228,15 +191,5 @@ describe("sortIssues", () => {
     ];
     issues.sort(sortIssues("position", false));
     expect(issues.map((i) => i.position)).toEqual([3, 2, 1]);
-  });
-
-  it("sorts by dueDate with nulls last", () => {
-    const issues = [
-      makeIssue({ dueDate: undefined }),
-      makeIssue({ dueDate: 3000 }),
-      makeIssue({ dueDate: 1000 }),
-    ];
-    issues.sort(sortIssues("dueDate"));
-    expect(issues.map((i) => i.dueDate)).toEqual([1000, 3000, undefined]);
   });
 });

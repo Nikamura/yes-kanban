@@ -2,7 +2,6 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useState } from "react";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { PRIORITY_COLORS } from "../utils/constants";
 import { IssueDetailPanel } from "./IssueDetailPanel";
 
 interface ArchiveViewProps {
@@ -103,7 +102,6 @@ export function ArchiveView({ projectId, activeIssueSimpleId, activeWorkspaceId,
               <th>ID</th>
               <th>Title</th>
               <th>Status</th>
-              <th>Priority</th>
               <th>Archived</th>
               <th style={{ width: 80 }}></th>
             </tr>
@@ -125,16 +123,6 @@ export function ArchiveView({ projectId, activeIssueSimpleId, activeWorkspaceId,
                 <td className="issue-id">{issue.simpleId}</td>
                 <td>{issue.title}</td>
                 <td>{issue.status}</td>
-                <td>
-                  {issue.priority && (
-                    <span
-                      className="priority-badge"
-                      style={{ color: PRIORITY_COLORS[issue.priority] }}
-                    >
-                      {issue.priority}
-                    </span>
-                  )}
-                </td>
                 <td className="archive-date">
                   {issue.archivedAt
                     ? new Date(issue.archivedAt).toLocaleDateString()

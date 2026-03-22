@@ -4,7 +4,7 @@ import { buildPrompt, buildReviewPrompt, buildPlanReviewPrompt, buildRebaseConfl
 describe("buildPrompt", () => {
   test("includes issue title and description", () => {
     const prompt = buildPrompt(
-      { title: "Fix login bug", simpleId: "TASK-1", description: "Users can't log in", priority: undefined, tags: [] } as any,
+      { title: "Fix login bug", simpleId: "TASK-1", description: "Users can't log in", tags: [] } as any,
       undefined,
       [],
     );
@@ -13,20 +13,19 @@ describe("buildPrompt", () => {
     expect(prompt).toContain("Users can't log in");
   });
 
-  test("includes priority and tags when present", () => {
+  test("includes tags when present", () => {
     const prompt = buildPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: "high", tags: ["frontend", "auth"] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: ["frontend", "auth"] } as any,
       undefined,
       [],
     );
-    expect(prompt).toContain("high");
     expect(prompt).toContain("frontend");
     expect(prompt).toContain("auth");
   });
 
   test("includes worktree info", () => {
     const prompt = buildPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       undefined,
       [{ repoPath: "/home/user/repo", branchName: "yes-kanban/proj/T-1", baseBranch: "main", worktreePath: "/tmp/wt" } as any],
     );
@@ -37,7 +36,7 @@ describe("buildPrompt", () => {
 
   test("includes additional prompt", () => {
     const prompt = buildPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       "Also update the README",
       [],
     );
@@ -46,7 +45,7 @@ describe("buildPrompt", () => {
 
   test("includes attachments when provided", () => {
     const prompt = buildPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       undefined,
       [],
       false,
@@ -66,7 +65,7 @@ describe("buildPrompt", () => {
 
   test("omits attachments section when empty", () => {
     const prompt = buildPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       undefined,
       [],
       false,
@@ -85,7 +84,7 @@ describe("buildPrompt", () => {
 
   test("includes standard instructions", () => {
     const prompt = buildPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       undefined,
       [],
     );
@@ -98,7 +97,7 @@ describe("buildPrompt", () => {
 describe("buildPrompt resumed with lastError", () => {
   test("includes error details when resumed with lastError", () => {
     const prompt = buildPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       undefined,
       [],
       true,
@@ -112,7 +111,7 @@ describe("buildPrompt resumed with lastError", () => {
 
   test("resumed without lastError shows generic message", () => {
     const prompt = buildPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       undefined,
       [],
       true,
@@ -124,7 +123,7 @@ describe("buildPrompt resumed with lastError", () => {
 
   test("not resumed does not show error section", () => {
     const prompt = buildPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       undefined,
       [],
       false,
@@ -163,7 +162,7 @@ describe("buildPrompt with template override", () => {
   test("uses custom template instead of hardcoded instructions", () => {
     const template = "Follow the project coding standards.\nWrite unit tests first.";
     const prompt = buildPrompt(
-      { title: "Task", simpleId: "T-1", description: "Do stuff", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "Do stuff", tags: [] } as any,
       undefined,
       [],
       false,
@@ -179,7 +178,7 @@ describe("buildPrompt with template override", () => {
   test("still includes issue context with custom template", () => {
     const template = "Custom instructions here.";
     const prompt = buildPrompt(
-      { title: "My Task", simpleId: "T-99", description: "Fix the thing", priority: "high", tags: ["bug"] } as any,
+      { title: "My Task", simpleId: "T-99", description: "Fix the thing", tags: ["bug"] } as any,
       undefined,
       [],
       false,
@@ -189,14 +188,13 @@ describe("buildPrompt with template override", () => {
     expect(prompt).toContain("My Task");
     expect(prompt).toContain("T-99");
     expect(prompt).toContain("Fix the thing");
-    expect(prompt).toContain("high");
     expect(prompt).toContain("bug");
   });
 
   test("template supports {{issueId}} and {{title}} placeholders", () => {
     const template = "Work on {{issueId}}: {{title}}.\nDo your best.";
     const prompt = buildPrompt(
-      { title: "Login Bug", simpleId: "BUG-42", description: "", priority: undefined, tags: [] } as any,
+      { title: "Login Bug", simpleId: "BUG-42", description: "", tags: [] } as any,
       undefined,
       [],
       false,
@@ -209,7 +207,7 @@ describe("buildPrompt with template override", () => {
   test("additional prompt still appended with custom template", () => {
     const template = "Custom workflow.";
     const prompt = buildPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       "Also check for regressions",
       [],
       false,
@@ -318,20 +316,19 @@ describe("buildRebaseConflictPrompt", () => {
 describe("buildPlanningPrompt", () => {
   test("includes issue context", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Add auth", simpleId: "TASK-1", description: "Implement OAuth", priority: "high", tags: ["auth"] } as any,
+      { title: "Add auth", simpleId: "TASK-1", description: "Implement OAuth", tags: ["auth"] } as any,
       [],
     );
     expect(prompt).toContain("Planning Phase");
     expect(prompt).toContain("Add auth");
     expect(prompt).toContain("TASK-1");
     expect(prompt).toContain("Implement OAuth");
-    expect(prompt).toContain("high");
     expect(prompt).toContain("auth");
   });
 
   test("includes workspace info", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       [{ repoPath: "/repo", branchName: "feat/T-1", baseBranch: "main", worktreePath: "/tmp/wt" } as any],
     );
     expect(prompt).toContain("/repo");
@@ -340,7 +337,7 @@ describe("buildPlanningPrompt", () => {
 
   test("includes existing plan for revision", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       [],
       "## Old Plan\n1. Do stuff",
     );
@@ -350,7 +347,7 @@ describe("buildPlanningPrompt", () => {
 
   test("includes answered questions", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       [],
       undefined,
       [{ question: "What auth provider?", answer: "Auth0" }],
@@ -361,7 +358,7 @@ describe("buildPlanningPrompt", () => {
 
   test("instructs not to write code", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       [],
     );
     expect(prompt).toContain("Do NOT write any code");
@@ -371,7 +368,7 @@ describe("buildPlanningPrompt", () => {
 
   test("includes expanded exploration guidance", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       [],
     );
     expect(prompt).toContain("Trace code paths related to the task");
@@ -381,7 +378,7 @@ describe("buildPlanningPrompt", () => {
 
   test("includes expanded exploration guidance with deep research", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       [],
       undefined,
       undefined,
@@ -399,7 +396,7 @@ describe("buildPlanningPrompt", () => {
 
   test("omits online research tools when deepResearch is false", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       [],
     );
     expect(prompt).not.toContain("Research online");
@@ -409,7 +406,7 @@ describe("buildPlanningPrompt", () => {
 
   test("uses 3-step numbering without deep research", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       [],
     );
     expect(prompt).toContain("2. **Ask clarifying questions**");
@@ -419,7 +416,7 @@ describe("buildPlanningPrompt", () => {
 
   test("uses 4-step numbering with deep research", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       [],
       undefined,
       undefined,
@@ -434,7 +431,7 @@ describe("buildPlanningPrompt", () => {
 
   test("includes expanded plan structure guidance", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       [],
     );
     expect(prompt).toContain("list every file to be modified or created");
@@ -445,7 +442,7 @@ describe("buildPlanningPrompt", () => {
 
   test("includes quality bar guidance", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       [],
     );
     expect(prompt).toContain("junior engineer could implement the task from the plan alone");
@@ -454,7 +451,7 @@ describe("buildPlanningPrompt", () => {
 
   test("includes user feedback on previous plan", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       [],
       "## Old Plan\n1. Do stuff",
       undefined,
@@ -468,7 +465,7 @@ describe("buildPlanningPrompt", () => {
 
   test("omits feedback section when no feedback", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       [],
       "## Old Plan\n1. Do stuff",
       undefined,
@@ -479,7 +476,7 @@ describe("buildPlanningPrompt", () => {
 
   test("omits feedback section when no existing plan", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       [],
       undefined,
       undefined,
@@ -492,7 +489,7 @@ describe("buildPlanningPrompt", () => {
 describe("buildPrompt with plan", () => {
   test("includes approved plan", () => {
     const prompt = buildPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       undefined,
       [],
       false,
@@ -507,7 +504,7 @@ describe("buildPrompt with plan", () => {
 
   test("includes experiment number for re-experiments", () => {
     const prompt = buildPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       undefined,
       [],
       false,
@@ -523,7 +520,7 @@ describe("buildPrompt with plan", () => {
 
   test("does not show experiment note for first experiment", () => {
     const prompt = buildPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       undefined,
       [],
       false,
@@ -609,7 +606,7 @@ describe("buildPlanReviewPrompt", () => {
 describe("buildPlanningPrompt with attachments", () => {
   test("includes attachments when provided", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       [],
       undefined,
       undefined,
@@ -632,7 +629,7 @@ describe("buildPlanningPrompt with attachments", () => {
 
   test("omits attachments section when empty", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       [],
       undefined,
       undefined,
@@ -646,7 +643,7 @@ describe("buildPlanningPrompt with attachments", () => {
 
   test("omits attachments section when undefined", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       [],
     );
     expect(prompt).not.toContain("## Attachments");
@@ -656,7 +653,7 @@ describe("buildPlanningPrompt with attachments", () => {
 describe("buildPlanningPrompt with reviewer feedback", () => {
   test("includes AI reviewer feedback when present", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       [],
       "## Old Plan\n1. Do stuff",
       undefined,
@@ -670,7 +667,7 @@ describe("buildPlanningPrompt with reviewer feedback", () => {
 
   test("omits reviewer feedback when no existing plan", () => {
     const prompt = buildPlanningPrompt(
-      { title: "Task", simpleId: "T-1", description: "", priority: undefined, tags: [] } as any,
+      { title: "Task", simpleId: "T-1", description: "", tags: [] } as any,
       [],
       undefined,
       undefined,

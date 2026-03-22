@@ -9,8 +9,7 @@ import remarkGfm from "remark-gfm";
 import { useEscapeClose } from "../hooks/useEscapeClose";
 import { ChecklistSection } from "./ChecklistSection";
 import { formatHistoryEntry } from "../formatHistoryEntry";
-import { TERMINAL_STATUSES, CARD_COLORS } from "../utils/constants";
-import { timestampToDateStr, dateToTimestamp } from "../utils/dueDate";
+import { TERMINAL_STATUSES } from "../utils/constants";
 import { isSupportedAgentAdapterType } from "@/lib/agentTypes";
 
 export function IssueDetailPanel({
@@ -205,58 +204,6 @@ export function IssueDetailPanel({
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="meta-item">
-              <label>Priority</label>
-              <select
-                className="meta-select"
-                value={issue.priority ?? ""}
-                onChange={(e) =>
-                  updateIssue({ id: issueId, priority: e.target.value || undefined })
-                }
-              >
-                <option value="">None</option>
-                <option value="urgent">Urgent</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-            </div>
-            <div className="meta-item">
-              <label>Color</label>
-              <div className="color-picker-swatches">
-                {CARD_COLORS.map((c) => (
-                  <button
-                    key={c.value}
-                    className={`color-swatch${issue.color === c.value ? " active" : ""}`}
-                    style={{ backgroundColor: c.value }}
-                    title={c.name}
-                    onClick={() => updateIssue({ id: issueId, color: c.value })}
-                  />
-                ))}
-                {issue.color && (
-                  <button
-                    className="color-swatch color-swatch-clear"
-                    title="Clear color"
-                    onClick={() => updateIssue({ id: issueId, color: "" })}
-                  >
-                    &times;
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="meta-item">
-              <label>Due Date</label>
-              <input
-                type="date"
-                className="meta-select"
-                value={issue.dueDate ? timestampToDateStr(issue.dueDate) : ""}
-                onChange={(e) => {
-                  const ts = dateToTimestamp(e.target.value);
-                  // Pass 0 as sentinel for "clear due date" — handled in mutation
-                  void updateIssue({ id: issueId, dueDate: ts ?? 0 });
-                }}
-              />
             </div>
             <div className="meta-item">
               <label className="checkbox-label">

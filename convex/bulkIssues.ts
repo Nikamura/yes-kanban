@@ -83,32 +83,6 @@ export const bulkMove = mutation({
   },
 });
 
-export const bulkUpdatePriority = mutation({
-  args: {
-    ids: v.array(v.id("issues")),
-    priority: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const now = Date.now();
-    for (const id of args.ids) {
-      const issue = await ctx.db.get(id);
-      if (!issue) continue;
-      if (issue.priority !== args.priority) {
-        await recordHistory(ctx, {
-          issueId: id,
-          projectId: issue.projectId,
-          action: "updated",
-          field: "priority",
-          oldValue: issue.priority ? JSON.stringify(issue.priority) : undefined,
-          newValue: JSON.stringify(args.priority),
-          actor: "user",
-        });
-      }
-      await ctx.db.patch(id, { priority: args.priority, updatedAt: now });
-    }
-  },
-});
-
 export const bulkAddTags = mutation({
   args: {
     ids: v.array(v.id("issues")),

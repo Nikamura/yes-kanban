@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { validateIssueTitle, validateIssueDescription, validateCommentBody, validateCardColor, VALID_CARD_COLORS } from "./lib/issueValidation";
+import { validateIssueTitle, validateIssueDescription, validateCommentBody } from "./lib/issueValidation";
 
 describe("validateIssueTitle", () => {
   test("returns trimmed title for valid input", () => {
@@ -39,27 +39,6 @@ describe("validateIssueDescription", () => {
     expect(() => validateIssueDescription("a".repeat(50001))).toThrow(
       "Description must be 50,000 characters or fewer"
     );
-  });
-});
-
-describe("validateCardColor", () => {
-  test("accepts all predefined colors", () => {
-    for (const color of VALID_CARD_COLORS) {
-      expect(() => validateCardColor(color)).not.toThrow();
-    }
-  });
-
-  test("rejects arbitrary strings", () => {
-    expect(() => validateCardColor("not-a-color")).toThrow("Invalid card color");
-  });
-
-  test("rejects empty string", () => {
-    expect(() => validateCardColor("")).toThrow("Invalid card color");
-  });
-
-  test("rejects similar but wrong hex values", () => {
-    expect(() => validateCardColor("#ef4444")).toThrow("Invalid card color"); // lowercase
-    expect(() => validateCardColor("#EF444")).toThrow("Invalid card color"); // too short
   });
 });
 

@@ -15,7 +15,6 @@ export function IssueTemplatesSection({ projectId }: { projectId: Id<"projects">
   const [form, setForm] = useState({
     name: "",
     descriptionTemplate: "",
-    defaultPriority: "",
     defaultTags: "",
     category: "",
   });
@@ -23,7 +22,6 @@ export function IssueTemplatesSection({ projectId }: { projectId: Id<"projects">
   const [editForm, setEditForm] = useState({
     name: "",
     descriptionTemplate: "",
-    defaultPriority: "",
     defaultTags: "",
     category: "",
   });
@@ -50,14 +48,13 @@ export function IssueTemplatesSection({ projectId }: { projectId: Id<"projects">
               projectId,
               name: form.name.trim(),
               descriptionTemplate: form.descriptionTemplate,
-              defaultPriority: form.defaultPriority || undefined,
               defaultTags: form.defaultTags
                 .split(",")
                 .map((t) => t.trim())
                 .filter(Boolean),
               category: form.category || undefined,
             });
-            setForm({ name: "", descriptionTemplate: "", defaultPriority: "", defaultTags: "", category: "" });
+            setForm({ name: "", descriptionTemplate: "", defaultTags: "", category: "" });
             setShowAdd(false);
           }}
         >
@@ -86,16 +83,6 @@ export function IssueTemplatesSection({ projectId }: { projectId: Id<"projects">
             rows={4}
           />
           <div className="template-form-row">
-            <select
-              value={form.defaultPriority}
-              onChange={(e) => setForm({ ...form, defaultPriority: e.target.value })}
-            >
-              <option value="">No default priority</option>
-              <option value="urgent">Urgent</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-            </select>
             <input
               placeholder="Default tags (comma separated)"
               value={form.defaultTags}
@@ -143,6 +130,14 @@ export function IssueTemplatesSection({ projectId }: { projectId: Id<"projects">
                 rows={4}
               />
               <div className="template-form-row">
+                <input
+                  placeholder="Default tags (comma separated)"
+                  value={editForm.defaultTags}
+                  onChange={(e) => setEditForm({ ...editForm, defaultTags: e.target.value })}
+                  autoComplete="off"
+                />
+              </div>
+              <div className="template-form-row">
                 <button
                   className="btn btn-primary btn-sm"
                   onClick={async () => {
@@ -150,7 +145,6 @@ export function IssueTemplatesSection({ projectId }: { projectId: Id<"projects">
                       id: t._id,
                       name: editForm.name,
                       descriptionTemplate: editForm.descriptionTemplate,
-                      defaultPriority: editForm.defaultPriority || undefined,
                       defaultTags: editForm.defaultTags
                         .split(",")
                         .map((s) => s.trim())
@@ -175,9 +169,6 @@ export function IssueTemplatesSection({ projectId }: { projectId: Id<"projects">
                   {t.category}
                 </span>
               )}
-              {t.defaultPriority && (
-                <span className="meta-value">{t.defaultPriority}</span>
-              )}
               {t.defaultTags.length > 0 && (
                 <span className="meta-value">{t.defaultTags.join(", ")}</span>
               )}
@@ -188,7 +179,6 @@ export function IssueTemplatesSection({ projectId }: { projectId: Id<"projects">
                   setEditForm({
                     name: t.name,
                     descriptionTemplate: t.descriptionTemplate,
-                    defaultPriority: t.defaultPriority ?? "",
                     defaultTags: t.defaultTags.join(", "),
                     category: t.category ?? "",
                   });

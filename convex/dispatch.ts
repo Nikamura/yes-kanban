@@ -18,13 +18,6 @@ export function isBlockedByUnresolved(
   );
 }
 
-const PRIORITY_ORDER: Record<string, number> = {
-  urgent: 0,
-  high: 1,
-  medium: 2,
-  low: 3,
-};
-
 export const next = query({
   args: {},
   handler: async (ctx) => {
@@ -36,7 +29,7 @@ export const next = query({
 
     if (workspaces.length === 0) return null;
 
-    // Sort by priority of associated issue
+    // Sort workspaces (FIFO by creation time)
     const withIssues = await Promise.all(
       workspaces.map(async (ws) => {
         const issue = ws.issueId ? await ctx.db.get(ws.issueId) : null;
@@ -66,13 +59,8 @@ export const next = query({
 
     if (unblocked.length === 0) return null;
 
-    // Sort: priority (urgent first), then createdAt (oldest first)
-    unblocked.sort((a, b) => {
-      const pa = a.issue?.priority ? (PRIORITY_ORDER[a.issue.priority] ?? 99) : 99;
-      const pb = b.issue?.priority ? (PRIORITY_ORDER[b.issue.priority] ?? 99) : 99;
-      if (pa !== pb) return pa - pb;
-      return a.workspace.createdAt - b.workspace.createdAt;
-    });
+    // Sort: oldest workspace first (FIFO)
+    unblocked.sort((a, b) => a.workspace.createdAt - b.workspace.createdAt);
 
     // Per-column concurrency limits: fetch running workspaces and column limits in parallel
     const projectIds = [...new Set(unblocked.map((w) => w.workspace.projectId))];

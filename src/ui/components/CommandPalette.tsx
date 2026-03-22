@@ -15,7 +15,6 @@ interface CommandPaletteProps {
   onNewIssue: () => void;
   onOpenIssue: (simpleId: string) => void;
   onMoveFocused: () => void;
-  onSetPriority: () => void;
   onShowHelp: () => void;
   onSwitchColumn: (index: number) => void;
   onFocusSearch: () => void;
@@ -28,7 +27,6 @@ export function CommandPalette({
   onNewIssue,
   onOpenIssue,
   onMoveFocused,
-  onSetPriority,
   onShowHelp,
   onSwitchColumn,
   onFocusSearch,
@@ -41,7 +39,6 @@ export function CommandPalette({
   const commands: CommandItem[] = [
     { id: "new-issue", label: "New issue", shortcut: "c", action: onNewIssue },
     { id: "move-issue", label: "Move focused issue", shortcut: "m", action: onMoveFocused },
-    { id: "set-priority", label: "Set priority of focused issue", shortcut: "p", action: onSetPriority },
     { id: "focus-search", label: "Focus search", shortcut: "/", action: onFocusSearch },
     { id: "show-help", label: "Show keyboard shortcuts", shortcut: "?", action: onShowHelp },
     ...columns.map((col, i) => ({

@@ -100,7 +100,6 @@ export async function seedProjectWithIssue(): Promise<{ slug: string }> {
     title: "Implement user authentication",
     description: "Add login/logout flow",
     status: "To Do",
-    priority: "high",
     tags: ["backend", "auth"],
   });
 

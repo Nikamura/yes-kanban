@@ -14,7 +14,6 @@ interface CreateIssueArgs extends IssueIdentifierArgs {
   title: string;
   description?: string;
   status?: string;
-  priority?: string;
   tags?: string[];
   autoMerge?: boolean;
 }
@@ -22,7 +21,6 @@ interface CreateIssueArgs extends IssueIdentifierArgs {
 interface UpdateIssueArgs extends IssueIdentifierArgs {
   title?: string;
   description?: string;
-  priority?: string;
   tags?: string[];
   autoMerge?: boolean;
 }
@@ -33,7 +31,6 @@ interface MoveIssueArgs extends IssueIdentifierArgs {
 
 interface ListIssuesArgs {
   status?: string;
-  priority?: string;
   tags?: string[];
   search?: string;
 }
@@ -342,7 +339,6 @@ client.on("error", () => process.exit(1));
       title: args.title,
       description: args.description ?? "",
       status: args.status ?? "To Do",
-      priority: args.priority,
       tags: args.tags ?? [],
       autoMerge: args.autoMerge,
       actor: "agent",
@@ -357,7 +353,6 @@ client.on("error", () => process.exit(1));
       id,
       title: args.title,
       description: args.description,
-      priority: args.priority,
       tags: args.tags,
       autoMerge: args.autoMerge,
       actor: "agent",
@@ -393,7 +388,6 @@ client.on("error", () => process.exit(1));
     return await this.convex.query(api.issues.list, {
       projectId: this.projectId,
       status: args.status,
-      priority: args.priority,
       tags: args.tags,
       search: args.search,
     });
@@ -560,7 +554,6 @@ client.on("error", () => process.exit(1));
             title: { type: "string", description: "Issue title" },
             description: { type: "string", description: "Issue description (Markdown)" },
             status: { type: "string", description: "Column/status name" },
-            priority: { type: "string", enum: ["urgent", "high", "medium", "low"] },
             tags: { type: "array", items: { type: "string" } },
             autoMerge: { type: "boolean", description: "Auto-merge after passing review" },
           },
@@ -577,7 +570,6 @@ client.on("error", () => process.exit(1));
             simpleId: { type: "string" },
             title: { type: "string" },
             description: { type: "string" },
-            priority: { type: "string" },
             tags: { type: "array", items: { type: "string" } },
             autoMerge: { type: "boolean", description: "Auto-merge after passing review" },
           },
@@ -625,7 +617,6 @@ client.on("error", () => process.exit(1));
           type: "object",
           properties: {
             status: { type: "string" },
-            priority: { type: "string" },
             tags: { type: "array", items: { type: "string" } },
             search: { type: "string" },
           },

@@ -34,14 +34,12 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
   const issues = useQuery(api.issues.list, { projectId });
   const workspaceStatuses = useQuery(api.workspaces.latestByProject, { projectId });
   const moveIssue = useMutation(api.issues.move);
-  const updateIssue = useMutation(api.issues.update);
   const bulkArchive = useMutation(api.bulkIssues.bulkArchive);
 
   const [showCreateIssue, setShowCreateIssue] = useState(false);
   const [createInColumn, setCreateInColumn] = useState<string>("To Do");
   const [draggedIssue, setDraggedIssue] = useState<Id<"issues"> | null>(null);
   const [search, setSearch] = useState("");
-  const [filterPriority, setFilterPriority] = useState<string>("");
   const [filterWsStatuses, setFilterWsStatuses] = useState<Set<string>>(new Set());
   const [sortKey, setSortKey] = useState<SortKey>("position");
 
@@ -72,12 +70,12 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
   // Keyboard focus tracking (must be before early return)
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
-  const [quickAction, setQuickAction] = useState<"move" | "priority" | null>(null);
+  const [quickMoveOpen, setQuickMoveOpen] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Reset focus when filters change (using state-during-render pattern like the project resolver)
-  const filterKey = `${search}|${filterPriority}|${sortKey}|${[...filterWsStatuses].sort().join(",")}`;
+  const filterKey = `${search}|${sortKey}|${[...filterWsStatuses].sort().join(",")}`;
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
   if (prevFilterKey !== filterKey) {
     setPrevFilterKey(filterKey);
@@ -85,7 +83,7 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
   }
 
   // Compute derived data before hooks that depend on it
-  const filtered = columns && issues ? filterIssues(issues, { search, filterPriority, filterWorkspaceStatuses: filterWsStatuses, workspaceStatuses: workspaceStatuses ?? undefined }) : [];
+  const filtered = columns && issues ? filterIssues(issues, { search, filterWorkspaceStatuses: filterWsStatuses, workspaceStatuses: workspaceStatuses ?? undefined }) : [];
   const visibleColumns = columns?.filter((c) => c.visible) ?? [];
 
   const issuesByColumn = new Map<string, Doc<"issues">[]>();
@@ -140,11 +138,7 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
     onShowHelp: () => setShowShortcutsHelp(true),
     onMoveFocused: () => {
       if (effectiveFocusedIndex < 0) return;
-      setQuickAction("move");
-    },
-    onSetPriority: () => {
-      if (effectiveFocusedIndex < 0) return;
-      setQuickAction("priority");
+      setQuickMoveOpen(true);
     },
     onCommandPalette: () => setShowCommandPalette((prev) => !prev),
   });
@@ -295,11 +289,6 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
     await moveIssue({ id: focusedIssue._id, status, position });
   };
 
-  const handleQuickPriority = async (priority: string) => {
-    if (!focusedIssue) return;
-    await updateIssue({ id: focusedIssue._id, priority });
-  };
-
   const activeColumn = visibleColumns[activeColumnIdx] ?? visibleColumns[0];
 
   if (!columns || !issues) {
@@ -321,19 +310,10 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
           />
           <kbd className="kbd-hint">/</kbd>
         </div>
-        <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)}>
-          <option value="">All Priorities</option>
-          <option value="urgent">Urgent</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-        </select>
         <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}>
           <option value="position">Position</option>
-          <option value="priority">Priority</option>
           <option value="createdAt">Created</option>
           <option value="updatedAt">Updated</option>
-          <option value="dueDate">Due Date</option>
         </select>
         <button
           className={`select-toggle ${selectionMode ? "active" : ""}`}
@@ -504,15 +484,12 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
         <ShortcutsHelpModal onClose={() => setShowShortcutsHelp(false)} />
       )}
 
-      {quickAction && focusedIssue && (
+      {quickMoveOpen && focusedIssue && (
         <QuickActionPopover
-          mode={quickAction}
           columns={visibleColumns.map((c) => c.name)}
           currentStatus={focusedIssue.status}
-          currentPriority={focusedIssue.priority}
           onMove={handleQuickMove}
-          onSetPriority={handleQuickPriority}
-          onClose={() => setQuickAction(null)}
+          onClose={() => setQuickMoveOpen(false)}
         />
       )}
 
@@ -527,8 +504,7 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
             setShowCreateIssue(true);
           }}
           onOpenIssue={onOpenIssue}
-          onMoveFocused={() => { if (effectiveFocusedIndex >= 0) setQuickAction("move"); }}
-          onSetPriority={() => { if (effectiveFocusedIndex >= 0) setQuickAction("priority"); }}
+          onMoveFocused={() => { if (effectiveFocusedIndex >= 0) setQuickMoveOpen(true); }}
           onShowHelp={() => setShowShortcutsHelp(true)}
           onSwitchColumn={(index) => { if (index < visibleColumns.length) setActiveColumnIdx(index); }}
           onFocusSearch={() => searchRef.current?.focus()}

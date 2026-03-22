@@ -14,14 +14,12 @@ export function BulkActionBar({
 }) {
   const columns = useQuery(api.columns.list, { projectId });
   const bulkMove = useMutation(api.bulkIssues.bulkMove);
-  const bulkUpdatePriority = useMutation(api.bulkIssues.bulkUpdatePriority);
   const bulkAddTags = useMutation(api.bulkIssues.bulkAddTags);
   const bulkRemoveTags = useMutation(api.bulkIssues.bulkRemoveTags);
   const bulkDelete = useMutation(api.bulkIssues.bulkDelete);
   const bulkArchive = useMutation(api.bulkIssues.bulkArchive);
 
   const [showMoveMenu, setShowMoveMenu] = useState(false);
-  const [showPriorityMenu, setShowPriorityMenu] = useState(false);
   const [showAddTagMenu, setShowAddTagMenu] = useState(false);
   const [showRemoveTagMenu, setShowRemoveTagMenu] = useState(false);
   const [tagInput, setTagInput] = useState("");
@@ -36,15 +34,8 @@ export function BulkActionBar({
     onClearSelection();
   };
 
-  const handlePriority = async (priority: string) => {
-    await bulkUpdatePriority({ ids, priority });
-    setShowPriorityMenu(false);
-    onClearSelection();
-  };
-
   const closeAllMenus = () => {
     setShowMoveMenu(false);
-    setShowPriorityMenu(false);
     setShowAddTagMenu(false);
     setShowRemoveTagMenu(false);
     setConfirmDelete(false);
@@ -105,33 +96,6 @@ export function BulkActionBar({
                     {col.name}
                   </button>
                 ))}
-            </div>
-          )}
-        </div>
-
-        {/* Set priority */}
-        <div className="bulk-dropdown">
-          <button
-            className="bulk-btn"
-            onClick={() => {
-              const wasOpen = showPriorityMenu;
-              closeAllMenus();
-              if (!wasOpen) setShowPriorityMenu(true);
-            }}
-          >
-            Priority...
-          </button>
-          {showPriorityMenu && (
-            <div className="bulk-dropdown-menu">
-              {["urgent", "high", "medium", "low"].map((p) => (
-                <button
-                  key={p}
-                  className="bulk-dropdown-item"
-                  onClick={() => handlePriority(p)}
-                >
-                  {p.charAt(0).toUpperCase() + p.slice(1)}
-                </button>
-              ))}
             </div>
           )}
         </div>

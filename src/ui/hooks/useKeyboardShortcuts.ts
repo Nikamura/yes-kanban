@@ -9,7 +9,6 @@ export interface ShortcutHandlers {
   onFocusSearch?: () => void;
   onShowHelp?: () => void;
   onMoveFocused?: () => void;
-  onSetPriority?: () => void;
   onCommandPalette?: () => void;
 }
 
@@ -54,10 +53,6 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
         case "m":
           e.preventDefault();
           h.onMoveFocused?.();
-          break;
-        case "p":
-          e.preventDefault();
-          h.onSetPriority?.();
           break;
         case "j":
           e.preventDefault();

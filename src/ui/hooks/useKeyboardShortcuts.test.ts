@@ -1,11 +1,5 @@
 import { describe, it, expect, mock } from "bun:test";
 
-// Since this is a React hook, we test the core logic by extracting
-// the key-handling behavior. We simulate the dispatch logic directly.
-
-// Import the module to get the isInputFocused and handler dispatch logic
-// We'll re-implement the dispatch logic here to unit test it without React
-
 interface ShortcutHandlers {
   onNewIssue?: () => void;
   onSwitchColumn?: (index: number) => void;
@@ -15,7 +9,6 @@ interface ShortcutHandlers {
   onFocusSearch?: () => void;
   onShowHelp?: () => void;
   onMoveFocused?: () => void;
-  onSetPriority?: () => void;
   onCommandPalette?: () => void;
 }
 
@@ -24,13 +17,11 @@ function simulateKeyPress(
   key: string,
   opts: { metaKey?: boolean; ctrlKey?: boolean; altKey?: boolean; target?: "input" | "body" } = {}
 ): boolean {
-  // Replicate the logic from useKeyboardShortcuts handleKeyDown
   const metaKey = opts.metaKey ?? false;
   const ctrlKey = opts.ctrlKey ?? false;
   const altKey = opts.altKey ?? false;
   const isInput = opts.target === "input";
 
-  // Cmd+K / Ctrl+K before modifier guard
   if ((metaKey || ctrlKey) && key === "k") {
     handlers.onCommandPalette?.();
     return true;
@@ -46,9 +37,6 @@ function simulateKeyPress(
       return true;
     case "m":
       handlers.onMoveFocused?.();
-      return true;
-    case "p":
-      handlers.onSetPriority?.();
       return true;
     case "j":
       handlers.onNavigateDown?.();
@@ -93,12 +81,6 @@ describe("useKeyboardShortcuts dispatch logic", () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it("p triggers onSetPriority", () => {
-    const fn = mock(() => {});
-    simulateKeyPress({ onSetPriority: fn }, "p");
-    expect(fn).toHaveBeenCalledTimes(1);
-  });
-
   it("Cmd+K triggers onCommandPalette", () => {
     const fn = mock(() => {});
     simulateKeyPress({ onCommandPalette: fn }, "k", { metaKey: true });
@@ -126,12 +108,6 @@ describe("useKeyboardShortcuts dispatch logic", () => {
   it("m is suppressed when input is focused", () => {
     const fn = mock(() => {});
     simulateKeyPress({ onMoveFocused: fn }, "m", { target: "input" });
-    expect(fn).not.toHaveBeenCalled();
-  });
-
-  it("p is suppressed when input is focused", () => {
-    const fn = mock(() => {});
-    simulateKeyPress({ onSetPriority: fn }, "p", { target: "input" });
     expect(fn).not.toHaveBeenCalled();
   });
 
@@ -180,7 +156,6 @@ describe("useKeyboardShortcuts dispatch logic", () => {
   it("handlers are optional - no crash when undefined", () => {
     expect(() => simulateKeyPress({}, "c")).not.toThrow();
     expect(() => simulateKeyPress({}, "m")).not.toThrow();
-    expect(() => simulateKeyPress({}, "p")).not.toThrow();
     expect(() => simulateKeyPress({}, "k", { metaKey: true })).not.toThrow();
   });
 });

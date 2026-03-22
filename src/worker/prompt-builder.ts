@@ -54,9 +54,6 @@ export function buildPrompt(
     if (issue.description) {
       parts.push(`\n## Description\n${issue.description}`);
     }
-    if (issue.priority) {
-      parts.push(`\nPriority: ${issue.priority}`);
-    }
     if (issue.tags.length > 0) {
       parts.push(`Tags: ${issue.tags.join(", ")}`);
     }
@@ -257,9 +254,6 @@ export function buildPlanningPrompt(
     parts.push(`\nTask: ${issue.title} (${issue.simpleId})`);
     if (issue.description) {
       parts.push(`\n## Requirements\n${issue.description}`);
-    }
-    if (issue.priority) {
-      parts.push(`\nPriority: ${issue.priority}`);
     }
     if (issue.tags.length > 0) {
       parts.push(`Tags: ${issue.tags.join(", ")}`);

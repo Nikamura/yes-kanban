@@ -1,16 +1,3 @@
-export const VALID_CARD_COLORS = [
-  "#EF4444", "#F97316", "#EAB308", "#10B981",
-  "#3B82F6", "#6366F1", "#8B5CF6", "#EC4899",
-] as const;
-
-const VALID_CARD_COLORS_SET = new Set<string>(VALID_CARD_COLORS);
-
-export function validateCardColor(color: string): void {
-  if (!VALID_CARD_COLORS_SET.has(color)) {
-    throw new Error("Invalid card color");
-  }
-}
-
 export function validateIssueTitle(title: string): string {
   const trimmed = title.trim();
   if (!trimmed) {

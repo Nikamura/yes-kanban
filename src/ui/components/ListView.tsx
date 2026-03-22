@@ -6,8 +6,6 @@ import { filterIssues, sortIssues, type SortKey } from "../boardFilters";
 import { BulkActionBar } from "./BulkActionBar";
 import { WorkspaceStatusFilters } from "./WorkspaceStatusFilters";
 import { IssueDetailPanel } from "./IssueDetailPanel";
-import { PRIORITY_COLORS } from "../utils/constants";
-import { getDueDateInfo } from "../utils/dueDate";
 
 interface ListViewProps {
   projectId: Id<"projects">;
@@ -27,7 +25,6 @@ export function ListView({ projectId, activeIssueSimpleId, activeWorkspaceId, on
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortAsc, setSortAsc] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>("");
-  const [filterPriority, setFilterPriority] = useState<string>("");
   const [filterWsStatuses, setFilterWsStatuses] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
 
@@ -38,7 +35,7 @@ export function ListView({ projectId, activeIssueSimpleId, activeWorkspaceId, on
 
   if (!issues || !columns) return <div className="loading">Loading...</div>;
 
-  const filtered = filterIssues(issues, { search, filterPriority, filterStatus, searchDescription: true, filterWorkspaceStatuses: filterWsStatuses, workspaceStatuses: workspaceStatuses ?? undefined });
+  const filtered = filterIssues(issues, { search, filterStatus, searchDescription: true, filterWorkspaceStatuses: filterWsStatuses, workspaceStatuses: workspaceStatuses ?? undefined });
   const sorted = [...filtered].sort(sortIssues(sortKey, sortAsc));
 
   const toggleSort = (key: SortKey) => {
@@ -105,13 +102,6 @@ export function ListView({ projectId, activeIssueSimpleId, activeWorkspaceId, on
             </option>
           ))}
         </select>
-        <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)}>
-          <option value="">All Priorities</option>
-          <option value="urgent">Urgent</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-        </select>
         <button
           className={`select-toggle ${selectionMode ? "active" : ""}`}
           onClick={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
@@ -141,13 +131,7 @@ export function ListView({ projectId, activeIssueSimpleId, activeWorkspaceId, on
                 }}
               />
             )}
-            <div
-              className="issue-card-priority-strip"
-              style={{
-                backgroundColor: issue.color
-                  ?? (issue.priority ? PRIORITY_COLORS[issue.priority] ?? "var(--border)" : "var(--border)"),
-              }}
-            />
+            <div className="issue-card-priority-strip" />
             <div className="list-card-content">
               <div className="list-card-header">
                 <span className="issue-id">{issue.simpleId}</span>
@@ -155,13 +139,6 @@ export function ListView({ projectId, activeIssueSimpleId, activeWorkspaceId, on
               </div>
               <div className="list-card-title">{issue.title}</div>
               <div className="list-card-meta">
-                {issue.priority && (
-                  <span
-                    className={`priority-badge priority-${issue.priority}`}
-                  >
-                    {issue.priority}
-                  </span>
-                )}
                 {issue.tags.map((t) => (
                   <span key={t} className="issue-tag">{t}</span>
                 ))}
@@ -188,13 +165,7 @@ export function ListView({ projectId, activeIssueSimpleId, activeWorkspaceId, on
             <th onClick={() => toggleSort("status")} className="sortable">
               Status {sortKey === "status" ? (sortAsc ? "↑" : "↓") : ""}
             </th>
-            <th onClick={() => toggleSort("priority")} className="sortable">
-              Priority {sortKey === "priority" ? (sortAsc ? "↑" : "↓") : ""}
-            </th>
             <th>Tags</th>
-            <th onClick={() => toggleSort("dueDate")} className="sortable">
-              Due {sortKey === "dueDate" ? (sortAsc ? "↑" : "↓") : ""}
-            </th>
             <th onClick={() => toggleSort("createdAt")} className="sortable">
               Created {sortKey === "createdAt" ? (sortAsc ? "↑" : "↓") : ""}
             </th>
@@ -225,23 +196,11 @@ export function ListView({ projectId, activeIssueSimpleId, activeWorkspaceId, on
                 <span className="status-badge">{issue.status}</span>
               </td>
               <td>
-                <span className={`priority-badge priority-${issue.priority ?? "none"}`}>
-                  {issue.priority ?? "-"}
-                </span>
-              </td>
-              <td>
                 {issue.tags.map((t) => (
                   <span key={t} className="issue-tag">
                     {t}
                   </span>
                 ))}
-              </td>
-              <td className="date-cell">
-                {issue.dueDate ? (
-                  <span className={`due-date-badge ${getDueDateInfo(issue.dueDate).className}`}>
-                    {getDueDateInfo(issue.dueDate).label}
-                  </span>
-                ) : "-"}
               </td>
               <td className="date-cell">{new Date(issue.createdAt).toLocaleDateString()}</td>
             </tr>

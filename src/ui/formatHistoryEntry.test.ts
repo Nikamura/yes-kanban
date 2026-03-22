@@ -17,27 +17,6 @@ describe("formatHistoryEntry", () => {
     ).toBe("Status changed from To Do → In Progress");
   });
 
-  it("formats priority set (no previous value)", () => {
-    expect(
-      formatHistoryEntry({
-        action: "updated",
-        field: "priority",
-        newValue: JSON.stringify("high"),
-      })
-    ).toBe("Priority set to high");
-  });
-
-  it("formats priority change", () => {
-    expect(
-      formatHistoryEntry({
-        action: "updated",
-        field: "priority",
-        oldValue: JSON.stringify("low"),
-        newValue: JSON.stringify("high"),
-      })
-    ).toBe("Priority changed from low → high");
-  });
-
   it("formats tags added", () => {
     expect(
       formatHistoryEntry({
@@ -153,33 +132,6 @@ describe("formatHistoryEntry", () => {
     ).toBe("Auto merge disabled");
   });
 
-  it("formats color set, removed, and changed", () => {
-    expect(
-      formatHistoryEntry({
-        action: "updated",
-        field: "color",
-        oldValue: undefined,
-        newValue: JSON.stringify("#ff0000"),
-      })
-    ).toBe("Color set to #ff0000");
-    expect(
-      formatHistoryEntry({
-        action: "updated",
-        field: "color",
-        oldValue: JSON.stringify("#00ff00"),
-        newValue: undefined,
-      })
-    ).toBe("Color removed");
-    expect(
-      formatHistoryEntry({
-        action: "updated",
-        field: "color",
-        oldValue: JSON.stringify("#aaa"),
-        newValue: JSON.stringify("#bbb"),
-      })
-    ).toBe("Color changed from #aaa → #bbb");
-  });
-
   it("formats comment added and removed", () => {
     expect(
       formatHistoryEntry({
@@ -227,50 +179,6 @@ describe("formatHistoryEntry", () => {
 
   it("formats unknown field", () => {
     expect(formatHistoryEntry({ action: "updated", field: "foo" })).toBe("foo updated");
-  });
-
-  it("formats setting a due date", () => {
-    const ts = new Date(2025, 5, 15).getTime();
-    const result = formatHistoryEntry({
-      action: "updated",
-      field: "dueDate",
-      oldValue: undefined,
-      newValue: JSON.stringify(ts),
-    });
-    expect(result).toContain("Due date set to");
-  });
-
-  it("formats removing a due date", () => {
-    const ts = new Date(2025, 5, 15).getTime();
-    const result = formatHistoryEntry({
-      action: "updated",
-      field: "dueDate",
-      oldValue: JSON.stringify(ts),
-      newValue: undefined,
-    });
-    expect(result).toBe("Due date removed");
-  });
-
-  it("formats changing a due date", () => {
-    const old = new Date(2025, 5, 15).getTime();
-    const next = new Date(2025, 6, 1).getTime();
-    const result = formatHistoryEntry({
-      action: "updated",
-      field: "dueDate",
-      oldValue: JSON.stringify(old),
-      newValue: JSON.stringify(next),
-    });
-    expect(result).toContain("Due date changed to");
-  });
-
-  it("does not treat timestamp 0 as removed", () => {
-    const result = formatHistoryEntry({
-      action: "updated",
-      field: "dueDate",
-      oldValue: undefined,
-      newValue: JSON.stringify(0),
-    });
-    expect(result).toContain("Due date set to");
   });
 
   it("formats checklist item added", () => {

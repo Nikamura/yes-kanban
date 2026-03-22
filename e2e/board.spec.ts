@@ -41,13 +41,11 @@ test.describe("Board", () => {
     const uniqueTitle = `E2E issue ${Date.now()}`;
     await page.getByRole("textbox", { name: /needs to be done/i }).fill(uniqueTitle);
     await page.getByRole("textbox", { name: /description/i }).fill("Automated test description");
-    await page.locator(".dialog select").selectOption("medium");
     await page.getByRole("textbox", { name: /tag/i }).fill("e2e, test");
     await page.getByRole("button", { name: "Create", exact: true }).click();
 
     await expect(page.getByText(uniqueTitle)).toBeVisible();
     await expect(page.locator(".issue-tag").filter({ hasText: "e2e" }).first()).toBeVisible();
-    await expect(page.locator(".issue-priority").filter({ hasText: /medium/i }).first()).toBeVisible();
   });
 
   test("can create an issue with file attachment", async ({ page }) => {

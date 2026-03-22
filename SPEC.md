@@ -129,7 +129,6 @@ Fields:
 - `title` (string) — Short description of what needs to be done.
 - `description` (string) — Markdown body.
 - `status` (string) — Current column/status name.
-- `priority` (string or null) — One of: `urgent`, `high`, `medium`, `low`, or null.
 - `tags` (list of strings) — Freeform labels for categorization and filtering.
 - `blockedBy` (list of Id<"issues">) — Issues that block this issue. Used for dispatch eligibility checks.
 - `position` (number) — Sort order within its column (for manual ordering).
@@ -322,7 +321,6 @@ export default defineSchema({
     title: v.string(),
     description: v.string(),
     status: v.string(),
-    priority: v.optional(v.string()),
     tags: v.array(v.string()),
     blockedBy: v.optional(v.array(v.id("issues"))),
     position: v.number(),
@@ -477,7 +475,6 @@ api.columns.remove: (args: { id: Id<"columns">; targetColumnId: Id<"columns"> })
 api.issues.list: (args: {
   projectId: Id<"projects">;
   status?: string;
-  priority?: string;
   tags?: string[];
   search?: string;
 }) => Issue[]
@@ -493,7 +490,6 @@ api.issues.create: (args: {
   title: string;
   description: string;
   status: string;
-  priority?: string;
   tags?: string[];
 }) => Id<"issues">
 
@@ -514,9 +510,6 @@ api.issues.remove: (args: { id: Id<"issues"> }) => void
 
 // Mutation: move multiple issues to a target column (with auto-dispatch)
 api.bulkIssues.bulkMove: (args: { ids: Id<"issues">[]; status: string }) => void
-
-// Mutation: change priority for multiple issues
-api.bulkIssues.bulkUpdatePriority: (args: { ids: Id<"issues">[]; priority: string }) => void
 
 // Mutation: add tags to multiple issues (merges with existing, no duplicates)
 api.bulkIssues.bulkAddTags: (args: { ids: Id<"issues">[]; tags: string[] }) => void
@@ -1208,13 +1201,9 @@ promptTemplates:
 - If not configured, the global limit applies to all columns.
 - The runtime counts issues by their current column in the running set.
 
-#### Dispatch Priority
+#### Dispatch ordering
 
-The dispatch queue in Convex is ordered by:
-
-1. `priority` — urgent > high > medium > low > none (null sorts last).
-2. `createdAt` — oldest first.
-3. `simpleId` — lexicographic tie-breaker.
+Queued workspaces (same project/column concurrency permitting) are dispatched **FIFO** by workspace `createdAt` (oldest first).
 
 #### Blocker-Aware Dispatch
 
@@ -1516,7 +1505,7 @@ The review agent can be a different model than the coding agent (e.g. use a chea
 
 ### 12.1 Views
 
-1. **Board View** — Kanban board with columns. Drag-and-drop issue cards between columns. Filter by priority, tags, search text. Sort by priority, created date, updated date, or manual order. All data via Convex `useQuery` — instantly reactive.
+1. **Board View** — Kanban board with columns. Drag-and-drop issue cards between columns. Filter by workspace status, search text. Sort by created date, updated date, or manual order. All data via Convex `useQuery` — instantly reactive.
 
 2. **Issue Detail Modal** — Opens as a centered modal (Jira-style) when an issue card is clicked. Full-screen on mobile, centered dialog on tablet/desktop. Shows full issue content, metadata, comments, linked workspaces with their status and lifecycle stage, and attachments. Supports editing all fields inline.
 
@@ -1607,11 +1596,11 @@ The MCP server exposes the following tools to the agent:
 #### Issue Management
 
 - **`create_issue`** — Create a new issue in the project.
-  - Parameters: `title` (required), `description`, `status`, `priority`, `tags`.
+  - Parameters: `title` (required), `description`, `status`, `tags`.
   - Returns: `{ issueId, simpleId }`.
 
 - **`update_issue`** — Update an existing issue.
-  - Parameters: `issueId` or `simpleId` (required), plus any fields to update: `title`, `description`, `status`, `priority`, `tags`.
+  - Parameters: `issueId` or `simpleId` (required), plus any fields to update: `title`, `description`, `status`, `tags`.
   - Returns: `{ updated: true }`.
 
 - **`move_issue`** — Move an issue to a different column.
@@ -1625,10 +1614,10 @@ The MCP server exposes the following tools to the agent:
 
 - **`get_issue`** — Read an issue's details.
   - Parameters: `issueId` or `simpleId` (required).
-  - Returns: Full issue object including description, status, priority, tags, and workspace count.
+  - Returns: Full issue object including description, status, tags, and workspace count.
 
 - **`list_issues`** — List issues in the project with optional filters.
-  - Parameters: `status`, `priority`, `tags`, `search`.
+  - Parameters: `status`, `tags`, `search`.
   - Returns: Array of issue objects.
 
 #### Comments
@@ -2214,7 +2203,7 @@ A conforming implementation should include tests that cover the behaviors define
 - Issue move between columns (status change).
 - Blocker relationships (blockedBy).
 - Issue ordering within columns (position).
-- Tag and priority filtering.
+- Tag filtering.
 - Simple ID generation (sequential, unique per project).
 - Column CRUD (add, rename, reorder, delete with issue migration).
 - Auto-dispatch trigger on column entry.
@@ -2257,7 +2246,7 @@ A conforming implementation should include tests that cover the behaviors define
 - Auto-dispatch triggers when issue enters auto-dispatch column.
 - Auto-dispatch does not trigger for issues already running.
 - Auto-dispatch is no-op when no default agent config is set.
-- Dispatch priority ordering: urgent > high > medium > low > none, then oldest first.
+- Dispatch ordering: oldest queued workspace first (FIFO by workspace creation time).
 - Blocker-aware dispatch: blocked issues are not dispatched.
 - Blocker-aware dispatch: issues become eligible when blockers clear.
 - Global concurrency limit respected.
@@ -2370,10 +2359,10 @@ A conforming implementation must complete all items below.
 ### 23.2 Board UI
 
 - Kanban board view with drag-and-drop between columns.
-- Issue detail modal (Jira-style centered dialog) with inline editing (title, description, priority, tags, status).
+- Issue detail modal (Jira-style centered dialog) with inline editing (title, description, tags, status).
 - List view for all issues including hidden columns.
-- Filter by priority, tags, search text.
-- Sort by priority, created date, updated date, manual order.
+- Filter by tags, search text, workspace status (board).
+- Sort by created date, updated date, manual order.
 - Settings UI for projects, columns, repos, agent configs.
 
 ### 23.3 Workspace and Worktree Management
@@ -2406,7 +2395,7 @@ A conforming implementation must complete all items below.
 - Global concurrency limiting.
 - Per-column concurrency limits.
 - Blocker-aware dispatch (blocked issues wait until blockers clear).
-- Dispatch priority ordering (priority → createdAt → simpleId).
+- Dispatch FIFO ordering for queued workspaces.
 - Manual retry from UI with continuation context.
 - Auto-retry with exponential backoff.
 - Queue drains when slots free up.

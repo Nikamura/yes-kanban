@@ -1,14 +1,13 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { recordHistory } from "./issueHistory";
-import { validateIssueTitle, validateIssueDescription, validateCardColor } from "./lib/issueValidation";
+import { validateIssueTitle, validateIssueDescription } from "./lib/issueValidation";
 import { unarchiveIssue } from "./lib/archiveHelpers";
 import { WORKSPACE_TERMINAL_STATUSES } from "./workspaces";
 export const list = query({
   args: {
     projectId: v.id("projects"),
     status: v.optional(v.string()),
-    priority: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
     search: v.optional(v.string()),
     archived: v.optional(v.boolean()),
@@ -46,9 +45,6 @@ export const list = query({
       issues = issues.filter((i) => i.archivedAt === undefined);
     }
 
-    if (args.priority) {
-      issues = issues.filter((i) => i.priority === args.priority);
-    }
     const { tags } = args;
     if (tags && tags.length > 0) {
       issues = issues.filter((i) =>
@@ -120,10 +116,7 @@ export const create = mutation({
     title: v.string(),
     description: v.string(),
     status: v.string(),
-    priority: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
-    dueDate: v.optional(v.number()),
-    color: v.optional(v.string()),
     deepResearch: v.optional(v.boolean()),
     autoMerge: v.optional(v.boolean()),
     actor: v.optional(v.union(v.literal("user"), v.literal("agent"))),
@@ -131,7 +124,6 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const title = validateIssueTitle(args.title);
     validateIssueDescription(args.description);
-    if (args.color) validateCardColor(args.color);
 
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Project not found");
@@ -157,10 +149,7 @@ export const create = mutation({
       title,
       description: args.description,
       status: args.status,
-      priority: args.priority,
       tags: args.tags ?? [],
-      dueDate: args.dueDate,
-      color: args.color,
       deepResearch: args.deepResearch,
       ...(args.autoMerge !== undefined && { autoMerge: args.autoMerge }),
       position: maxPos + 1,
@@ -203,11 +192,8 @@ export const update = mutation({
     id: v.id("issues"),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
-    priority: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
     blockedBy: v.optional(v.array(v.id("issues"))),
-    dueDate: v.optional(v.number()),
-    color: v.optional(v.string()),
     deepResearch: v.optional(v.boolean()),
     autoMerge: v.optional(v.boolean()),
     actor: v.optional(v.union(v.literal("user"), v.literal("agent"))),
@@ -225,21 +211,11 @@ export const update = mutation({
     const issue = await ctx.db.get(id);
     if (!issue) throw new Error("Issue not found");
 
-    // Normalize dueDate: 0 means "clear the due date"
-    const dueDateVal = updates.dueDate;
-    const normalizedDueDate = dueDateVal === 0 ? undefined : dueDateVal;
-
-    // Normalize color: empty string means "clear the color"
-    const colorVal = updates.color;
-    const normalizedColor = colorVal === "" ? undefined : colorVal;
-    if (normalizedColor) validateCardColor(normalizedColor);
-
-    const normalizedFields: Record<string, unknown> = { dueDate: normalizedDueDate, color: normalizedColor };
-    const tracked = ["title", "description", "priority", "tags", "blockedBy", "dueDate", "color", "deepResearch", "autoMerge"] as const;
+    const tracked = ["title", "description", "tags", "blockedBy", "deepResearch", "autoMerge"] as const;
     for (const field of tracked) {
       if (updates[field] !== undefined) {
         const oldVal = issue[field];
-        const newVal = field in normalizedFields ? normalizedFields[field] : updates[field];
+        const newVal = updates[field];
         const serialize = (v: unknown) =>
           Array.isArray(v) ? JSON.stringify([...v].sort()) : JSON.stringify(v);
         if (serialize(oldVal) !== serialize(newVal)) {
@@ -258,13 +234,9 @@ export const update = mutation({
       }
     }
 
-    // Strip unprovided fields, then normalize sentinels to undefined so db.patch clears them
-    // (same pattern as columns.ts — Convex db.patch removes optional fields set to undefined)
     const provided = Object.fromEntries(
       (Object.entries(updates) as [string, unknown][]).filter(([, v]) => v !== undefined)
     );
-    if (normalizedDueDate !== updates["dueDate"]) provided["dueDate"] = normalizedDueDate;
-    if (normalizedColor !== updates["color"]) provided["color"] = normalizedColor;
     if (Object.keys(provided).length > 0) {
       await ctx.db.patch(id, { ...provided, updatedAt: Date.now() });
     }

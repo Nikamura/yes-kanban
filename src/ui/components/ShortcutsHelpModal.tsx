@@ -6,7 +6,6 @@ const SHORTCUTS = [
   { key: "k", description: "Navigate up" },
   { key: "Enter", description: "Open focused issue" },
   { key: "m", description: "Move focused issue" },
-  { key: "p", description: "Set priority of focused issue" },
   { key: "/", description: "Focus search" },
   { key: "⌘K", description: "Command palette" },
   { key: "1-9", description: "Switch column" },

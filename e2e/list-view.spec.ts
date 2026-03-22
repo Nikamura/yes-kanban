@@ -11,7 +11,7 @@ test.describe("List View", () => {
     await expect(page.getByRole("columnheader", { name: /ID/i })).toBeVisible();
     await expect(page.getByRole("columnheader", { name: /Title/i })).toBeVisible();
     await expect(page.getByRole("columnheader", { name: /Status/i })).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: /Priority/i })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: /Tags/i })).toBeVisible();
   });
 
   test("can search issues in list view", async ({ page }) => {
@@ -30,20 +30,21 @@ test.describe("List View", () => {
     await expect(count).toContainText("1");
   });
 
-  test("can filter by priority in list view", async ({ page }) => {
+  test("can filter by status in list view", async ({ page }) => {
     const { slug } = await seedProjectWithIssue();
     await page.goto(`/#/${slug}/list`);
 
     await expect(page.getByRole("table")).toBeVisible();
     await expect(page.getByRole("cell", { name: "Implement user authentication" })).toBeVisible();
 
-    // Filter by high priority
-    await page.locator(".list-filters select").nth(1).selectOption("high");
+    await page.locator(".list-filters select").first().selectOption("In Progress");
 
-    // Should show only high priority issues
-    await expect(page.getByRole("cell", { name: "Implement user authentication" })).toBeVisible();
     const count = page.locator(".list-count");
+    await expect(count).toContainText("0");
+
+    await page.locator(".list-filters select").first().selectOption("To Do");
     await expect(count).toContainText("1");
+    await expect(page.getByRole("cell", { name: "Implement user authentication" })).toBeVisible();
   });
 
   test("can sort by column", async ({ page }) => {

@@ -153,7 +153,6 @@ body {
 .column-name,
 .column-count,
 .status-badge,
-.priority-badge,
 .ws-status,
 .badge,
 .log-badge {
@@ -789,13 +788,14 @@ body {
   cursor: grab;
 }
 
-/* Priority color strip */
+/* Card accent strip */
 .issue-card-priority-strip {
   width: 4px;
   min-height: 32px;
   border-radius: 2px;
   flex-shrink: 0;
   align-self: stretch;
+  background: var(--border);
 }
 
 /* Selection checkbox */
@@ -865,13 +865,6 @@ body {
 .issue-id {
   font-size: 11px;
   color: var(--text-muted);
-}
-
-.issue-priority {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .issue-card-title {
@@ -1045,42 +1038,6 @@ body {
 
 .meta-item-tags {
   grid-column: 1 / -1;
-}
-
-.color-picker-swatches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-}
-
-.color-swatch {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
-  padding: 0;
-  transition: box-shadow 0.15s;
-}
-
-.color-swatch:hover {
-  box-shadow: 0 0 0 2px var(--text-muted);
-}
-
-.color-swatch.active {
-  box-shadow: 0 0 0 2px var(--text);
-}
-
-.color-swatch-clear {
-  background: var(--bg-secondary);
-  border: 1px dashed var(--border);
-  font-size: 12px;
-  line-height: 1;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .tag-chips {
@@ -1998,18 +1955,6 @@ textarea { resize: vertical; }
   font-size: 11px;
   background: var(--surface-2);
 }
-
-.priority-badge {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.priority-urgent { color: #EF4444; }
-.priority-high { color: #F97316; }
-.priority-medium { color: #EAB308; }
-.priority-low { color: #6B7280; }
-.priority-none { color: var(--text-muted); }
 
 .date-cell {
   color: var(--text-muted);
@@ -4018,18 +3963,6 @@ button.log-expand-icon {
   min-width: 2em;
   text-align: center;
 }
-
-/* Due date badges */
-.due-date-badge {
-  font-size: 0.7rem;
-  padding: 0.1rem 0.4rem;
-  border-radius: 3px;
-  white-space: nowrap;
-}
-.due-overdue { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
-.due-today { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
-.due-soon { background: rgba(16, 185, 129, 0.2); color: #10b981; }
-.due-future { background: var(--surface-2); color: var(--text-secondary); }
 
 /* Activity feed */
 .activity-feed {

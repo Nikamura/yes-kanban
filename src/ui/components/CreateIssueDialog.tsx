@@ -4,8 +4,6 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { useEscapeClose } from "../hooks/useEscapeClose";
 import { formatFileSize, getFileIcon } from "../utils/fileUtils";
-import { dateToTimestamp } from "../utils/dueDate";
-
 interface PendingFile {
   file: File;
   id: string;
@@ -38,9 +36,7 @@ export function CreateIssueDialog({
   const templates = useQuery(api.issueTemplates.list, { projectId });
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [priority, setPriority] = useState<string>("");
   const [tags, setTags] = useState("");
-  const [dueDate, setDueDate] = useState("");
   const [deepResearch, setDeepResearch] = useState(false);
   const [autoMerge, setAutoMerge] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
@@ -54,7 +50,6 @@ export function CreateIssueDialog({
     const template = templates?.find((t) => t._id === templateId);
     if (!template) return;
     setDescription(template.descriptionTemplate);
-    if (template.defaultPriority) setPriority(template.defaultPriority);
     if (template.defaultTags.length > 0) setTags(template.defaultTags.join(", "));
   };
 
@@ -171,12 +166,10 @@ export function CreateIssueDialog({
         title: title.trim(),
         description: description.trim(),
         status: defaultStatus,
-        priority: priority || undefined,
         tags: tags
           .split(",")
           .map((t) => t.trim())
           .filter(Boolean),
-        dueDate: dateToTimestamp(dueDate),
         deepResearch: deepResearch || undefined,
         autoMerge: autoMerge || undefined,
       });
@@ -240,35 +233,15 @@ export function CreateIssueDialog({
               rows={4}
             />
           </div>
-          <div className="form-row">
-            <div className="form-field">
-              <label>Priority</label>
-              <select value={priority} onChange={(e) => setPriority(e.target.value)}>
-                <option value="">None</option>
-                <option value="urgent">Urgent</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-            </div>
-            <div className="form-field">
-              <label>Tags</label>
-              <input
-                type="text"
-                value={tags}
-                onChange={(e) => setTags(e.target.value)}
-                placeholder="tag1, tag2"
-                autoComplete="off"
-              />
-            </div>
-            <div className="form-field">
-              <label>Due Date</label>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
-            </div>
+          <div className="form-field">
+            <label>Tags</label>
+            <input
+              type="text"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              placeholder="tag1, tag2"
+              autoComplete="off"
+            />
           </div>
           <div className="form-field">
             <label className="checkbox-label">

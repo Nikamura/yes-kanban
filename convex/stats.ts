@@ -178,7 +178,6 @@ export const analyticsData = query({
     const issueMetadata: Record<string, {
       simpleId: string;
       tags: string[];
-      priority?: string;
       createdAt: number;
       currentStatus: string;
     }> = {};
@@ -188,7 +187,6 @@ export const analyticsData = query({
         issueMetadata[issueId] = {
           simpleId: issue.simpleId,
           tags: issue.tags,
-          priority: issue.priority,
           createdAt: issue.createdAt,
           currentStatus: issue.status,
         };

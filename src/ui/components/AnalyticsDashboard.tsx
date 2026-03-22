@@ -34,7 +34,6 @@ export function AnalyticsDashboard({ projectId }: { projectId: Id<"projects"> })
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [selectedPriority, setSelectedPriority] = useState("");
   const [throughputMode, setThroughputMode] = useState<"weekly" | "monthly">("weekly");
 
   const [now] = useState(() => Date.now());
@@ -51,14 +50,13 @@ export function AnalyticsDashboard({ projectId }: { projectId: Id<"projects"> })
   }, [presetDays, customStart, customEnd, now]);
 
   const {
-    isLoading, truncated, columns, availableTags, availablePriorities,
+    isLoading, truncated, columns, availableTags,
     cycleTimeData, throughputData, cumulativeFlowData,
     avgTimePerColumn, createdVsCompleted, summary,
   } = useAnalyticsData({
     projectId,
     ...timeRange,
     tags: selectedTags.length > 0 ? selectedTags : undefined,
-    priority: selectedPriority || undefined,
   });
 
   if (isLoading) return <div className="loading">Loading analytics...</div>;
@@ -108,19 +106,6 @@ export function AnalyticsDashboard({ projectId }: { projectId: Id<"projects"> })
               onChange={(e) => setSelectedTags(Array.from(e.target.selectedOptions, (o) => o.value))}
             >
               {availableTags.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-        )}
-        {availablePriorities.length > 0 && (
-          <div className="analytics-filter-group">
-            <label>Priority:</label>
-            <select
-              className="analytics-select"
-              value={selectedPriority}
-              onChange={(e) => setSelectedPriority(e.target.value)}
-            >
-              <option value="">All</option>
-              {availablePriorities.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
         )}
