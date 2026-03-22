@@ -33,14 +33,14 @@ function mcpJsonToToml(
 
   const lines: string[] = [];
   for (const [name, server] of Object.entries(json.mcpServers)) {
-    lines.push(`[mcp_servers.${name}]`);
+    lines.push(`[mcp_servers.${tomlKey(name)}]`);
     lines.push(`command = ${tomlString(server.command)}`);
     if (server.args && server.args.length > 0) {
       lines.push(`args = [${server.args.map(tomlString).join(", ")}]`);
     }
     if (server.env && Object.keys(server.env).length > 0) {
       const envPairs = Object.entries(server.env)
-        .map(([key, value]) => `${key} = ${tomlString(value)}`)
+        .map(([key, value]) => `${tomlKey(key)} = ${tomlString(value)}`)
         .join(", ");
       lines.push(`env = { ${envPairs} }`);
     }
@@ -53,9 +53,15 @@ function mcpJsonToToml(
   return lines.join("\n");
 }
 
+/** TOML bare keys only allow A-Za-z0-9, `-`, and `_`. */
+const TOML_BARE_KEY = /^[A-Za-z0-9_-]+$/;
+
 function tomlString(value: string): string {
-  // Use basic TOML string with escaping for backslashes and quotes
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+function tomlKey(key: string): string {
+  return TOML_BARE_KEY.test(key) ? key : tomlString(key);
 }
 
 /**
@@ -119,13 +125,13 @@ export class CodexAdapter implements IAgentAdapter {
         const mcpConfig = JSON.parse(jsonContent);
         const toml = mcpJsonToToml(mcpConfig, args.allowedTools);
 
-        // Use cwd-based hash for unique temp directory
-        const codexHome = `/tmp/yes-kanban-codex-home-${hashPath(args.cwd)}`;
+        // Derive unique dir from mcpConfigPath (contains workspaceId) + pid to avoid collisions
+        const codexHome = `/tmp/yes-kanban-codex-home-${hashPath(args.mcpConfigPath)}-${process.pid}`;
         mkdirSync(codexHome, { recursive: true });
         writeFileSync(`${codexHome}/config.toml`, toml);
         env["CODEX_HOME"] = codexHome;
       } catch (err) {
-        console.error("[codex] Failed to convert MCP config to TOML:", err);
+        throw new Error(`[codex] Failed to convert MCP config to TOML: ${err}`);
       }
     }
 

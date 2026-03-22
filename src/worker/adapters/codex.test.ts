@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { readFileSync, existsSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { CodexAdapter } from "./codex";
 
 describe("CodexAdapter", () => {
@@ -233,7 +233,7 @@ describe("CodexAdapter", () => {
             "yes-kanban": { command: "bun", args: ["run", "/tmp/bridge.ts"] },
           },
         };
-        require("node:fs").writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
+        writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
 
         const result = buildWithMcp();
 
@@ -247,7 +247,7 @@ describe("CodexAdapter", () => {
             "yes-kanban": { command: "bun", args: ["run", "/tmp/bridge.ts"] },
           },
         };
-        require("node:fs").writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
+        writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
 
         const result = buildWithMcp();
 
@@ -263,7 +263,7 @@ describe("CodexAdapter", () => {
             github: { command: "npx", args: ["-y", "@mcp/server-github"], env: { GITHUB_TOKEN: "tok_123" } },
           },
         };
-        require("node:fs").writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
+        writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
 
         const result = buildWithMcp();
 
@@ -277,7 +277,7 @@ describe("CodexAdapter", () => {
             "yes-kanban": { command: "bun", args: ["run", "/tmp/bridge.ts"] },
           },
         };
-        require("node:fs").writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
+        writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
 
         const result = buildWithMcp({
           allowedTools: ["mcp__yes-kanban__get_feedback", "mcp__yes-kanban__get_current_issue"],
@@ -295,7 +295,7 @@ describe("CodexAdapter", () => {
             "my_server": { command: "node", args: ["server.js"] },
           },
         };
-        require("node:fs").writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
+        writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
 
         const result = buildWithMcp({
           allowedTools: ["mcp__my_server__do_thing"],
@@ -312,7 +312,7 @@ describe("CodexAdapter", () => {
             "yes-kanban": { command: "bun", args: ["run", "/tmp/bridge.ts"] },
           },
         };
-        require("node:fs").writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
+        writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
 
         const result = buildWithMcp({
           allowedTools: ["Read", "Write", "Bash"],
