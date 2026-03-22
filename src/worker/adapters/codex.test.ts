@@ -152,30 +152,17 @@ describe("CodexAdapter", () => {
       expect(result.args).not.toContain("--no-project-doc");
     });
 
-    test("uses resume subcommand when sessionId provided", () => {
+    test("ignores sessionId and always uses exec (resume lacks --json support)", () => {
       const result = adapter.buildCommand({
         config: makeConfig(),
         prompt: "Continue the task",
         cwd: "/tmp",
         sessionId: "thread_abc123",
       });
-      expect(result.args[0]).toBe("resume");
-      expect(result.args[1]).toBe("thread_abc123");
-      expect(result.args[2]).toBe("--json");
-      expect(result.args).not.toContain("exec");
-      // prompt is still last
-      expect(result.args[result.args.length - 1]).toBe("Continue the task");
-    });
-
-    test("skips --ephemeral when resuming a session", () => {
-      const result = adapter.buildCommand({
-        config: makeConfig(),
-        prompt: "Continue",
-        cwd: "/tmp",
-        sessionId: "thread_abc123",
-      });
-      expect(result.args).not.toContain("--ephemeral");
-      expect(result.args).toContain("--skip-git-repo-check");
+      expect(result.args[0]).toBe("exec");
+      expect(result.args).toContain("--json");
+      expect(result.args).toContain("--ephemeral");
+      expect(result.args).not.toContain("resume");
     });
 
     describe("MCP config via CODEX_HOME", () => {

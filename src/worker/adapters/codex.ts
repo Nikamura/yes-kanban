@@ -90,22 +90,9 @@ export class CodexAdapter implements IAgentAdapter {
     const mode = args.permissionMode ?? "dangerously-skip-permissions";
     const env: Record<string, string> = { ...process.env, ...(args.config.env ?? {}) } as Record<string, string>;
 
-    // Session resume or fresh exec
-    let cmdArgs: string[];
-    if (args.sessionId) {
-      // Resume a previous session. Note: resume+json needs empirical verification —
-      // if Codex doesn't support --json with resume, this will fail gracefully.
-      cmdArgs = ["resume", args.sessionId, "--json"];
-    } else {
-      cmdArgs = ["exec", "--json"];
-    }
-
-    // Isolation flags for automated runs
-    // Skip --ephemeral when resuming — it would conflict with reading the persisted session
-    if (!args.sessionId) {
-      cmdArgs.push("--ephemeral");
-    }
-    cmdArgs.push("--skip-git-repo-check");
+    // Always use exec — codex resume doesn't support --json or other flags
+    // needed for automation. Session context is handled by the prompt instead.
+    const cmdArgs = ["exec", "--json", "--ephemeral", "--skip-git-repo-check"];
 
     // Permission mode
     if (mode === "dangerously-skip-permissions") {
