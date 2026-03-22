@@ -10,12 +10,6 @@ crons.daily(
 );
 
 crons.interval(
-  "process recurring tasks",
-  { minutes: 5 },
-  internal.recurrenceRules.processFixedScheduleRules
-);
-
-crons.interval(
   "auto-archive completed issues",
   { hours: 1 },
   internal.autoArchive.runAutoArchive

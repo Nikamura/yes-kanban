@@ -11,7 +11,6 @@ import { ChecklistSection } from "./ChecklistSection";
 import { formatHistoryEntry } from "../formatHistoryEntry";
 import { TERMINAL_STATUSES, CARD_COLORS } from "../utils/constants";
 import { timestampToDateStr, dateToTimestamp } from "../utils/dueDate";
-import { describeCron } from "../../../convex/lib/cronParser";
 
 export function IssueDetailPanel({
   issueId,
@@ -50,7 +49,6 @@ export function IssueDetailPanel({
 
   const agentConfigs = useQuery(api.agentConfigs.list, issue ? { projectId: issue.projectId } : "skip");
   const createWorkspace = useMutation(api.workspaces.create);
-  const recurrenceRule = useQuery(api.recurrenceRules.getByIssueId, { issueId });
 
   const [editing, setEditing] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -305,18 +303,6 @@ export function IssueDetailPanel({
                 Auto-merge
               </label>
             </div>
-            {recurrenceRule && (
-              <div className="meta-item">
-                <label>Recurrence</label>
-                <span className="meta-value">
-                  ↻{" "}
-                  {recurrenceRule.triggerMode === "fixed" && recurrenceRule.cronExpression
-                    ? describeCron(recurrenceRule.cronExpression)
-                    : "On completion"}
-                  {recurrenceRule.status === "paused" && " (paused)"}
-                </span>
-              </div>
-            )}
           </div>
 
           {/* Blocked By Section */}

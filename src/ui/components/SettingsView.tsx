@@ -5,7 +5,6 @@ import Editor from "@monaco-editor/react";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { PromptTemplatesSection } from "./PromptTemplatesSection";
 import { IssueTemplatesSection } from "./IssueTemplatesSection";
-import { RecurrenceRulesSection } from "./RecurrenceRulesSection";
 import { NotificationPrefsSection } from "./NotificationPrefsSection";
 import { WebhookDeliveriesSection } from "./WebhookDeliveriesSection";
 import {
@@ -1404,8 +1403,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
       <PromptTemplatesSection projectId={projectId} />
 
       <IssueTemplatesSection projectId={projectId} />
-
-      <RecurrenceRulesSection projectId={projectId} />
 
       <section className="settings-section">
         <h2>

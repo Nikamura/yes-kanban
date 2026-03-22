@@ -104,6 +104,7 @@ test.describe("Board", () => {
 
     await expect(page.locator(".detail-panel")).toBeVisible();
     await expect(page.locator(".panel-header .issue-id")).toBeVisible();
+    await expect(page.locator(".detail-panel").getByText("Recurrence")).not.toBeVisible();
   });
 
   test("can navigate to settings", async ({ page }) => {
@@ -114,6 +115,7 @@ test.describe("Board", () => {
     await expect(page.getByText("Columns")).toBeVisible();
     await expect(page.getByText("Repositories")).toBeVisible();
     await expect(page.getByText("Agent Configurations")).toBeVisible();
+    await expect(page.getByText("Recurrence Rules")).not.toBeVisible();
   });
 
   test("can toggle column visibility in settings", async ({ page }) => {

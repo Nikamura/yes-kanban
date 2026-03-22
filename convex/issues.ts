@@ -4,8 +4,6 @@ import { recordHistory } from "./issueHistory";
 import { validateIssueTitle, validateIssueDescription, validateCardColor } from "./lib/issueValidation";
 import { unarchiveIssue } from "./lib/archiveHelpers";
 import { WORKSPACE_TERMINAL_STATUSES } from "./workspaces";
-import { handleIssueCompletion } from "./recurrenceRules";
-
 export const list = query({
   args: {
     projectId: v.id("projects"),
@@ -331,11 +329,6 @@ export const move = mutation({
           });
         }
       }
-    }
-
-    // Check on-completion recurrence rules
-    if (issue.status !== args.status) {
-      await handleIssueCompletion(ctx, args.id, args.status);
     }
   },
 });

@@ -76,11 +76,6 @@ export function IssueCard({
               ↓{behindMainBy}
             </span>
           )}
-          {issue.recurrenceRuleId && (
-            <span className="recurrence-indicator" title="Recurring task">
-              ↻
-            </span>
-          )}
           {issue.priority && (
             <span
               className="issue-priority"

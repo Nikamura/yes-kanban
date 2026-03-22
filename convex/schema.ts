@@ -50,7 +50,6 @@ export default defineSchema({
       text: v.string(),
       completed: v.boolean(),
     }))),
-    recurrenceRuleId: v.optional(v.id("recurrenceRules")),
     archivedAt: v.optional(v.number()),
     position: v.number(),
     createdAt: v.number(),
@@ -58,7 +57,6 @@ export default defineSchema({
   })
     .index("by_project", ["projectId"])
     .index("by_project_status", ["projectId", "status"])
-    .index("by_recurrenceRuleId", ["recurrenceRuleId"])
     .index("by_project_archived", ["projectId", "archivedAt"]),
 
   repos: defineTable({
@@ -345,28 +343,4 @@ export default defineSchema({
   })
     .index("by_workspace_path", ["workspaceId", "filePath"])
     .index("by_status", ["status"]),
-
-  recurrenceRules: defineTable({
-    projectId: v.id("projects"),
-    title: v.string(),
-    description: v.string(),
-    priority: v.optional(v.string()),
-    tags: v.array(v.string()),
-    targetColumn: v.string(),
-
-    triggerMode: v.union(v.literal("fixed"), v.literal("on_completion")),
-    cronExpression: v.optional(v.string()),
-
-    status: v.union(v.literal("active"), v.literal("paused")),
-    nextDueAt: v.optional(v.number()),
-    lastFiredAt: v.optional(v.number()),
-    currentIssueId: v.optional(v.id("issues")),
-    spawnCount: v.number(),
-
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_project", ["projectId"])
-    .index("by_status_nextDue", ["status", "nextDueAt"])
-    .index("by_currentIssueId", ["currentIssueId"]),
 });
