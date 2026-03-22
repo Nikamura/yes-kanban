@@ -338,10 +338,13 @@ describe("CodexAdapter", () => {
   });
 
   describe("parseLine", () => {
-    test("thread.started → system", () => {
-      const events = adapter.parseLine(JSON.stringify({ type: "thread.started" }));
+    test("thread.started → system with init subtype and model", () => {
+      const events = adapter.parseLine(JSON.stringify({ type: "thread.started", model: "o3" }));
       expect(events).toHaveLength(1);
       expect(events[0]!.type).toBe("system");
+      const data = events[0]!.data as any;
+      expect(data.subtype).toBe("init");
+      expect(data.model).toBe("o3");
     });
 
     test("turn.started → system", () => {

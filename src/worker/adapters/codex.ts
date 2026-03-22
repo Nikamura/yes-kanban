@@ -170,7 +170,12 @@ export class CodexAdapter implements IAgentAdapter {
       const parsed = JSON.parse(line);
       const eventType = parsed.type as string | undefined;
 
-      if (eventType === "thread.started" || eventType === "turn.started") {
+      if (eventType === "thread.started") {
+        // Normalize to init subtype so SystemLine shows model info
+        return [{ type: "system", data: { ...parsed, subtype: "init", model: parsed.model } }];
+      }
+
+      if (eventType === "turn.started") {
         return [{ type: "system", data: parsed }];
       }
 
