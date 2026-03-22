@@ -87,13 +87,13 @@ describe("GitWorktreeManager", () => {
     });
 
     expect(worktrees).toHaveLength(1);
-    expect(worktrees[0]!.branchName).toBe("yes-kanban/myproj/TASK-1-add-user-authentication");
+    expect(worktrees[0]!.branchName).toBe("yes-kanban/TASK-1-add-user-authentication");
     expect(worktrees[0]!.baseBranch).toBe("main");
     expect(agentCwd).toBe(worktrees[0]!.worktreePath);
 
     // Verify worktree exists
     const check = git("-C", worktrees[0]!.worktreePath, "branch", "--show-current");
-    expect(check.stdout.toString().trim()).toBe("yes-kanban/myproj/TASK-1-add-user-authentication");
+    expect(check.stdout.toString().trim()).toBe("yes-kanban/TASK-1-add-user-authentication");
   });
 
   test("creates worktrees for multiple repos", async () => {
@@ -134,7 +134,7 @@ describe("GitWorktreeManager", () => {
     });
 
     // Special chars should be replaced with _
-    expect(worktrees[0]!.branchName).toBe("yes-kanban/my_project_/TASK_3");
+    expect(worktrees[0]!.branchName).toBe("yes-kanban/TASK_3");
   });
 
   test("cleans up on partial failure", async () => {
