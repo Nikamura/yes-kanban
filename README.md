@@ -18,7 +18,7 @@ Built for solo developers. Mobile-first. Convention over configuration.
 
 **Board** -- Drag-and-drop columns, priorities, tags, blockers, checklists, comments, issue templates. Hash-based routing so every view is a bookmarkable URL.
 
-**Agent dispatch** -- Supports Claude Code, Codex, Pi, and Cursor via pluggable adapters. Configurable concurrency limits, timeouts, and retry with exponential backoff. Plan mode and dangerously-skip mode.
+**Agent dispatch** -- Supports Claude Code, Codex, and Cursor via pluggable adapters. Configurable concurrency limits, timeouts, and retry with exponential backoff. Plan mode and dangerously-skip mode. On startup the worker runs a one-time Convex migration that rewrites legacy `pi` agent configs to a supported adapter so old projects keep working.
 
 **MCP integration** -- Built-in MCP server gives agents tools for file operations, search, git status, test execution, and board interaction (create/move issues, ask questions, request permissions).
 
@@ -80,7 +80,7 @@ src/
     hooks/            Custom React hooks
     utils/            Analytics, date formatting, constants
   worker/
-    adapters/         Agent adapters (claude-code, codex, cursor, pi)
+    adapters/         Agent adapters (claude-code, codex, cursor)
     forge/            Git forge integrations (GitHub, GitLab, Azure DevOps)
     importers/        Issue importers (Linear, GitHub, Jira, CSV)
     lifecycle.ts      Core agent orchestration
@@ -90,7 +90,7 @@ src/
     worktree-manager.ts  Git worktree lifecycle
     prompt-builder.ts Dynamic prompt assembly
 e2e/                  Playwright end-to-end tests
-.agents/skills/       Agent skills (bun, convex, claude-code, codex, pi)
+.agents/skills/       Agent skills (bun, convex, claude-code, codex)
 ```
 
 ## Configuration

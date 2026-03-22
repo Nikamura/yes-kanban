@@ -11,6 +11,7 @@ import { ChecklistSection } from "./ChecklistSection";
 import { formatHistoryEntry } from "../formatHistoryEntry";
 import { TERMINAL_STATUSES, CARD_COLORS } from "../utils/constants";
 import { timestampToDateStr, dateToTimestamp } from "../utils/dueDate";
+import { isSupportedAgentAdapterType } from "@/lib/agentTypes";
 
 export function IssueDetailPanel({
   issueId,
@@ -48,6 +49,11 @@ export function IssueDetailPanel({
   const unarchiveIssue = useMutation(api.issues.unarchive);
 
   const agentConfigs = useQuery(api.agentConfigs.list, issue ? { projectId: issue.projectId } : "skip");
+  const dispatchableAgentConfigs = useMemo(
+    () =>
+      agentConfigs?.filter((ac) => isSupportedAgentAdapterType(ac.agentType)) ?? [],
+    [agentConfigs],
+  );
   const createWorkspace = useMutation(api.workspaces.create);
 
   const [editing, setEditing] = useState<string | null>(null);
@@ -55,6 +61,14 @@ export function IssueDetailPanel({
   const [commentBody, setCommentBody] = useState("");
   const [showDispatchForm, setShowDispatchForm] = useState(false);
   const [selectedAgentConfigId, setSelectedAgentConfigId] = useState<Id<"agentConfigs"> | null>(null);
+  /** Selection is only valid if it points at a config the worker can run. */
+  const effectiveAgentConfigId = useMemo(() => {
+    if (!selectedAgentConfigId) return null;
+    if (!dispatchableAgentConfigs.some((ac) => ac._id === selectedAgentConfigId)) {
+      return null;
+    }
+    return selectedAgentConfigId;
+  }, [selectedAgentConfigId, dispatchableAgentConfigs]);
   const [additionalInstructions, setAdditionalInstructions] = useState("");
   const [blockerSearch, setBlockerSearch] = useState("");
   const [newTag, setNewTag] = useState("");
@@ -92,11 +106,11 @@ export function IssueDetailPanel({
   );
 
   const handleDispatch = async () => {
-    if (!selectedAgentConfigId) return;
+    if (!effectiveAgentConfigId) return;
     await createWorkspace({
       issueId,
       projectId: issue.projectId,
-      agentConfigId: selectedAgentConfigId,
+      agentConfigId: effectiveAgentConfigId,
       additionalPrompt: additionalInstructions.trim() || undefined,
     });
     setShowDispatchForm(false);
@@ -388,11 +402,15 @@ export function IssueDetailPanel({
                 <div className="form-group">
                   <label className="form-label">Agent Config</label>
                   <select
-                    value={selectedAgentConfigId ?? ""}
-                    onChange={(e) => setSelectedAgentConfigId(e.target.value as Id<"agentConfigs">)}
+                    value={effectiveAgentConfigId ?? ""}
+                    onChange={(e) =>
+                      setSelectedAgentConfigId(
+                        e.target.value ? (e.target.value as Id<"agentConfigs">) : null,
+                      )
+                    }
                   >
                     <option value="">Select agent config...</option>
-                    {agentConfigs?.map((ac) => (
+                    {dispatchableAgentConfigs.map((ac) => (
                       <option key={ac._id} value={ac._id}>
                         {ac.name} ({ac.agentType})
                       </option>
@@ -412,7 +430,7 @@ export function IssueDetailPanel({
                   <button
                     className="btn btn-primary btn-sm"
                     onClick={handleDispatch}
-                    disabled={!selectedAgentConfigId}
+                    disabled={!effectiveAgentConfigId}
                   >
                     Start
                   </button>

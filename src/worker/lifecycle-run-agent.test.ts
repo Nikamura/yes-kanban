@@ -79,6 +79,26 @@ describe("runAgent", () => {
     });
   });
 
+  test("throws before runAttempts.create when agentType is unsupported (e.g. legacy pi)", async () => {
+    const convex = mockConvex();
+    const executor = makeExecutor({ exitCode: 0 });
+    const badConfig = { ...baseAgentConfig, agentType: "pi" };
+
+    let err: unknown;
+    try {
+      await runAgent(
+        convex as any, baseConfig, executor as any, "wsId" as any,
+        badConfig, "/tmp/cwd", "Fix bug", "coding",
+        new AbortController().signal,
+      );
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeDefined();
+    expect(String(err)).toMatch(/Unsupported agent type: pi/);
+    expect(convex.mutation.mock.calls.length).toBe(0);
+  });
+
   test("completes run attempt with succeeded on exit 0", async () => {
     const convex = mockConvex();
     const executor = makeExecutor({ exitCode: 0 });

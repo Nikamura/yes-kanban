@@ -30,7 +30,6 @@ function agentLabel(agentType?: string): string {
     case "claude-code": return "Claude";
     case "cursor": return "Cursor";
     case "codex": return "Codex";
-    case "pi": return "Pi";
     default: return agentType ?? "Agent";
   }
 }

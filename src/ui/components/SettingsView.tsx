@@ -21,14 +21,12 @@ const AGENT_TYPES = [
   { value: "claude-code", label: "Claude Code" },
   { value: "codex", label: "Codex CLI" },
   { value: "cursor", label: "Cursor Agent" },
-  { value: "pi", label: "Pi (pi.dev)" },
 ] as const;
 
 const DEFAULT_COMMANDS: Record<string, string> = {
   "claude-code": "claude",
   codex: "codex",
   cursor: "agent",
-  pi: "pi",
 };
 
 const WEBHOOK_EVENTS = [
@@ -535,7 +533,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
           </form>
         )}
         <div className="settings-table">
-          {columns.map((col, index) => (
+          {columns.map((col, index: number) => (
             <div key={col._id} className="settings-row">
               <input
                 type="color"

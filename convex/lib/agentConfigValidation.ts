@@ -1,5 +1,8 @@
+import { assertSupportedAgentAdapterType } from "./agentTypes";
+
 export function validateAgentConfigArgs(args: {
   name?: string;
+  agentType?: string;
   command?: string;
   timeoutMs?: number;
   maxRetries?: number;
@@ -8,6 +11,9 @@ export function validateAgentConfigArgs(args: {
 }): void {
   if (args.name !== undefined && !args.name.trim()) {
     throw new Error("Name must not be empty");
+  }
+  if (args.agentType !== undefined) {
+    assertSupportedAgentAdapterType(args.agentType);
   }
   if (args.command !== undefined && !args.command.trim()) {
     throw new Error("Command must not be empty");

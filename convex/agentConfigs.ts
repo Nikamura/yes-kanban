@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { validateAgentConfigArgs } from "./lib/agentConfigValidation";
+import { legacyAgentTypeMigrationPatch } from "./lib/agentTypes";
 
 export const list = query({
   args: { projectId: v.id("projects") },
@@ -127,5 +128,26 @@ export const remove = mutation({
   args: { id: v.id("agentConfigs") },
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id);
+  },
+});
+
+/**
+ * One-shot data migration: rewrite legacy `agentType` values removed from the
+ * worker (e.g. `pi` → `claude-code`). Idempotent. Called on worker startup and
+ * may be run manually via `npx convex run agentConfigs:migrateLegacyAgentTypes`.
+ */
+export const migrateLegacyAgentTypes = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("agentConfigs").collect();
+    let migrated = 0;
+    for (const c of all) {
+      const patch = legacyAgentTypeMigrationPatch(c.agentType, c.command);
+      if (patch) {
+        await ctx.db.patch(c._id, patch);
+        migrated++;
+      }
+    }
+    return { migrated };
   },
 });

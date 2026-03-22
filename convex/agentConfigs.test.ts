@@ -10,6 +10,7 @@ describe("validateAgentConfigArgs", () => {
     expect(() =>
       validateAgentConfigArgs({
         name: "my-agent",
+        agentType: "claude-code",
         command: "claude",
         timeoutMs: 60000,
         maxRetries: 3,
@@ -17,6 +18,15 @@ describe("validateAgentConfigArgs", () => {
         maxRetryBackoffMs: 60000,
       })
     ).not.toThrow();
+  });
+
+  test("rejects unsupported agentType", () => {
+    expect(() => validateAgentConfigArgs({ agentType: "pi" })).toThrow(
+      /Unsupported agent type: pi/,
+    );
+    expect(() => validateAgentConfigArgs({ agentType: "unknown" })).toThrow(
+      /Unsupported agent type: unknown/,
+    );
   });
 
   // Name validation

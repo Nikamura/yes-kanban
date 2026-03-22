@@ -36,7 +36,7 @@ export async function seedWorkspaceWithPendingQuestion(): Promise<{
   const agentConfigId = await client.mutation(api.agentConfigs.create, {
     projectId,
     name: "E2E Agent",
-    agentType: "claude",
+    agentType: "claude-code",
     command: "echo",
   });
 

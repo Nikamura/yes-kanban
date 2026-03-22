@@ -1321,6 +1321,7 @@ export async function runAgent(
   const storedPrompt = prompt.length > MAX_STORED_PROMPT
     ? prompt.slice(0, MAX_STORED_PROMPT) + "\n\n... [truncated]"
     : prompt;
+  const adapter = getAdapter(agentConfig.agentType);
   const runAttemptId = await convex.mutation(api.runAttempts.create, {
     workspaceId,
     agentConfigId: agentConfig._id,
@@ -1332,8 +1333,6 @@ export async function runAgent(
   if (options?.mcpServer) {
     options.mcpServer.setRunAttemptId(runAttemptId);
   }
-
-  const adapter = getAdapter(agentConfig.agentType);
   const cmd = adapter.buildCommand({
     config: agentConfig,
     prompt,
@@ -1355,7 +1354,7 @@ export async function runAgent(
   const timerRef: { current: ReturnType<typeof setTimeout> | null } = { current: null };
 
   // Stdin is needed for accept mode (Claude Code permission protocol) or adapters that
-  // communicate via stdin (e.g. Pi RPC mode). Permission handling is a separate concern:
+  // communicate via stdin. Permission handling is a separate concern:
   // it's enabled for accept mode OR adapters that declare their own permission protocol.
   const isAcceptMode = options?.permissionMode === "accept";
   const needsStdin = isAcceptMode || !!adapter.needsStdin;
@@ -1387,7 +1386,7 @@ export async function runAgent(
     stallTimeoutMs: config.stallTimeoutMs,
     onStdinReady: needsStdin ? (write) => {
       resolveStdinReady?.(write);
-      // Send initial stdin message if the adapter requires it (e.g. pi sends prompt via stdin)
+      // Send initial stdin message if the adapter requires it
       const initialMsg = adapter.getInitialStdinMessage?.(prompt);
       if (initialMsg) write(initialMsg);
     } : undefined,

@@ -3,17 +3,11 @@ import { getAdapter } from "./index";
 import { ClaudeCodeAdapter } from "./claude-code";
 import { CodexAdapter } from "./codex";
 import { CursorAdapter } from "./cursor";
-import { PiAdapter } from "./pi";
 
 describe("getAdapter", () => {
   test("returns ClaudeCodeAdapter for claude-code", () => {
     const adapter = getAdapter("claude-code");
     expect(adapter).toBeInstanceOf(ClaudeCodeAdapter);
-  });
-
-  test("returns PiAdapter for pi", () => {
-    const adapter = getAdapter("pi");
-    expect(adapter).toBeInstanceOf(PiAdapter);
   });
 
   test("returns CodexAdapter for codex", () => {
@@ -27,11 +21,15 @@ describe("getAdapter", () => {
   });
 
   test("throws on unknown agent type", () => {
-    expect(() => getAdapter("unknown-agent")).toThrow("Unknown agent type: unknown-agent");
+    expect(() => getAdapter("unknown-agent")).toThrow(/Unsupported agent type: unknown-agent/);
+  });
+
+  test("throws on removed legacy agent type pi", () => {
+    expect(() => getAdapter("pi")).toThrow(/Unsupported agent type: pi/);
   });
 
   test("all adapters implement IAgentAdapter interface", () => {
-    for (const type of ["claude-code", "pi", "codex", "cursor"]) {
+    for (const type of ["claude-code", "codex", "cursor"]) {
       const adapter = getAdapter(type);
       expect(typeof adapter.buildCommand).toBe("function");
       expect(typeof adapter.parseLine).toBe("function");

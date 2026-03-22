@@ -205,7 +205,7 @@ Fields:
 - `_id` (Id<"agentConfigs">)
 - `projectId` (Id<"projects">)
 - `name` (string) — Human-readable name (e.g. "Claude Code - Sonnet").
-- `agentType` (string) — Agent adapter identifier (e.g. `claude-code`).
+- `agentType` (string) — Agent adapter identifier. Only `claude-code`, `codex`, and `cursor` are supported; create/update mutations reject other values. Legacy `pi` rows are rewritten to `claude-code` on worker startup via `agentConfigs.migrateLegacyAgentTypes`.
 - `command` (string) — CLI command to execute (e.g. `claude`).
 - `args` (list of strings) — Default CLI arguments.
 - `model` (string or null) — Model identifier to pass to the agent.
