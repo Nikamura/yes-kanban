@@ -350,28 +350,53 @@ describe("CodexAdapter", () => {
       expect(events[0]!.type).toBe("system");
     });
 
-    test("item.started with command_execution → tool_use", () => {
-      const events = adapter.parseLine(JSON.stringify({ type: "item.started", item: { type: "command_execution" } }));
+    test("item.started with command_execution → tool_use with Bash shape", () => {
+      const events = adapter.parseLine(JSON.stringify({
+        type: "item.started",
+        item: { id: "item_1", type: "command_execution", command: "ls -la" },
+      }));
       expect(events).toHaveLength(1);
       expect(events[0]!.type).toBe("tool_use");
+      const data = events[0]!.data as { name: string; input: { command: string }; tool_use_id: string };
+      expect(data.name).toBe("Bash");
+      expect(data.input.command).toBe("ls -la");
+      expect(data.tool_use_id).toBe("item_1");
     });
 
-    test("item.started with file_change → tool_use", () => {
-      const events = adapter.parseLine(JSON.stringify({ type: "item.started", item: { type: "file_change" } }));
+    test("item.started with file_change → tool_use with Edit shape", () => {
+      const events = adapter.parseLine(JSON.stringify({
+        type: "item.started",
+        item: { id: "item_2", type: "file_change", filename: "src/index.ts" },
+      }));
       expect(events).toHaveLength(1);
       expect(events[0]!.type).toBe("tool_use");
+      const data = events[0]!.data as { name: string; input: { file_path: string } };
+      expect(data.name).toBe("Edit");
+      expect(data.input.file_path).toBe("src/index.ts");
     });
 
     test("item.started with mcp_tool_call → tool_use", () => {
-      const events = adapter.parseLine(JSON.stringify({ type: "item.started", item: { type: "mcp_tool_call" } }));
+      const events = adapter.parseLine(JSON.stringify({
+        type: "item.started",
+        item: { id: "item_3", type: "mcp_tool_call", server_label: "kanban", name: "get_issue", arguments: { id: "123" } },
+      }));
       expect(events).toHaveLength(1);
       expect(events[0]!.type).toBe("tool_use");
+      const data = events[0]!.data as { name: string; input: { id: string } };
+      expect(data.name).toBe("mcp__kanban__get_issue");
+      expect(data.input).toEqual({ id: "123" });
     });
 
-    test("item.started with web_search → tool_use", () => {
-      const events = adapter.parseLine(JSON.stringify({ type: "item.started", item: { type: "web_search" } }));
+    test("item.started with web_search → tool_use with WebSearch shape", () => {
+      const events = adapter.parseLine(JSON.stringify({
+        type: "item.started",
+        item: { id: "item_4", type: "web_search", query: "codex cli docs" },
+      }));
       expect(events).toHaveLength(1);
       expect(events[0]!.type).toBe("tool_use");
+      const data = events[0]!.data as { name: string; input: { query: string } };
+      expect(data.name).toBe("WebSearch");
+      expect(data.input.query).toBe("codex cli docs");
     });
 
     test("item.started with agent_message → assistant_message with message.content for UI", () => {
@@ -380,6 +405,19 @@ describe("CodexAdapter", () => {
       expect(events[0]!.type).toBe("assistant_message");
       const data = events[0]!.data as { message?: { content?: unknown[] } };
       expect(data.message?.content).toEqual([]);
+    });
+
+    test("item.started agent_message maps item.text to message.content text block", () => {
+      const events = adapter.parseLine(
+        JSON.stringify({
+          type: "item.started",
+          item: { type: "agent_message", text: "Hello from Codex" },
+        }),
+      );
+      expect(events).toHaveLength(1);
+      expect(events[0]!.type).toBe("assistant_message");
+      const data = events[0]!.data as { message: { content: Array<{ type: string; text: string }> } };
+      expect(data.message.content).toEqual([{ type: "text", text: "Hello from Codex" }]);
     });
 
     test("item.started agent_message maps item.content text blocks to message.content", () => {
@@ -393,6 +431,18 @@ describe("CodexAdapter", () => {
       expect(events[0]!.type).toBe("assistant_message");
       const data = events[0]!.data as { message: { content: Array<{ type: string; text: string }> } };
       expect(data.message.content).toEqual([{ type: "text", text: "Hello from Codex" }]);
+    });
+
+    test("item.started agent_message normalizes output_text to text type", () => {
+      const events = adapter.parseLine(
+        JSON.stringify({
+          type: "item.started",
+          item: { type: "agent_message", content: [{ type: "output_text", text: "Codex output" }] },
+        }),
+      );
+      expect(events).toHaveLength(1);
+      const data = events[0]!.data as { message: { content: Array<{ type: string; text: string }> } };
+      expect(data.message.content).toEqual([{ type: "text", text: "Codex output" }]);
     });
 
     test("item.completed agent_message splits embedded tool_use blocks", () => {
@@ -424,10 +474,17 @@ describe("CodexAdapter", () => {
       expect(events[0]!.type).toBe("system");
     });
 
-    test("item.completed with command_execution → tool_result", () => {
-      const events = adapter.parseLine(JSON.stringify({ type: "item.completed", item: { type: "command_execution" } }));
+    test("item.completed with command_execution → tool_result with output", () => {
+      const events = adapter.parseLine(JSON.stringify({
+        type: "item.completed",
+        item: { id: "item_1", type: "command_execution", command: "ls", aggregated_output: "file1.ts\nfile2.ts\n", exit_code: 0 },
+      }));
       expect(events).toHaveLength(1);
       expect(events[0]!.type).toBe("tool_result");
+      const data = events[0]!.data as { name: string; content: string; tool_use_id: string };
+      expect(data.name).toBe("Bash");
+      expect(data.content).toBe("file1.ts\nfile2.ts\n");
+      expect(data.tool_use_id).toBe("item_1");
     });
 
     test("item.completed with agent_message → assistant_message with message.content for UI", () => {
@@ -436,6 +493,17 @@ describe("CodexAdapter", () => {
       expect(events[0]!.type).toBe("assistant_message");
       const data = events[0]!.data as { message?: { content?: unknown[] } };
       expect(data.message?.content).toEqual([]);
+    });
+
+    test("item.completed with agent_message uses item.text (codex actual format)", () => {
+      const events = adapter.parseLine(JSON.stringify({
+        type: "item.completed",
+        item: { id: "item_5", type: "agent_message", text: "FINAL_VERDICT: APPROVE" },
+      }));
+      expect(events).toHaveLength(1);
+      expect(events[0]!.type).toBe("assistant_message");
+      const data = events[0]!.data as { message: { content: Array<{ type: string; text: string }> } };
+      expect(data.message.content).toEqual([{ type: "text", text: "FINAL_VERDICT: APPROVE" }]);
     });
 
     test("turn.completed → completion + token_usage", () => {

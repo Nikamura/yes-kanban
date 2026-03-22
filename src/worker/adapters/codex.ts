@@ -209,18 +209,27 @@ export class CodexAdapter implements IAgentAdapter {
   private splitCodexAgentMessage(parsed: Record<string, unknown>): AgentEvent[] {
     const item = parsed["item"] as Record<string, unknown> | undefined;
     const content = item?.["content"];
+
+    // Codex uses item.text (string) for agent_message text, not item.content (array).
+    // Normalize to content blocks for the UI's extractContent/extractTextFromEvent.
     if (!Array.isArray(content)) {
-      return [{ type: "assistant_message", data: { ...parsed, message: { content: [] } } }];
+      const text = item?.["text"] as string | undefined;
+      const contentBlocks = text ? [{ type: "text", text }] : [];
+      return [{ type: "assistant_message", data: { ...parsed, message: { content: contentBlocks } } }];
     }
 
     const events: AgentEvent[] = [];
-    const textBlocks = content.filter((b: { type?: string }) => b.type === "text");
+    const textBlocks = content.filter((b: { type?: string }) => b.type === "text" || b.type === "output_text");
     const toolBlocks = content.filter((b: { type?: string }) => b.type === "tool_use");
 
     if (textBlocks.length > 0) {
+      // Normalize output_text blocks to text blocks for the UI
+      const normalized = textBlocks.map((b: { type?: string; text?: string }) =>
+        b.type === "output_text" ? { type: "text", text: b.text } : b,
+      );
       events.push({
         type: "assistant_message",
-        data: { ...parsed, message: { content: textBlocks } },
+        data: { ...parsed, message: { content: normalized } },
       });
     }
 
@@ -244,7 +253,7 @@ export class CodexAdapter implements IAgentAdapter {
     const itemType = item?.["type"] as string | undefined;
 
     if (itemType && TOOL_ITEM_TYPES.has(itemType)) {
-      return [{ type: "tool_use", data: parsed }];
+      return [{ type: "tool_use", data: this.normalizeToolData(item, itemType) }];
     }
     if (itemType === "agent_message") {
       return this.splitCodexAgentMessage(parsed);
@@ -259,13 +268,41 @@ export class CodexAdapter implements IAgentAdapter {
     const item = parsed["item"] as Record<string, unknown> | undefined;
     const itemType = item?.["type"] as string | undefined;
 
-    if (itemType && TOOL_ITEM_TYPES.has(itemType)) {
-      return [{ type: "tool_result", data: parsed }];
+    if (item && itemType && TOOL_ITEM_TYPES.has(itemType)) {
+      const toolData = this.normalizeToolData(item, itemType);
+      // For completed items, add output content for ToolResultLine
+      const output = (item["aggregated_output"] as string | undefined) ?? "";
+      return [{ type: "tool_result", data: { ...toolData, content: output, tool_use_id: item["id"] } }];
     }
     if (itemType === "agent_message") {
       return this.splitCodexAgentMessage(parsed);
     }
     return [{ type: "unknown", data: parsed }];
+  }
+
+  /**
+   * Normalize codex item data to the shape ToolRenderers expect: { name, input, tool_use_id }.
+   */
+  private normalizeToolData(item: Record<string, unknown> | undefined, itemType: string): Record<string, unknown> {
+    if (!item) return { name: itemType };
+    const id = item["id"] as string | undefined;
+
+    if (itemType === "command_execution") {
+      return { name: "Bash", input: { command: item["command"] ?? "", description: "" }, tool_use_id: id };
+    }
+    if (itemType === "file_change") {
+      return { name: "Edit", input: { file_path: item["file_path"] ?? item["filename"] ?? "unknown" }, tool_use_id: id };
+    }
+    if (itemType === "mcp_tool_call") {
+      const serverLabel = item["server_label"] as string | undefined;
+      const toolName = item["name"] as string | undefined;
+      const name = serverLabel && toolName ? `mcp__${serverLabel}__${toolName}` : (toolName ?? "MCP");
+      return { name, input: item["arguments"] ?? item["input"], tool_use_id: id };
+    }
+    if (itemType === "web_search") {
+      return { name: "WebSearch", input: { query: item["query"] ?? "" }, tool_use_id: id };
+    }
+    return { name: itemType, tool_use_id: id };
   }
 
   extractTokenUsage(events: AgentEvent[]): TokenUsage | null {
