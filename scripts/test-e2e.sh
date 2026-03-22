@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Run unit tests first
+echo "[test] Running unit tests..."
+bun test --max-concurrency=1 src/
+
 # E2E test runner with isolated Convex instance and Vite port.
 # Safe to run in parallel across multiple worktrees — each instance
 # gets unique ports and a unique Docker Compose project name derived

@@ -14,6 +14,23 @@ import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync, a
 import { unlink } from "fs/promises";
 import { basename, dirname, join, resolve } from "path";
 
+/** Clamp object nesting depth to avoid Convex's 16-level document limit. */
+function clampDepth(value: unknown, maxDepth: number, depth = 0): unknown {
+  if (value === null || value === undefined) return value;
+  if (typeof value !== "object") return value;
+  if (depth >= maxDepth) {
+    try { return JSON.stringify(value); } catch { return "[too deep]"; }
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => clampDepth(item, maxDepth, depth + 1));
+  }
+  const result: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    result[k] = clampDepth(v, maxDepth, depth + 1);
+  }
+  return result;
+}
+
 const ATTACHMENTS_DIR = ".yes-kanban-attachments";
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -1426,7 +1443,7 @@ export async function runAgent(
           workspaceId,
           stream,
           line,
-          structured: events[0] ?? null,
+          structured: clampDepth(events[0] ?? null, 8) as AgentEvent | null,
           timestamp: Date.now(),
         });
       } else {
@@ -1438,7 +1455,7 @@ export async function runAgent(
           workspaceId,
           stream,
           line,
-          structured: events[0] ?? null,
+          structured: clampDepth(events[0] ?? null, 8) as AgentEvent | null,
           timestamp: ts,
         });
         for (let i = 1; i < events.length; i++) {
@@ -1447,7 +1464,7 @@ export async function runAgent(
             workspaceId,
             stream,
             line: "",
-            structured: events[i] ?? null,
+            structured: clampDepth(events[i] ?? null, 8) as AgentEvent | null,
             timestamp: ts + i, // offset to preserve ordering
           });
         }

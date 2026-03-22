@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { ensureBoardWithIssue } from "./helpers";
+import { ensureBoardWithIssue, seedProjectWithIssue } from "./helpers";
 
 test.describe("List View", () => {
   test("shows list view with table headers", async ({ page }) => {
@@ -15,10 +15,11 @@ test.describe("List View", () => {
   });
 
   test("can search issues in list view", async ({ page }) => {
-    await ensureBoardWithIssue(page);
+    const { slug } = await seedProjectWithIssue();
+    await page.goto(`/#/${slug}/list`);
 
-    await page.getByRole("button", { name: "List" }).click();
     await expect(page.getByRole("table")).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Implement user authentication" })).toBeVisible();
 
     // Search for the seed issue
     await page.getByPlaceholder("Search issues...").fill("authentication");
@@ -30,10 +31,11 @@ test.describe("List View", () => {
   });
 
   test("can filter by priority in list view", async ({ page }) => {
-    await ensureBoardWithIssue(page);
+    const { slug } = await seedProjectWithIssue();
+    await page.goto(`/#/${slug}/list`);
 
-    await page.getByRole("button", { name: "List" }).click();
     await expect(page.getByRole("table")).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Implement user authentication" })).toBeVisible();
 
     // Filter by high priority
     await page.locator(".list-filters select").nth(1).selectOption("high");

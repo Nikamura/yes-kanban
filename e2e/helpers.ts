@@ -79,6 +79,35 @@ export async function seedWorkspaceWithPendingQuestion(): Promise<{
 }
 
 /**
+ * Seed a project with a known issue via the Convex API.
+ * Returns the slug so tests can navigate directly to the correct project.
+ */
+export async function seedProjectWithIssue(): Promise<{ slug: string }> {
+  const client = new ConvexHttpClient(getE2eConvexUrl(), {
+    skipConvexDeploymentUrlCheck: true,
+  });
+  const suffix = Date.now();
+  const slug = `e2e-list-${suffix}`;
+
+  const projectId = await client.mutation(api.projects.create, {
+    name: `E2E List ${suffix}`,
+    slug,
+    simpleIdPrefix: "LST",
+  });
+
+  await client.mutation(api.issues.create, {
+    projectId,
+    title: "Implement user authentication",
+    description: "Add login/logout flow",
+    status: "To Do",
+    priority: "high",
+    tags: ["backend", "auth"],
+  });
+
+  return { slug };
+}
+
+/**
  * Ensure a project exists on the board with at least one issue.
  * Creates them if the DB is fresh (isolated test instance).
  */
