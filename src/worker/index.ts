@@ -1,6 +1,6 @@
 import { ConvexClient } from "convex/browser";
 import { api } from "../../convex/_generated/api";
-import { runLifecycle, executeRebase, executeCreatePR, executeLocalMerge } from "./lifecycle";
+import { runLifecycle, executeRebase, executeCreatePR, executeLocalMerge, performLocalMerge } from "./lifecycle";
 import { GitWorktreeManager } from "./worktree-manager";
 import { AgentExecutor } from "./agent-executor";
 import type { WorkerConfig } from "./types";
@@ -240,32 +240,75 @@ async function main() {
         }
 
         if (ws.status === "merging") {
-          const wt = ws.worktrees[0];
-          console.log(`[worker] performing local merge for workspace=${ws._id} branch=${wt?.branchName} into=${wt?.baseBranch}`);
-          const result = executeLocalMerge(ws.worktrees);
-          if (result.success) {
-            await convex.mutation(api.workspaces.updateStatus, {
-              id: ws._id, status: "merged", completedAt: Date.now(),
-            });
-            console.log(`[worker] local merge succeeded for workspace=${ws._id}`);
+          if (activeAbortControllers.has(ws._id)) continue; // already being processed
 
-            // Clean up worktrees immediately after merge
-            try {
-              const repos = await convex.query(api.repos.list, { projectId: ws.projectId });
-              const worktreeManager = new GitWorktreeManager(config.worktreeRoot);
-              await worktreeManager.removeWorktrees({ worktrees: ws.worktrees, repos });
-              await convex.mutation(api.workspaces.clearWorktrees, { id: ws._id });
-              await convex.mutation(api.fileContentRequests.deleteByWorkspace, { workspaceId: ws._id });
-              console.log(`[worker] worktrees cleaned up for workspace=${ws._id}`);
-            } catch (cleanupErr) {
-              console.error(`[worker] worktree cleanup failed for workspace=${ws._id}:`, cleanupErr);
-            }
-          } else {
-            await convex.mutation(api.workspaces.updateStatus, {
-              id: ws._id, status: "merge_failed", lastError: result.error,
-            });
-            console.error(`[worker] local merge failed for workspace=${ws._id} branch=${wt?.branchName}: ${result.error}`);
+          console.log(`[worker] rebasing before local merge for workspace=${ws._id}`);
+          activeCount++;
+          const abortController = new AbortController();
+          activeAbortControllers.set(ws._id, abortController);
+
+          const agentConfig = await convex.query(api.agentConfigs.get, { id: ws.agentConfigId });
+          if (!agentConfig) {
+            console.error(`[worker] no agent config for workspace=${ws._id}`);
+            activeCount--;
+            activeAbortControllers.delete(ws._id);
+            continue;
           }
+
+          const rebaseTpl = await convex.query(api.promptTemplates.resolve, {
+            projectId: ws.projectId,
+            type: "rebase",
+          });
+          const executor = new AgentExecutor();
+          executeRebase(convex, config, executor, ws._id, agentConfig, ws.worktrees, abortController.signal, rebaseTpl?.content)
+            .then(async (rebaseResult) => {
+              if (abortController.signal.aborted) return;
+              if (rebaseResult === "conflict") {
+                await convex.mutation(api.workspaces.updateStatus, {
+                  id: ws._id, status: "merge_failed",
+                });
+                console.error(`[worker] rebase before merge failed (conflict) for workspace=${ws._id}`);
+                return;
+              }
+
+              // Rebase succeeded — perform ff-only merge
+              console.log(`[worker] performing local merge (ff-only) for workspace=${ws._id}`);
+              const mergeResult = performLocalMerge(ws.worktrees);
+              if (mergeResult.success) {
+                await convex.mutation(api.workspaces.updateStatus, {
+                  id: ws._id, status: "merged", completedAt: Date.now(),
+                });
+                console.log(`[worker] local merge succeeded for workspace=${ws._id}`);
+
+                // Clean up worktrees immediately after merge
+                try {
+                  const repos = await convex.query(api.repos.list, { projectId: ws.projectId });
+                  const worktreeManager = new GitWorktreeManager(config.worktreeRoot);
+                  await worktreeManager.removeWorktrees({ worktrees: ws.worktrees, repos });
+                  await convex.mutation(api.workspaces.clearWorktrees, { id: ws._id });
+                  await convex.mutation(api.fileContentRequests.deleteByWorkspace, { workspaceId: ws._id });
+                  console.log(`[worker] worktrees cleaned up for workspace=${ws._id}`);
+                } catch (cleanupErr) {
+                  console.error(`[worker] worktree cleanup failed for workspace=${ws._id}:`, cleanupErr);
+                }
+              } else {
+                await convex.mutation(api.workspaces.updateStatus, {
+                  id: ws._id, status: "merge_failed",
+                });
+                console.error(`[worker] local merge failed for workspace=${ws._id}: ${mergeResult.error}`);
+              }
+            })
+            .catch(async (err: unknown) => {
+              if (abortController.signal.aborted) return;
+              console.error(`[worker] rebase+merge error for workspace=${ws._id}:`, err);
+              await convex.mutation(api.workspaces.updateStatus, {
+                id: ws._id, status: "merge_failed",
+              }).catch(() => {});
+            })
+            .finally(() => {
+              activeCount--;
+              activeAbortControllers.delete(ws._id);
+            });
         }
       }
     } catch (err) {
