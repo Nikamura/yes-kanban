@@ -65,9 +65,8 @@ bun run dev:worker
 |---|---|
 | `bun run dev` | Convex backend + Vite dev server |
 | `bun run dev:worker` | Worker process (watches for changes) |
-| `bun test` | Unit tests |
-| `bun run test:e2e` | Playwright E2E tests |
-| `bun run test:e2e:isolated` | E2E tests against isolated Convex (Docker) |
+| `bun run test` | Unit + E2E tests (isolated Convex via Docker) |
+| `bun run test -- --file src/worker/foo.test.ts` | Run a single unit test file + E2E |
 | `bun run typecheck` | TypeScript type checking |
 | `bun run lint` | ESLint |
 

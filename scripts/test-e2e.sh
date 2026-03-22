@@ -1,9 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Optional: run only a specific unit test file
+# Usage: ./scripts/test-e2e.sh [--file src/worker/lifecycle.test.ts]
+UNIT_FILE=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --file) UNIT_FILE="$2"; shift 2 ;;
+    *) break ;;
+  esac
+done
+
 # Run unit tests first
 echo "[test] Running unit tests..."
-bun test --max-concurrency=1 src/
+if [ -n "$UNIT_FILE" ]; then
+  bun test --max-concurrency=1 "$UNIT_FILE"
+else
+  bun test --max-concurrency=1 src/
+fi
 
 # E2E test runner with isolated Convex instance and Vite port.
 # Safe to run in parallel across multiple worktrees — each instance
