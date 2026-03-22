@@ -1058,7 +1058,7 @@ export async function runLifecycle(
     } catch { /* best-effort */ }
   }
 
-  // 5. Local merge (if configured on column or issue) — rebase first, then ff-only merge
+  // 5. Local merge (if configured on column or issue) — rebase first, then squash merge
   if (shouldLocalMerge(column, issue)) {
     // Rebase onto base branch, using agent for conflict resolution if needed
     console.log(`[lifecycle] workspace=${workspaceId} rebasing before local merge`);
@@ -1081,7 +1081,7 @@ export async function runLifecycle(
       return;
     }
 
-    console.log(`[lifecycle] workspace=${workspaceId} performing local merge (ff-only)`);
+    console.log(`[lifecycle] workspace=${workspaceId} performing local squash merge`);
     const mergeResult = performLocalMerge(worktrees);
     if (!mergeResult.success) {
       console.error(`[lifecycle] workspace=${workspaceId} local merge failed: ${mergeResult.error}`);
@@ -1950,22 +1950,21 @@ export async function executeRebase(
 }
 
 /**
- * Merge feature branches into their base branches locally.
- * When ffOnly is true (default), only fast-forward merges are allowed (expected after rebase).
- * When ffOnly is false, falls back to a merge commit for diverged branches.
+ * Squash-merges feature branches into their base branches, producing a single commit per branch.
  */
-export function performLocalMerge(worktrees: WorktreeEntry[], ffOnly = true): { success: boolean; error?: string } {
+export function performLocalMerge(worktrees: WorktreeEntry[]): { success: boolean; error?: string } {
   for (const wt of worktrees) {
     const env = cleanGitEnv();
+    const repo = wt.repoPath;
 
     // Clean up any broken merge/rebase state in the main repo before checkout
-    Bun.spawnSync(["git", "-C", wt.repoPath, "merge", "--abort"], { timeout: 5000, env });
-    Bun.spawnSync(["git", "-C", wt.repoPath, "rebase", "--abort"], { timeout: 5000, env });
-    Bun.spawnSync(["git", "-C", wt.repoPath, "reset", "--hard", "HEAD"], { timeout: 5000, env });
+    Bun.spawnSync(["git", "-C", repo, "merge", "--abort"], { timeout: 5000, env });
+    Bun.spawnSync(["git", "-C", repo, "rebase", "--abort"], { timeout: 5000, env });
+    Bun.spawnSync(["git", "-C", repo, "reset", "--hard", "HEAD"], { timeout: 5000, env });
 
     // Checkout base branch in the main repo
     const checkout = Bun.spawnSync(
-      ["git", "-C", wt.repoPath, "checkout", wt.baseBranch],
+      ["git", "-C", repo, "checkout", wt.baseBranch],
       { timeout: 30000, env },
     );
     if (checkout.exitCode !== 0) {
@@ -1973,53 +1972,69 @@ export function performLocalMerge(worktrees: WorktreeEntry[], ffOnly = true): { 
       return { success: false, error: `checkout ${wt.baseBranch} failed: ${err}` };
     }
 
-    // Try fast-forward first; fall back to merge commit only if not ff-only mode
-    const ffMerge = Bun.spawnSync(
-      ["git", "-C", wt.repoPath, "merge", "--ff-only", wt.branchName],
+    const squashMerge = Bun.spawnSync(
+      ["git", "-C", repo, "merge", "--squash", wt.branchName],
       { timeout: 30000, env },
     );
-    if (ffMerge.exitCode !== 0) {
-      // Check if the branch is already merged (idempotency for restart after
-      // successful merge but before status update). The branch tip being an
-      // ancestor of HEAD means the merge already happened.
-      const alreadyMerged = Bun.spawnSync(
-        ["git", "-C", wt.repoPath, "merge-base", "--is-ancestor", wt.branchName, "HEAD"],
-        { timeout: 10000, env },
-      );
-      if (alreadyMerged.exitCode === 0) {
-        // Branch is already merged into base — treat as success
-        continue;
-      }
+    if (squashMerge.exitCode !== 0) {
+      Bun.spawnSync(["git", "-C", repo, "reset", "--hard", "HEAD"], { timeout: 5000, env });
+      const err =
+        squashMerge.stderr.toString().trim() ||
+        squashMerge.stdout.toString().trim() ||
+        "(no output)";
+      return { success: false, error: `squash merge failed: ${err}` };
+    }
 
-      // Log divergence info for debugging
-      const behindCount = Bun.spawnSync(
-        ["git", "-C", wt.repoPath, "rev-list", "--count", `${wt.branchName}..${wt.baseBranch}`],
-        { timeout: 5000, env },
-      );
-      const aheadCount = Bun.spawnSync(
-        ["git", "-C", wt.repoPath, "rev-list", "--count", `${wt.baseBranch}..${wt.branchName}`],
-        { timeout: 5000, env },
-      );
-      const behind = behindCount.stdout.toString().trim();
-      const ahead = aheadCount.stdout.toString().trim();
-      console.log(`[lifecycle] merge: ${wt.branchName} is ${ahead} ahead, ${behind} behind ${wt.baseBranch}`);
+    const cachedQuiet = Bun.spawnSync(
+      ["git", "-C", repo, "diff", "--cached", "--quiet"],
+      { timeout: 10000, env },
+    );
+    // Exit 0 means no staged changes (empty branch, already applied, or idempotent retry).
+    if (cachedQuiet.exitCode === 0) {
+      continue;
+    }
 
-      if (ffOnly) {
-        const err = ffMerge.stderr.toString().trim();
-        return { success: false, error: `ff-only merge failed (${ahead} ahead, ${behind} behind): ${err}` };
-      }
-      const merge = Bun.spawnSync(
-        ["git", "-C", wt.repoPath, "merge", "--no-edit", wt.branchName],
-        { timeout: 30000, env },
-      );
-      if (merge.exitCode !== 0) {
-        // Abort any in-progress merge
-        Bun.spawnSync(["git", "-C", wt.repoPath, "merge", "--abort"], { timeout: 10000, env });
-        const stderr = merge.stderr.toString().trim();
-        const stdout = merge.stdout.toString().trim();
-        const err = stderr || stdout || "(no output)";
-        return { success: false, error: `merge failed (${ahead} ahead, ${behind} behind): ${err}` };
-      }
+    const logRange = `${wt.baseBranch}..${wt.branchName}`;
+    const logResult = Bun.spawnSync(
+      ["git", "-C", repo, "log", logRange, "--reverse", "--pretty=format:%s"],
+      { timeout: 10000, env },
+    );
+    if (logResult.exitCode !== 0) {
+      Bun.spawnSync(["git", "-C", repo, "reset", "--hard", "HEAD"], { timeout: 5000, env });
+      return { success: false, error: "failed to collect commit messages" };
+    }
+    const logOut = logResult.stdout.toString().trim();
+    if (!logOut) {
+      Bun.spawnSync(["git", "-C", repo, "reset", "--hard", "HEAD"], { timeout: 5000, env });
+      return { success: false, error: "failed to collect commit messages" };
+    }
+    const subjects = logOut.split("\n").filter((s) => s.length > 0);
+    if (subjects.length === 0) {
+      Bun.spawnSync(["git", "-C", repo, "reset", "--hard", "HEAD"], { timeout: 5000, env });
+      return { success: false, error: "failed to collect commit messages" };
+    }
+
+    const [firstSubject, ...otherSubjects] = subjects;
+    if (firstSubject === undefined) {
+      Bun.spawnSync(["git", "-C", repo, "reset", "--hard", "HEAD"], { timeout: 5000, env });
+      return { success: false, error: "failed to collect commit messages" };
+    }
+    const message =
+      otherSubjects.length === 0
+        ? firstSubject
+        : `${firstSubject}\n\n${otherSubjects.join("\n")}`;
+
+    const commitResult = Bun.spawnSync(
+      ["git", "-C", repo, "commit", "-m", message],
+      { timeout: 30000, env },
+    );
+    if (commitResult.exitCode !== 0) {
+      Bun.spawnSync(["git", "-C", repo, "reset", "--hard", "HEAD"], { timeout: 5000, env });
+      const err =
+        commitResult.stderr.toString().trim() ||
+        commitResult.stdout.toString().trim() ||
+        "(no output)";
+      return { success: false, error: `commit failed: ${err}` };
     }
 
     // Branch deletion is handled by removeWorktrees — can't delete here

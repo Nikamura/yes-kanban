@@ -1358,7 +1358,7 @@ A workspace progresses through a defined lifecycle from branch creation to merge
 6. **Reviewing** — A fresh agent run reviews the diff with clean context. The review agent checks for bugs, style issues, missing tests, and potential problems. If it requests changes, the coding agent is re-dispatched with the review feedback (up to maxReviewCycles).
 7. **Completed** — Work is done. The user can now take manual actions from the UI:
    - **Create PR** — Pushes the branch and creates a pull request via the forge adapter (`creating_pr` → `pr_open`).
-   - **Local Merge** — Merges the branch locally into the base branch via `git merge --ff-only` (`merging` → `merged`). No forge/remote required.
+   - **Local Merge** — Squash-merges the branch into the base branch (`git merge --squash` then a single commit; `merging` → `merged`). No merge commit and no forge/remote required.
    - **Rebase** — Rebases the branch onto the latest base branch (`rebasing` → `completed`). Available when the branch is behind main.
    - **New Experiment** — Discards all changes, resets branches, increments experiment number, and re-enters coding with the same plan. Allows iterating on implementation without re-planning.
 
@@ -1468,7 +1468,7 @@ What happens next depends on the column's `mergePolicy`:
 
 - **`auto_merge`** — The worker monitors the PR status. Once CI passes and the PR is mergeable, it merges automatically (using `gh pr merge --auto` or equivalent). After merge, the workspace advances to `merged`.
 - **`manual_merge`** — The workspace stays in `pr_open`. The user reviews the PR and merges manually. The worker periodically checks PR status and advances to `merged` when it detects the PR was merged.
-- **`local_merge`** — Skips PR creation entirely. The feature branch is merged directly into the base branch locally using `git merge --ff-only`. This requires the branch to be rebased first (ff-only refuses otherwise). After merge, the feature branch is deleted and the workspace advances to `merged`. Enables fully offline operation without any forge tooling.
+- **`local_merge`** — Skips PR creation entirely. After rebasing onto the base branch, the worker squash-merges the feature branch into the base with `git merge --squash` and one commit (subjects from the feature commits become the squashed message). After merge, the feature branch is deleted and the workspace advances to `merged`. Enables fully offline operation without any forge tooling.
 
 ### 11.8 Merged Stage
 
@@ -2319,7 +2319,7 @@ A conforming implementation should include tests that cover the behaviors define
 - PR creation pushes branch and creates PR via forge adapter.
 - Auto-merge enabled when column `mergePolicy` is `auto_merge`.
 - Manual merge waits for user action when `mergePolicy` is `manual_merge`.
-- Local merge (`local_merge`) merges feature branch into base locally via `git merge --ff-only`, skipping PR creation. Enables fully offline workflow.
+- Local merge (`local_merge`) squash-merges the feature branch into the base locally (`git merge --squash` plus one commit), skipping PR creation. Enables fully offline workflow.
 - Merged status moves issue to Done column.
 - Worktree cleanup after configurable delay post-merge.
 - Column lifecycle config (mergePolicy, skipReview, skipTests) respected.
@@ -2423,7 +2423,7 @@ A conforming implementation must complete all items below.
 - Column-level lifecycle config (mergePolicy, skipReview, skipTests).
 - Auto-merge via forge adapter when configured.
 - Manual merge detection (periodic PR status polling).
-- Local merge via `git merge --ff-only` for offline workflows (no forge/PR required).
+- Local merge via squash merge (`git merge --squash` and a single commit) for offline workflows (no forge/PR required).
 - Post-merge issue status update and delayed worktree cleanup.
 - Review agent configurable separately from coding agent.
 

@@ -272,8 +272,8 @@ async function main() {
                 return;
               }
 
-              // Rebase succeeded — perform ff-only merge
-              console.log(`[worker] performing local merge (ff-only) for workspace=${ws._id}`);
+              // Rebase succeeded — perform squash merge
+              console.log(`[worker] performing local squash merge for workspace=${ws._id}`);
               const mergeResult = performLocalMerge(ws.worktrees);
               if (mergeResult.success) {
                 await convex.mutation(api.workspaces.updateStatus, {

@@ -262,36 +262,49 @@ describe("GitWorktreeManager", () => {
       repos: [{ _id: "r1", path: repoDir, slug: "repo", defaultBranch: "main", scriptTimeoutMs: 10000 } as any],
     });
 
-    // Make a commit in the worktree so there's something to merge
+    const initialMainCount = parseInt(
+      git("-C", repoDir, "rev-list", "--count", "main").stdout.toString().trim(),
+      10,
+    );
+
     const wtPath = worktrees[0]!.worktreePath;
     await Bun.write(join(wtPath, "feature.txt"), "new feature");
     git("-C", wtPath, "add", ".");
-    git("-C", wtPath, "commit", "-m", "add feature");
+    git("-C", wtPath, "commit", "-m", "first change");
 
-    // Perform the local merge (merges into main)
+    await Bun.write(join(wtPath, "feature2.txt"), "more");
+    git("-C", wtPath, "add", ".");
+    git("-C", wtPath, "commit", "-m", "second change");
+
     const mergeResult = performLocalMerge(worktrees);
     expect(mergeResult.success).toBe(true);
 
-    // Worktree directory should still exist after merge
+    const finalMainCount = parseInt(
+      git("-C", repoDir, "rev-list", "--count", "main").stdout.toString().trim(),
+      10,
+    );
+    expect(finalMainCount).toBe(initialMainCount + 1);
+
+    const parents = git("-C", repoDir, "log", "-1", "--format=%P", "main").stdout.toString().trim();
+    expect(parents.split(/\s+/).filter(Boolean).length).toBe(1);
+
+    const subject = git("-C", repoDir, "log", "-1", "--format=%s", "main").stdout.toString().trim();
+    expect(subject).toBe("first change");
+    const body = git("-C", repoDir, "log", "-1", "--format=%b", "main").stdout.toString();
+    expect(body).toContain("second change");
+
     expect(existsSync(wtPath)).toBe(true);
 
-    // Now clean up worktrees — this is what should happen immediately after merge
     await manager.removeWorktrees({
       worktrees,
       repos: [{ _id: "r1", path: repoDir, scriptTimeoutMs: 10000 } as any],
     });
 
-    // Verify worktree is gone from git
     const checkWt = git("-C", repoDir, "worktree", "list");
     const wtOutput = checkWt.stdout.toString();
     expect(wtOutput).not.toContain("TASK-7");
 
-    // Verify worktree directory is removed
     expect(existsSync(wtPath)).toBe(false);
-
-    // Verify the feature was merged into main
-    const log = git("-C", repoDir, "log", "--oneline", "main");
-    expect(log.stdout.toString()).toContain("add feature");
   });
 
   test("resumes when branch is checked out in a different worktree path", async () => {
@@ -337,25 +350,63 @@ describe("GitWorktreeManager", () => {
       repos: [{ _id: "r1", path: repoDir, slug: "repo", defaultBranch: "main", scriptTimeoutMs: 10000 } as any],
     });
 
-    // Make a commit so branch diverges
+    const initialMainCount = parseInt(
+      git("-C", repoDir, "rev-list", "--count", "main").stdout.toString().trim(),
+      10,
+    );
+
     const wtPath = worktrees[0]!.worktreePath;
     await Bun.write(join(wtPath, "stuff.txt"), "content");
     git("-C", wtPath, "add", ".");
-    git("-C", wtPath, "commit", "-m", "add stuff");
+    git("-C", wtPath, "commit", "-m", "first change");
 
-    // Merge into main
+    await Bun.write(join(wtPath, "stuff2.txt"), "more");
+    git("-C", wtPath, "add", ".");
+    git("-C", wtPath, "commit", "-m", "second change");
+
     const mergeResult = performLocalMerge(worktrees);
     expect(mergeResult.success).toBe(true);
 
-    // Remove worktrees
+    const finalMainCount = parseInt(
+      git("-C", repoDir, "rev-list", "--count", "main").stdout.toString().trim(),
+      10,
+    );
+    expect(finalMainCount).toBe(initialMainCount + 1);
+
+    const parents = git("-C", repoDir, "log", "-1", "--format=%P", "main").stdout.toString().trim();
+    expect(parents.split(/\s+/).filter(Boolean).length).toBe(1);
+
     await manager.removeWorktrees({
       worktrees,
       repos: [{ _id: "r1", path: repoDir, scriptTimeoutMs: 10000 } as any],
     });
 
-    // Verify the feature branch was cleaned up
     const branches = git("-C", repoDir, "branch");
     expect(branches.stdout.toString()).not.toContain("TASK-8");
+  });
+
+  test("squash merge is idempotent on retry", async () => {
+    const manager = new GitWorktreeManager(worktreeRoot);
+    const { worktrees } = await manager.createWorktrees({
+      workspaceId: "ws-squash-idem",
+      simpleId: "TASK-IDEM",
+      repos: [{ _id: "r1", path: repoDir, slug: "repo", defaultBranch: "main", scriptTimeoutMs: 10000 } as any],
+    });
+
+    const wtPath = worktrees[0]!.worktreePath;
+    await Bun.write(join(wtPath, "idem-a.txt"), "a");
+    git("-C", wtPath, "add", ".");
+    git("-C", wtPath, "commit", "-m", "first change");
+
+    await Bun.write(join(wtPath, "idem-b.txt"), "b");
+    git("-C", wtPath, "add", ".");
+    git("-C", wtPath, "commit", "-m", "second change");
+
+    const first = performLocalMerge(worktrees);
+    expect(first.success).toBe(true);
+
+    const second = performLocalMerge(worktrees);
+    expect(second.success).toBe(true);
   });
 
   test("getFileTree returns tracked files", async () => {
