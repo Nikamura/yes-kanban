@@ -1,3 +1,14 @@
+const DESC_PREVIEW_LEN = 80;
+
+function truncateForHistory(s: string, maxLen = DESC_PREVIEW_LEN): string {
+  if (s.length <= maxLen) return s;
+  return `${s.slice(0, maxLen)}…`;
+}
+
+function quoteDisplay(s: string): string {
+  return `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
 export function formatHistoryEntry(entry: {
   action: string;
   field: string;
@@ -45,11 +56,40 @@ export function formatHistoryEntry(entry: {
   }
 
   if (entry.field === "title") {
-    return `Title changed`;
+    const oldStr = oldVal !== undefined && oldVal !== null ? String(oldVal) : undefined;
+    const newStr = newVal !== undefined && newVal !== null ? String(newVal) : "";
+    if (oldStr === undefined) return `Title set to ${quoteDisplay(newStr)}`;
+    return `Title changed from ${quoteDisplay(oldStr)} → ${quoteDisplay(newStr)}`;
   }
 
   if (entry.field === "description") {
-    return `Description updated`;
+    const oldStr = oldVal !== undefined && oldVal !== null ? String(oldVal) : "";
+    const newStr = newVal !== undefined && newVal !== null ? String(newVal) : "";
+    return `Description updated (was: ${quoteDisplay(truncateForHistory(oldStr))} → ${quoteDisplay(truncateForHistory(newStr))})`;
+  }
+
+  if (entry.field === "comment") {
+    const detail = newVal as { action?: string; author?: string; body?: string } | null;
+    if (detail && typeof detail === "object" && detail.action) {
+      const body = truncateForHistory(detail.body ?? "");
+      if (detail.action === "add") {
+        const by = detail.author ? ` by ${detail.author}` : "";
+        return `Comment added${by}: ${quoteDisplay(body)}`;
+      }
+      if (detail.action === "remove") {
+        return `Comment removed: ${quoteDisplay(body)}`;
+      }
+    }
+    return "Comment updated";
+  }
+
+  if (entry.field === "attachment") {
+    const detail = newVal as { action?: string; filename?: string } | null;
+    if (detail && typeof detail === "object" && detail.action && detail.filename) {
+      if (detail.action === "add") return `Attachment added: ${quoteDisplay(detail.filename)}`;
+      if (detail.action === "remove") return `Attachment removed: ${quoteDisplay(detail.filename)}`;
+    }
+    return "Attachment updated";
   }
 
   if (entry.field === "checklist") {
@@ -82,6 +122,24 @@ export function formatHistoryEntry(entry: {
     const dateStr = new Date(newVal as number).toLocaleDateString();
     if (oldVal === undefined || oldVal === null) return `Due date set to ${dateStr}`;
     return `Due date changed to ${dateStr}`;
+  }
+
+  if (entry.field === "deepResearch") {
+    if (newVal === true) return "Deep research enabled";
+    if (newVal === false) return "Deep research disabled";
+  }
+
+  if (entry.field === "autoMerge") {
+    if (newVal === true) return "Auto merge enabled";
+    if (newVal === false) return "Auto merge disabled";
+  }
+
+  if (entry.field === "color") {
+    const oldEmpty = oldVal === undefined || oldVal === null || oldVal === "";
+    const newEmpty = newVal === undefined || newVal === null || newVal === "";
+    if (newEmpty && !oldEmpty) return "Color removed";
+    if (!newEmpty && oldEmpty) return `Color set to ${String(newVal)}`;
+    if (!newEmpty && !oldEmpty) return `Color changed from ${String(oldVal)} → ${String(newVal)}`;
   }
 
   return `${entry.field} updated`;

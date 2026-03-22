@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { recordHistory } from "./issueHistory";
 
 export const list = query({
   args: { issueId: v.id("issues") },
@@ -33,10 +34,22 @@ export const create = mutation({
     size: v.number(),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("attachments", {
+    const attachmentId = await ctx.db.insert("attachments", {
       ...args,
       createdAt: Date.now(),
     });
+    const issue = await ctx.db.get(args.issueId);
+    if (issue) {
+      await recordHistory(ctx, {
+        issueId: args.issueId,
+        projectId: issue.projectId,
+        action: "updated",
+        field: "attachment",
+        newValue: JSON.stringify({ action: "add", filename: args.filename }),
+        actor: "user",
+      });
+    }
+    return attachmentId;
   },
 });
 
@@ -44,9 +57,19 @@ export const remove = mutation({
   args: { id: v.id("attachments") },
   handler: async (ctx, args) => {
     const attachment = await ctx.db.get(args.id);
-    if (attachment) {
-      await ctx.storage.delete(attachment.storageId);
-      await ctx.db.delete(args.id);
+    if (!attachment) return;
+    const issue = await ctx.db.get(attachment.issueId);
+    if (issue) {
+      await recordHistory(ctx, {
+        issueId: attachment.issueId,
+        projectId: issue.projectId,
+        action: "updated",
+        field: "attachment",
+        newValue: JSON.stringify({ action: "remove", filename: attachment.filename }),
+        actor: "user",
+      });
     }
+    await ctx.storage.delete(attachment.storageId);
+    await ctx.db.delete(args.id);
   },
 });
