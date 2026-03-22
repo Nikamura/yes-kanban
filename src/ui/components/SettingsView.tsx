@@ -778,9 +778,9 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                       beforeRunScript: repo.beforeRunScript ?? "",
                       afterRunScript: repo.afterRunScript ?? "",
                       cleanupScript: repo.cleanupScript ?? "",
-                      scriptTimeoutMs: String(repo.scriptTimeoutMs),
+                      scriptTimeoutMs: repo.scriptTimeoutMs != null ? String(repo.scriptTimeoutMs) : "",
                       testCommand: repo.testCommand ?? "",
-                      testTimeoutMs: String(repo.testTimeoutMs),
+                      testTimeoutMs: repo.testTimeoutMs != null ? String(repo.testTimeoutMs) : "",
                     });
                   }}
                 >
@@ -985,7 +985,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                 {(ac.allowedToolPatterns ?? []).length > 0 && (
                   <div className="allowed-tools-list">
                     <span className="allowed-tools-label">Auto-approved:</span>
-                    {(ac.allowedToolPatterns ?? []).map((pattern) => (
+                    {ac.allowedToolPatterns!.map((pattern) => (
                       <span key={pattern} className="allowed-tool-chip">
                         {pattern}
                         <button
