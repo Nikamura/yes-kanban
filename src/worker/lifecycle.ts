@@ -1399,9 +1399,7 @@ export async function runAgent(
     } catch { /* non-critical cleanup */ }
   }
   // Clean up temporary CODEX_HOME if the adapter supports it
-  if ("cleanupCodexHome" in adapter && typeof adapter.cleanupCodexHome === "function") {
-    adapter.cleanupCodexHome(cmd.env);
-  }
+  adapter.cleanupCodexHome?.(cmd.env);
   await flushLogs();
 
   const status = result.exitCode === 0 ? "succeeded"

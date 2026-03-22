@@ -325,6 +325,11 @@ describe("CodexAdapter", () => {
         expect(() => buildWithMcp()).toThrow("Missing or invalid 'mcpServers'");
       });
 
+      test("throws when mcpServers is an array", () => {
+        writeFileSync(tempConfigPath, JSON.stringify({ mcpServers: [] }));
+        expect(() => buildWithMcp()).toThrow("Missing or invalid 'mcpServers'");
+      });
+
       test("does not add enabled_tools for non-MCP allowed tools", () => {
         const mcpConfig = {
           mcpServers: {

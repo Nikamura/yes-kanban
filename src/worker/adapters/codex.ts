@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { readFileSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import type { IAgentAdapter, AgentEvent, TokenUsage } from "../types";
@@ -148,12 +149,12 @@ export class CodexAdapter implements IAgentAdapter {
     try {
       const jsonContent = readFileSync(mcpConfigPath, "utf-8");
       const mcpConfig = JSON.parse(jsonContent);
-      if (!mcpConfig.mcpServers || typeof mcpConfig.mcpServers !== "object") {
+      if (!mcpConfig.mcpServers || typeof mcpConfig.mcpServers !== "object" || Array.isArray(mcpConfig.mcpServers)) {
         throw new Error("Missing or invalid 'mcpServers' key in MCP config");
       }
       const toml = mcpJsonToToml(mcpConfig, allowedTools);
 
-      const codexHome = `/tmp/yes-kanban-codex-home-${hashPath(mcpConfigPath)}-${process.pid}`;
+      const codexHome = `/tmp/yes-kanban-codex-home-${randomUUID()}`;
       mkdirSync(codexHome, { recursive: true });
       writeFileSync(`${codexHome}/config.toml`, toml);
       return codexHome;
@@ -270,13 +271,4 @@ export class CodexAdapter implements IAgentAdapter {
     }
     return null;
   }
-}
-
-/** Simple hash for generating unique temp directory names from workspace paths. */
-function hashPath(path: string): string {
-  let hash = 0;
-  for (let i = 0; i < path.length; i++) {
-    hash = ((hash << 5) - hash + path.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash).toString(36);
 }
