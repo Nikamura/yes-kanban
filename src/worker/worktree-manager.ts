@@ -29,6 +29,8 @@ export function cleanGitEnv(): Record<string, string | undefined> {
   delete env["GIT_DIR"];
   delete env["GIT_WORK_TREE"];
   delete env["GIT_INDEX_FILE"];
+  env["GIT_EDITOR"] = "true";
+  env["GIT_MERGE_AUTOEDIT"] = "no";
   return env;
 }
 
