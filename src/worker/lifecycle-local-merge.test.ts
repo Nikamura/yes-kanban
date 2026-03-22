@@ -1,5 +1,9 @@
-import { describe, test, expect, spyOn, afterEach } from "bun:test";
-import { performLocalMerge } from "./lifecycle";
+import { describe, test, expect, spyOn, afterEach, beforeEach } from "bun:test";
+import { performLocalMerge, pushBaseBranch } from "./lifecycle";
+import { cleanGitEnv } from "./worktree-manager";
+import { mkdtemp, rm } from "fs/promises";
+import { tmpdir } from "os";
+import { join } from "path";
 
 describe("performLocalMerge", () => {
   afterEach(() => {
@@ -265,5 +269,161 @@ describe("performLocalMerge", () => {
 
     expect(result.success).toBe(false);
     expect(squashRepos).toEqual(["/tmp/repo"]);
+  });
+});
+
+describe("pushBaseBranch", () => {
+  afterEach(() => {
+    spyOn(Bun, "spawnSync").mockRestore();
+  });
+
+  const wt = {
+    worktreePath: "/tmp/wt",
+    baseBranch: "main",
+    branchName: "yes-kanban/proj/T-1",
+    repoPath: "/tmp/repo",
+    repoId: "repo1",
+  } as any;
+
+  test("pushes each unique repoPath:baseBranch once", () => {
+    const pushes: string[][] = [];
+    spyOn(Bun, "spawnSync").mockImplementation((cmd: any) => {
+      const args = Array.isArray(cmd) ? cmd.map(String) : [];
+      if (args.includes("push") && args.includes("origin")) {
+        pushes.push(args);
+      }
+      return { exitCode: 0, stdout: Buffer.from(""), stderr: Buffer.from("") } as any;
+    });
+
+    const result = pushBaseBranch([
+      { ...wt, repoPath: "/a/r" },
+      { ...wt, repoPath: "/a/r", branchName: "other" },
+      { ...wt, repoPath: "/b/r" },
+    ]);
+
+    expect(result.success).toBe(true);
+    expect(pushes.length).toBe(2);
+  });
+
+  test("returns error on push failure", () => {
+    spyOn(Bun, "spawnSync").mockImplementation((cmd: any) => {
+      const args = Array.isArray(cmd) ? cmd.map(String) : [];
+      if (args.includes("push")) {
+        return { exitCode: 1, stdout: Buffer.from(""), stderr: Buffer.from("no upstream") } as any;
+      }
+      return { exitCode: 0, stdout: Buffer.from(""), stderr: Buffer.from("") } as any;
+    });
+
+    const result = pushBaseBranch([wt]);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("push main failed for /tmp/repo");
+  });
+
+  test("attempts every distinct repo when an earlier push fails", () => {
+    const pushes: string[][] = [];
+    spyOn(Bun, "spawnSync").mockImplementation((cmd: any) => {
+      const args = Array.isArray(cmd) ? cmd.map(String) : [];
+      if (args.includes("push") && args.includes("origin")) {
+        pushes.push(args);
+        const cIdx = args.indexOf("-C");
+        const repo = cIdx >= 0 ? args[cIdx + 1] : "";
+        if (repo === "/a/r") {
+          return { exitCode: 1, stdout: Buffer.from(""), stderr: Buffer.from("no upstream") } as any;
+        }
+      }
+      return { exitCode: 0, stdout: Buffer.from(""), stderr: Buffer.from("") } as any;
+    });
+
+    const result = pushBaseBranch([
+      { ...wt, repoPath: "/a/r" },
+      { ...wt, repoPath: "/b/r" },
+    ]);
+
+    expect(pushes.length).toBe(2);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("/a/r");
+    expect(result.error).toContain("no upstream");
+  });
+
+  test("aggregates errors when multiple distinct pushes fail", () => {
+    spyOn(Bun, "spawnSync").mockImplementation((cmd: any) => {
+      const args = Array.isArray(cmd) ? cmd.map(String) : [];
+      if (args.includes("push")) {
+        return { exitCode: 1, stdout: Buffer.from(""), stderr: Buffer.from("x") } as any;
+      }
+      return { exitCode: 0, stdout: Buffer.from(""), stderr: Buffer.from("") } as any;
+    });
+
+    const result = pushBaseBranch([
+      { ...wt, repoPath: "/a/r" },
+      { ...wt, repoPath: "/b/r" },
+    ]);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("; ");
+    expect(result.error).toContain("/a/r");
+    expect(result.error).toContain("/b/r");
+  });
+});
+
+describe("pushBaseBranch (integration)", () => {
+  let tempDir: string;
+  let barePath: string;
+  let clientPath: string;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "yk-push-"));
+    barePath = join(tempDir, "origin.git");
+    clientPath = join(tempDir, "client");
+    const env = cleanGitEnv();
+    Bun.spawnSync(["git", "init", "--bare", barePath], { env });
+    Bun.spawnSync(["git", "init", clientPath], { env });
+    Bun.spawnSync(["git", "-C", clientPath, "config", "user.email", "t@test.com"], { env });
+    Bun.spawnSync(["git", "-C", clientPath, "config", "user.name", "T"], { env });
+    Bun.spawnSync(["touch", join(clientPath, "README.md")], { env });
+    Bun.spawnSync(["git", "-C", clientPath, "add", "."], { env });
+    Bun.spawnSync(["git", "-C", clientPath, "commit", "-m", "init"], { env });
+    Bun.spawnSync(["git", "-C", clientPath, "branch", "-M", "main"], { env });
+    Bun.spawnSync(["git", "-C", clientPath, "remote", "add", "origin", barePath], { env });
+    Bun.spawnSync(["git", "-C", clientPath, "push", "-u", "origin", "main"], { env });
+    Bun.spawnSync(["sh", "-c", `echo more >> "${join(clientPath, "README.md")}"`], { env });
+    Bun.spawnSync(["git", "-C", clientPath, "commit", "-am", "second", "--no-verify"], { env });
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  test("updates bare remote ref when local main is ahead", () => {
+    const wt = {
+      worktreePath: join(clientPath, "wt"),
+      baseBranch: "main",
+      branchName: "feature",
+      repoPath: clientPath,
+      repoId: "repo1",
+    } as any;
+
+    const beforeBare = Bun.spawnSync(
+      ["git", "--git-dir", barePath, "rev-parse", "main"],
+      { env: cleanGitEnv() },
+    );
+    const beforeLocal = Bun.spawnSync(
+      ["git", "-C", clientPath, "rev-parse", "main"],
+      { env: cleanGitEnv() },
+    );
+    expect(beforeBare.stdout.toString().trim()).not.toBe(beforeLocal.stdout.toString().trim());
+
+    const result = pushBaseBranch([wt]);
+    expect(result.success).toBe(true);
+
+    const afterBare = Bun.spawnSync(
+      ["git", "--git-dir", barePath, "rev-parse", "main"],
+      { env: cleanGitEnv() },
+    );
+    const afterLocal = Bun.spawnSync(
+      ["git", "-C", clientPath, "rev-parse", "main"],
+      { env: cleanGitEnv() },
+    );
+    expect(afterBare.stdout.toString().trim()).toBe(afterLocal.stdout.toString().trim());
   });
 });

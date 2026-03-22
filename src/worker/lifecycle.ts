@@ -1265,6 +1265,10 @@ export async function runLifecycle(
       });
       return;
     }
+    const pushResult = pushBaseBranch(worktrees);
+    if (!pushResult.success) {
+      console.warn(`[lifecycle] push after merge failed: ${pushResult.error}`);
+    }
     console.log(`[lifecycle] workspace=${workspaceId} merged locally`);
     await convex.mutation(api.workspaces.updateStatus, {
       id: workspaceId, status: "merged", completedAt: Date.now(), diffOutput,
@@ -2336,5 +2340,33 @@ export function performLocalMerge(worktrees: WorktreeEntry[]): { success: boolea
     // because the worktree still references the branch.
   }
 
+  return { success: true };
+}
+
+/**
+ * Push the base branch to origin after a successful local merge.
+ * Deduplicates by repoPath + baseBranch so multi-repo workspaces do not push twice.
+ * Every distinct repo is attempted even if an earlier push fails; failures are aggregated.
+ */
+export function pushBaseBranch(worktrees: WorktreeEntry[]): { success: boolean; error?: string } {
+  const seen = new Set<string>();
+  const failures: string[] = [];
+  for (const wt of worktrees) {
+    const key = `${wt.repoPath}:${wt.baseBranch}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const env = cleanGitEnv();
+    const result = Bun.spawnSync(
+      ["git", "-C", wt.repoPath, "push", "origin", wt.baseBranch],
+      { timeout: 60000, env },
+    );
+    if (result.exitCode !== 0) {
+      const err = result.stderr.toString().trim() || "(no output)";
+      failures.push(`push ${wt.baseBranch} failed for ${wt.repoPath}: ${err}`);
+    }
+  }
+  if (failures.length > 0) {
+    return { success: false, error: failures.join("; ") };
+  }
   return { success: true };
 }

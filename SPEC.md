@@ -1352,7 +1352,7 @@ A workspace progresses through a defined lifecycle from branch creation to merge
 6. **Reviewing** — A fresh agent run reviews the diff with clean context. The review agent checks for bugs, style issues, missing tests, and potential problems. If it requests changes, the coding agent is re-dispatched with the review feedback (up to maxReviewCycles).
 7. **Completed** — Work is done. The user can now take manual actions from the UI:
    - **Create PR** — Pushes the branch and creates a pull request via the forge adapter (`creating_pr` → `pr_open`).
-   - **Local Merge** — Squash-merges the branch into the base branch (`git merge --squash` then a single commit; `merging` → `merged`). No merge commit and no forge/remote required.
+   - **Local Merge** — Squash-merges the branch into the base branch (`git merge --squash` then a single commit; `merging` → `merged`). No merge commit and no forge/PR flow required. Afterward the worker attempts `git push origin <base>` (best-effort; failures are logged only). Periodically it fast-forwards the local base from `origin` when possible so upstream changes are picked up.
    - **Rebase** — Rebases the branch onto the latest base branch (`rebasing` → `completed`). Available when the branch is behind main.
    - **New Experiment** — Discards all changes, resets branches, increments experiment number, and re-enters coding with the same plan. Allows iterating on implementation without re-planning.
 

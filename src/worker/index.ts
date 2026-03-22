@@ -1,12 +1,12 @@
 import { ConvexClient } from "convex/browser";
 import { api } from "../../convex/_generated/api";
-import { runLifecycle, executeRebase, executeCreatePR, performLocalMerge, tryFastRebase } from "./lifecycle";
+import { runLifecycle, executeRebase, executeCreatePR, performLocalMerge, pushBaseBranch, tryFastRebase } from "./lifecycle";
 import { GitWorktreeManager } from "./worktree-manager";
 import { AgentExecutor } from "./agent-executor";
 import type { WorkerConfig } from "./types";
 import { isTerminalStatus } from "./retry";
 import { sendHeartbeat } from "./heartbeat";
-import { checkBranchStatus } from "./branch-monitor";
+import { checkBranchStatus, pullBaseBranches } from "./branch-monitor";
 import { recoverOrphanedWorkspaces } from "./graceful-restart";
 import { resolve } from "path";
 import { readFileSync } from "fs";
@@ -120,6 +120,9 @@ async function main() {
     branchCheckCounter++;
     if (branchCheckCounter >= BRANCH_CHECK_INTERVAL) {
       branchCheckCounter = 0;
+      pullBaseBranches(convex).catch((err: unknown) => {
+        console.error("[worker] pull base branches error:", err);
+      });
       checkBranchStatus(convex).catch((err: unknown) => {
         console.error("[worker] branch check error:", err);
       });
@@ -268,6 +271,9 @@ async function main() {
         if (ws.status === "merging") {
           if (activeAbortControllers.has(ws._id)) continue; // already being processed
 
+          // Local merge from the UI uses this poll path; column-driven local merge pushes inside
+          // runLifecycle instead. A workspace only takes one path, so pushBaseBranch is not doubled.
+
           // Fast path: try git-only rebase (no agent slot needed)
           console.log(`[worker] attempting fast rebase+merge for workspace=${ws._id}`);
           const fastResult = tryFastRebase(ws.worktrees);
@@ -277,6 +283,10 @@ async function main() {
             console.log(`[worker] fast rebase succeeded, performing squash merge for workspace=${ws._id}`);
             const mergeResult = performLocalMerge(ws.worktrees);
             if (mergeResult.success) {
+              const pushResult = pushBaseBranch(ws.worktrees);
+              if (!pushResult.success) {
+                console.warn(`[worker] push after merge failed: ${pushResult.error}`);
+              }
               await convex.mutation(api.workspaces.updateStatus, {
                 id: ws._id, status: "merged", completedAt: Date.now(),
               });
@@ -341,6 +351,10 @@ async function main() {
               console.log(`[worker] performing local squash merge for workspace=${ws._id}`);
               const mergeResult = performLocalMerge(ws.worktrees);
               if (mergeResult.success) {
+                const pushResult = pushBaseBranch(ws.worktrees);
+                if (!pushResult.success) {
+                  console.warn(`[worker] push after merge failed: ${pushResult.error}`);
+                }
                 await convex.mutation(api.workspaces.updateStatus, {
                   id: ws._id, status: "merged", completedAt: Date.now(),
                 });
