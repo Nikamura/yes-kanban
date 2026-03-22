@@ -551,20 +551,31 @@ export async function runLifecycle(
     }
 
     // Safety net: if the planning agent succeeded but forgot to call submit_plan,
-    // extract the assistant text and save it as the plan so the user has something to review.
+    // resume the session and ask it to submit the plan via the MCP tool.
     const agentCalledSubmitPlan = planResult.events.some(
       (e) => e.type === "tool_use" && (e.data as { name?: string }).name === "mcp__yes-kanban__submit_plan",
     );
     if (!agentCalledSubmitPlan) {
-      const fallbackPlan = extractAssistantText(planResult.events);
-      if (fallbackPlan) {
-        console.log(`[lifecycle] workspace=${workspaceId} agent did not call submit_plan, saving extracted text as plan`);
-        await convex.mutation(api.workspaces.updatePlan, {
-          id: workspaceId,
-          plan: fallbackPlan,
-        });
-      } else {
-        console.log(`[lifecycle] workspace=${workspaceId} agent did not submit a plan and no text could be extracted`);
+      console.log(`[lifecycle] workspace=${workspaceId} agent did not call submit_plan, resuming session to request it`);
+      const resumeSessionId = planResult.events
+        .filter((e) => e.type === "system")
+        .map((e) => (e.data as { session_id?: string }).session_id)
+        .find(Boolean);
+
+      const submitReminder = "You completed your planning but forgot to submit the plan. " +
+        "Call `mcp__yes-kanban__submit_plan` now with the full implementation plan you created. " +
+        "Do NOT do any more research — just submit what you already have.";
+
+      const retryResult = await runAgent(
+        convex, config, executor, workspaceId, planningAgentConfig, agentCwd,
+        submitReminder, "planning", abortSignal,
+        { mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: resumeSessionId, settingsPath, disableSlashCommands, allowedTools: planningTools },
+      );
+
+      if (abortSignal.aborted) return; // eslint-disable-line @typescript-eslint/no-unnecessary-condition
+
+      if (!retryResult.success) {
+        console.log(`[lifecycle] workspace=${workspaceId} submit_plan retry failed`);
       }
     }
 
