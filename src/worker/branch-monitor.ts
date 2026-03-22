@@ -5,7 +5,7 @@ import { cleanGitEnv } from "./worktree-manager";
 /**
  * Checks workspaces to see how many commits behind the base branch they are.
  * Updates the behindMainBy field in Convex.
- * Works with both remote (origin) and local-only repos.
+ * Compares against the local base branch in the main repo (what local merge targets).
  */
 export async function checkBranchStatus(convex: ConvexClient): Promise<void> {
   const workspaces = await convex.query(api.workspaces.listForBranchCheck, {});
@@ -17,32 +17,14 @@ export async function checkBranchStatus(convex: ConvexClient): Promise<void> {
     try {
       const env = cleanGitEnv();
 
-      // Try fetching from origin (may fail for local-only repos — that's fine)
-      const fetchResult = Bun.spawnSync(
-        ["git", "-C", wt.worktreePath, "fetch", "origin"],
-        { timeout: 30000, env },
-      );
-
-      // Only trust origin/baseBranch if fetch actually succeeded — a stale
-      // origin ref (e.g. remote configured but never pushed) gives wrong counts
-      const hasOrigin = fetchResult.exitCode === 0 && Bun.spawnSync(
-        ["git", "-C", wt.worktreePath, "rev-parse", "--verify", `origin/${wt.baseBranch}`],
+      // Resolve base branch from the main repo — this is what local merge
+      // targets, so behind count must match what the merge will see
+      const baseRevResult = Bun.spawnSync(
+        ["git", "-C", wt.repoPath, "rev-parse", wt.baseBranch],
         { timeout: 5000, env },
-      ).exitCode === 0;
-
-      // Compare against origin/baseBranch if available, otherwise compare
-      // against baseBranch in the main repo (source of truth for local merges)
-      let behindRef: string;
-      if (hasOrigin) {
-        behindRef = `origin/${wt.baseBranch}`;
-      } else {
-        const baseRevResult = Bun.spawnSync(
-          ["git", "-C", wt.repoPath, "rev-parse", wt.baseBranch],
-          { timeout: 5000, env },
-        );
-        if (baseRevResult.exitCode !== 0) continue;
-        behindRef = baseRevResult.stdout.toString().trim();
-      }
+      );
+      if (baseRevResult.exitCode !== 0) continue;
+      const behindRef = baseRevResult.stdout.toString().trim();
 
       // Count commits behind
       const result = Bun.spawnSync(
