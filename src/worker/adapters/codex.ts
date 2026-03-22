@@ -115,10 +115,7 @@ export class CodexAdapter implements IAgentAdapter {
       cmdArgs.push("--sandbox", "read-only");
     }
 
-    // Skip loading project docs when settings isolation is active
-    if (args.settingsPath || args.disableSlashCommands) {
-      cmdArgs.push("--no-project-doc");
-    }
+    // Note: codex exec doesn't support --no-project-doc, so we skip it
 
     if (args.config.model) {
       cmdArgs.push("-m", args.config.model);

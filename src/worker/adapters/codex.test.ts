@@ -141,31 +141,13 @@ describe("CodexAdapter", () => {
       expect(result.command).toBe("npx codex");
     });
 
-    test("adds --no-project-doc when settingsPath is provided", () => {
+    test("does not add --no-project-doc (unsupported in exec mode)", () => {
       const result = adapter.buildCommand({
         config: makeConfig(),
         prompt: "Task",
         cwd: "/tmp",
         settingsPath: "/tmp/settings.json",
-      });
-      expect(result.args).toContain("--no-project-doc");
-    });
-
-    test("adds --no-project-doc when disableSlashCommands is true", () => {
-      const result = adapter.buildCommand({
-        config: makeConfig(),
-        prompt: "Task",
-        cwd: "/tmp",
         disableSlashCommands: true,
-      });
-      expect(result.args).toContain("--no-project-doc");
-    });
-
-    test("does not add --no-project-doc without settingsPath or disableSlashCommands", () => {
-      const result = adapter.buildCommand({
-        config: makeConfig(),
-        prompt: "Task",
-        cwd: "/tmp",
       });
       expect(result.args).not.toContain("--no-project-doc");
     });
