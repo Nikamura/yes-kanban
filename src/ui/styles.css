@@ -1031,13 +1031,49 @@ body {
   padding: 4px 6px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: var(--bg-secondary);
+  background: var(--surface-2);
   color: var(--text);
   cursor: pointer;
 }
 
 .meta-item-tags {
   grid-column: 1 / -1;
+}
+
+.color-picker-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.color-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: box-shadow 0.15s;
+}
+
+.color-swatch:hover {
+  box-shadow: 0 0 0 2px var(--text-muted);
+}
+
+.color-swatch.active {
+  box-shadow: 0 0 0 2px var(--text);
+}
+
+.color-swatch-clear {
+  background: var(--surface-2);
+  border: 1px dashed var(--border);
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .tag-chips {
@@ -1052,7 +1088,7 @@ body {
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  background: var(--bg-tertiary);
+  background: var(--surface-3);
   border-radius: 12px;
   font-size: 12px;
   color: var(--text);
@@ -1078,7 +1114,7 @@ body {
   padding: 4px 6px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: var(--bg-secondary);
+  background: var(--surface-2);
   color: var(--text);
 }
 
@@ -2239,7 +2275,7 @@ textarea { resize: vertical; }
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--bg-secondary);
+  background: var(--surface-2);
   color: var(--text-primary);
   font-size: 13px;
   font-family: inherit;
