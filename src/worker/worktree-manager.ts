@@ -37,7 +37,6 @@ export class GitWorktreeManager {
 
   async createWorktrees(args: {
     workspaceId: string;
-    projectSlug: string;
     simpleId: string;
     issueTitle?: string;
     repos: Doc<"repos">[];

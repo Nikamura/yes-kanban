@@ -92,7 +92,6 @@ export interface DispatchTask {
   agentConfig: Doc<"agentConfigs">;
   repos: Doc<"repos">[];
   issue?: Doc<"issues">;
-  projectSlug?: string;
   additionalPrompt?: string;
 }
 

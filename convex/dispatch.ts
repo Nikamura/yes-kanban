@@ -130,7 +130,6 @@ export const next = query({
       agentConfig: first.agentConfig,
       repos: first.repos,
       issue: first.issue ?? undefined,
-      projectSlug: first.project?.slug,
     };
   },
 });
