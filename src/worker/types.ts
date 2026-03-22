@@ -53,6 +53,9 @@ export interface IAgentAdapter {
 
   /** Format a permission response to send via stdin when a permission request is resolved. */
   formatPermissionResponse(requestId: string, approved: boolean): string;
+
+  /** Clean up temporary resources (e.g. CODEX_HOME) created during buildCommand. */
+  cleanupCodexHome?(env: Record<string, string>): void;
 }
 
 /** Shape of a worktree entry as stored in the workspace document. */

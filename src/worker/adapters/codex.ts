@@ -1,7 +1,74 @@
+import { randomUUID } from "node:crypto";
+import { readFileSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import type { IAgentAdapter, AgentEvent, TokenUsage } from "../types";
 
 const TOOL_ITEM_TYPES = new Set(["command_execution", "file_change", "mcp_tool_call", "web_search"]);
+
+/**
+ * Convert a Claude-Code-style MCP JSON config into Codex TOML format.
+ * Handles flat string keys, string arrays, and optional `enabled_tools`.
+ */
+function mcpJsonToToml(
+  json: { mcpServers: Record<string, { command: string; args?: string[]; env?: Record<string, string> }> },
+  allowedTools?: string[],
+): string {
+  // Group allowed tools by MCP server: mcp__<server>__<tool> → { server: [tool, ...] }
+  const enabledByServer: Record<string, string[]> = {};
+  if (allowedTools) {
+    for (const tool of allowedTools) {
+      const sepIdx = tool.indexOf("__");
+      if (sepIdx === -1) continue;
+      const rest = tool.slice(sepIdx + 2);
+      const sepIdx2 = rest.indexOf("__");
+      if (sepIdx2 === -1) continue;
+      const prefix = tool.slice(0, sepIdx);
+      if (prefix !== "mcp") continue;
+      const server = rest.slice(0, sepIdx2);
+      const toolName = rest.slice(sepIdx2 + 2);
+      if (server && toolName) {
+        (enabledByServer[server] ??= []).push(toolName);
+      }
+    }
+  }
+
+  const lines: string[] = [];
+  for (const [name, server] of Object.entries(json.mcpServers)) {
+    lines.push(`[mcp_servers.${tomlKey(name)}]`);
+    lines.push(`command = ${tomlString(server.command)}`);
+    if (server.args && server.args.length > 0) {
+      lines.push(`args = [${server.args.map(tomlString).join(", ")}]`);
+    }
+    if (server.env && Object.keys(server.env).length > 0) {
+      const envPairs = Object.entries(server.env)
+        .map(([key, value]) => `${tomlKey(key)} = ${tomlString(value)}`)
+        .join(", ");
+      lines.push(`env = { ${envPairs} }`);
+    }
+    const enabled = enabledByServer[name];
+    if (enabled && enabled.length > 0) {
+      lines.push(`enabled_tools = [${enabled.map(tomlString).join(", ")}]`);
+    }
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+/** TOML bare keys only allow A-Za-z0-9, `-`, and `_`. */
+const TOML_BARE_KEY = /^[A-Za-z0-9_-]+$/;
+
+function tomlString(value: string): string {
+  return `"${value
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "\\r")
+    .replace(/\t/g, "\\t")}"`;
+}
+
+function tomlKey(key: string): string {
+  return TOML_BARE_KEY.test(key) ? key : tomlString(key);
+}
 
 /**
  * Adapter for Codex CLI using `codex exec --json` for structured JSONL output.
@@ -12,21 +79,55 @@ export class CodexAdapter implements IAgentAdapter {
     prompt: string;
     cwd: string;
     mcpConfigPath?: string;
+    sessionId?: string;
     permissionMode?: "plan" | "dangerously-skip-permissions" | "accept";
+    allowedTools?: string[];
+    settingsPath?: string;
+    disableSlashCommands?: boolean;
   }): { command: string; args: string[]; env: Record<string, string> } {
     const mode = args.permissionMode ?? "dangerously-skip-permissions";
-    const cmdArgs: string[] = ["exec", "--json"];
+    const env: Record<string, string> = { ...process.env, ...(args.config.env ?? {}) } as Record<string, string>;
+
+    // Session resume or fresh exec
+    let cmdArgs: string[];
+    if (args.sessionId) {
+      // Resume a previous session. Note: resume+json needs empirical verification —
+      // if Codex doesn't support --json with resume, this will fail gracefully.
+      cmdArgs = ["resume", args.sessionId, "--json"];
+    } else {
+      cmdArgs = ["exec", "--json"];
+    }
+
+    // Isolation flags for automated runs
+    // Skip --ephemeral when resuming — it would conflict with reading the persisted session
+    if (!args.sessionId) {
+      cmdArgs.push("--ephemeral");
+    }
+    cmdArgs.push("--skip-git-repo-check");
 
     // Permission mode
     if (mode === "dangerously-skip-permissions") {
       cmdArgs.push("--yolo");
-    } else {
-      // "accept" and "plan" both map to --full-auto (no read-only equivalent in exec mode)
+    } else if (mode === "accept") {
       cmdArgs.push("--full-auto");
+    } else {
+      // "plan" — read-only sandbox with on-request approval
+      cmdArgs.push("--sandbox", "read-only", "--ask-for-approval", "on-request");
+    }
+
+    // Skip loading project docs when settings isolation is active
+    if (args.settingsPath || args.disableSlashCommands) {
+      cmdArgs.push("--no-project-doc");
     }
 
     if (args.config.model) {
       cmdArgs.push("-m", args.config.model);
+    }
+
+    // MCP config: convert JSON to TOML and set CODEX_HOME
+    if (args.mcpConfigPath) {
+      const codexHome = this.prepareMcpConfig(args.mcpConfigPath, args.allowedTools);
+      env["CODEX_HOME"] = codexHome;
     }
 
     if (args.config.args.length > 0) {
@@ -36,11 +137,38 @@ export class CodexAdapter implements IAgentAdapter {
     // Prompt is the positional argument (must be last)
     cmdArgs.push(args.prompt);
 
-    return {
-      command: args.config.command,
-      args: cmdArgs,
-      env: { ...process.env, ...(args.config.env ?? {}) } as Record<string, string>,
-    };
+    return { command: args.config.command, args: cmdArgs, env };
+  }
+
+  /**
+   * Read an MCP JSON config, convert it to Codex TOML format, and write it
+   * to a temporary CODEX_HOME directory. Returns the path to use as CODEX_HOME.
+   * Call `cleanupCodexHome` with the returned path after the process exits.
+   */
+  private prepareMcpConfig(mcpConfigPath: string, allowedTools?: string[]): string {
+    try {
+      const jsonContent = readFileSync(mcpConfigPath, "utf-8");
+      const mcpConfig = JSON.parse(jsonContent);
+      if (!mcpConfig.mcpServers || typeof mcpConfig.mcpServers !== "object" || Array.isArray(mcpConfig.mcpServers)) {
+        throw new Error("Missing or invalid 'mcpServers' key in MCP config");
+      }
+      const toml = mcpJsonToToml(mcpConfig, allowedTools);
+
+      const codexHome = `/tmp/yes-kanban-codex-home-${randomUUID()}`;
+      mkdirSync(codexHome, { recursive: true });
+      writeFileSync(`${codexHome}/config.toml`, toml);
+      return codexHome;
+    } catch (err) {
+      throw new Error(`[codex] Failed to convert MCP config to TOML: ${err}`, { cause: err });
+    }
+  }
+
+  /** Remove the temporary CODEX_HOME directory created by `prepareMcpConfig`. */
+  cleanupCodexHome(env: Record<string, string>): void {
+    const codexHome = env["CODEX_HOME"];
+    if (codexHome?.startsWith("/tmp/yes-kanban-codex-home-")) {
+      try { rmSync(codexHome, { recursive: true }); } catch { /* best-effort */ }
+    }
   }
 
   parseLine(line: string): AgentEvent[] {
@@ -133,7 +261,14 @@ export class CodexAdapter implements IAgentAdapter {
     throw new Error("Codex exec mode does not support interactive permission responses");
   }
 
-  extractSessionId(_events: AgentEvent[]): string | null {
+  extractSessionId(events: AgentEvent[]): string | null {
+    for (const event of events) {
+      if (event.type !== "system") continue;
+      const data = event.data as Record<string, unknown>;
+      if (data["type"] !== "thread.started") continue;
+      const threadId = data["thread_id"] as string | undefined;
+      if (threadId) return threadId;
+    }
     return null;
   }
 }

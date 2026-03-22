@@ -1403,6 +1403,8 @@ export async function runAgent(
       await convex.mutation(api.permissionRequests.expirePending, { runAttemptId });
     } catch { /* non-critical cleanup */ }
   }
+  // Clean up temporary CODEX_HOME if the adapter supports it
+  adapter.cleanupCodexHome?.(cmd.env);
   await flushLogs();
 
   const status = result.exitCode === 0 ? "succeeded"
