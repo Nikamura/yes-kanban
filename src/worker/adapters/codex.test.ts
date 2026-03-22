@@ -76,7 +76,7 @@ describe("CodexAdapter", () => {
       expect(result.args).not.toContain("--sandbox");
     });
 
-    test("plan maps to --sandbox read-only with --ask-for-approval on-request", () => {
+    test("plan maps to --sandbox read-only", () => {
       const result = adapter.buildCommand({
         config: makeConfig(),
         prompt: "Task",
@@ -88,9 +88,7 @@ describe("CodexAdapter", () => {
       const sandboxIdx = result.args.indexOf("--sandbox");
       expect(sandboxIdx).toBeGreaterThan(-1);
       expect(result.args[sandboxIdx + 1]).toBe("read-only");
-      const approvalIdx = result.args.indexOf("--ask-for-approval");
-      expect(approvalIdx).toBeGreaterThan(-1);
-      expect(result.args[approvalIdx + 1]).toBe("on-request");
+      expect(result.args).not.toContain("--ask-for-approval");
     });
 
     test("includes model with -m flag", () => {

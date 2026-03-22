@@ -111,8 +111,8 @@ export class CodexAdapter implements IAgentAdapter {
     } else if (mode === "accept") {
       cmdArgs.push("--full-auto");
     } else {
-      // "plan" — read-only sandbox with on-request approval
-      cmdArgs.push("--sandbox", "read-only", "--ask-for-approval", "on-request");
+      // "plan" — read-only sandbox (exec mode doesn't support --ask-for-approval)
+      cmdArgs.push("--sandbox", "read-only");
     }
 
     // Skip loading project docs when settings isolation is active
@@ -159,7 +159,7 @@ export class CodexAdapter implements IAgentAdapter {
       writeFileSync(`${codexHome}/config.toml`, toml);
       return codexHome;
     } catch (err) {
-      throw new Error(`[codex] Failed to convert MCP config to TOML: ${err}`, { cause: err });
+      throw new Error(`[codex] Failed to convert MCP config to TOML: ${String(err)}`, { cause: err });
     }
   }
 
