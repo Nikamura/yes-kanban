@@ -102,6 +102,8 @@ describe("CursorAdapter", () => {
       });
       expect(result.args).toContain("--workspace");
       expect(result.args).toContain("/my/dir");
+      // Should not duplicate --workspace when config already specifies it
+      expect(result.args.filter((a: string) => a === "--workspace")).toHaveLength(1);
     });
 
     test("merges environment variables", () => {

@@ -10,7 +10,7 @@ import { McpServer, type ExternalMcpConfig } from "./mcp-server";
 import type { WorkerConfig, DispatchTask, WorktreeEntry, LogEntry, AgentEvent, AttachmentInfo } from "./types";
 import { computeBackoffDelay, shouldRetry, TERMINAL_STATUSES } from "./retry";
 import { READ_ONLY_TOOLS, PLANNING_TOOLS, PLANNING_RESEARCH_TOOLS, CODING_TOOLS, REVIEW_TOOLS } from "./mcp-tools";
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync, appendFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync, appendFileSync } from "fs";
 import { unlink } from "fs/promises";
 import { basename, dirname, join, resolve } from "path";
 
@@ -374,6 +374,14 @@ export async function runLifecycle(
     const mcpResult = await mcpServer.start();
     mcpConfigPath = mcpResult.configPath;
     console.log(`[lifecycle] MCP server started on port ${mcpResult.port} for workspace=${workspaceId}`);
+
+    // Clean up any stale .cursor/ dirs from previous runs (e.g., worktree reuse with different agent)
+    for (const wt of worktrees) {
+      const cursorDir = join(wt.worktreePath, ".cursor");
+      if (agentConfig.agentType !== "cursor" && existsSync(cursorDir)) {
+        try { rmSync(cursorDir, { recursive: true }); } catch { /* best-effort */ }
+      }
+    }
 
     // Cursor auto-detects MCP from .cursor/mcp.json in the workspace.
     // Copy the generated config there so Cursor picks it up.

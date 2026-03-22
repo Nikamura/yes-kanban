@@ -20,7 +20,12 @@ export class CursorAdapter implements IAgentAdapter {
     }
 
     // Structured output
-    cmdArgs.push("--output-format", "stream-json", "--workspace", args.cwd);
+    cmdArgs.push("--output-format", "stream-json");
+
+    // Workspace (only if not already specified in config args)
+    if (!args.config.args.includes("--workspace")) {
+      cmdArgs.push("--workspace", args.cwd);
+    }
 
     // Permission mode
     const mode = args.permissionMode ?? "dangerously-skip-permissions";
@@ -88,7 +93,7 @@ export class CursorAdapter implements IAgentAdapter {
         return [{ type: "error", data: parsed }];
       }
 
-      if (parsed.type === "usage" || parsed.usage) {
+      if (parsed.type === "usage") {
         return [{ type: "token_usage", data: parsed }];
       }
 
