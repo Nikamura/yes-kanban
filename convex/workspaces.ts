@@ -477,7 +477,14 @@ export const requestRebase = mutation({
     if (!rebasableStatuses.includes(workspace.status)) {
       throw new Error(`Cannot rebase workspace with status "${workspace.status}"`);
     }
-    await ctx.db.patch(args.id, { status: "rebasing", previousStatus: workspace.status });
+    // Preserve the original previousStatus when re-rebasing from conflict —
+    // conflict is not a meaningful restore target; the real status was saved
+    // on the first transition into rebasing.
+    const preservePrevious = workspace.status === "conflict" && workspace.previousStatus;
+    await ctx.db.patch(args.id, {
+      status: "rebasing",
+      previousStatus: preservePrevious ? workspace.previousStatus : workspace.status,
+    });
   },
 });
 
