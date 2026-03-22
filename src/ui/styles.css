@@ -2231,6 +2231,7 @@ textarea { resize: vertical; }
 .ws-status-succeeded { color: #10B981; }
 .ws-status-timed_out { color: #EF4444; }
 .ws-status-cancelled { color: #6B7280; }
+.ws-last-error { color: #EF4444; font-size: 0.75rem; margin-left: 0.5rem; }
 .ws-status-abandoned { color: #6B7280; }
 .ws-status-conflict { color: #EF4444; }
 .ws-status-changes_requested { color: #F97316; }

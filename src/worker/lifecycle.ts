@@ -1791,14 +1791,14 @@ export async function executeRebase(
 
   for (const wt of worktrees) {
     // Try fetching from origin (may fail for local-only repos — that's fine)
-    Bun.spawnSync(
+    const fetchResult = Bun.spawnSync(
       ["git", "-C", wt.worktreePath, "fetch", "origin"],
       { timeout: 60000, env },
     );
 
-    // Determine rebase target: origin/baseBranch if available, otherwise
-    // resolve baseBranch from the main repo for local-only setups
-    const hasOrigin = Bun.spawnSync(
+    // Only trust origin/baseBranch if fetch actually succeeded — a stale
+    // origin ref (e.g. remote configured but never pushed) gives wrong target
+    const hasOrigin = fetchResult.exitCode === 0 && Bun.spawnSync(
       ["git", "-C", wt.worktreePath, "rev-parse", "--verify", `origin/${wt.baseBranch}`],
       { timeout: 5000, env },
     ).exitCode === 0;
@@ -1921,9 +1921,22 @@ export function performLocalMerge(worktrees: WorktreeEntry[], ffOnly = true): { 
         continue;
       }
 
+      // Log divergence info for debugging
+      const behindCount = Bun.spawnSync(
+        ["git", "-C", wt.repoPath, "rev-list", "--count", `${wt.branchName}..${wt.baseBranch}`],
+        { timeout: 5000, env },
+      );
+      const aheadCount = Bun.spawnSync(
+        ["git", "-C", wt.repoPath, "rev-list", "--count", `${wt.baseBranch}..${wt.branchName}`],
+        { timeout: 5000, env },
+      );
+      const behind = behindCount.stdout.toString().trim();
+      const ahead = aheadCount.stdout.toString().trim();
+      console.log(`[lifecycle] merge: ${wt.branchName} is ${ahead} ahead, ${behind} behind ${wt.baseBranch}`);
+
       if (ffOnly) {
         const err = ffMerge.stderr.toString().trim();
-        return { success: false, error: `ff-only merge failed: ${err}` };
+        return { success: false, error: `ff-only merge failed (${ahead} ahead, ${behind} behind): ${err}` };
       }
       const merge = Bun.spawnSync(
         ["git", "-C", wt.repoPath, "merge", "--no-edit", wt.branchName],
@@ -1933,7 +1946,7 @@ export function performLocalMerge(worktrees: WorktreeEntry[], ffOnly = true): { 
         // Abort any in-progress merge
         Bun.spawnSync(["git", "-C", wt.repoPath, "merge", "--abort"], { timeout: 10000, env });
         const err = merge.stderr.toString().trim();
-        return { success: false, error: `merge failed: ${err}` };
+        return { success: false, error: `merge failed (${ahead} ahead, ${behind} behind): ${err}` };
       }
     }
 

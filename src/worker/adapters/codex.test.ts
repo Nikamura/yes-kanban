@@ -355,7 +355,7 @@ describe("CodexAdapter", () => {
         writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
 
         const result = buildWithMcp();
-        const codexHome = result.env["CODEX_HOME"];
+        const codexHome = result.env["CODEX_HOME"]!;
         expect(existsSync(codexHome)).toBe(true);
 
         adapter.cleanupCodexHome(result.env);

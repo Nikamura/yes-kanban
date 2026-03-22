@@ -95,6 +95,11 @@ export function WorkspaceView({
             {workspace.cancelRequested && (
               <span className="ws-status ws-status-cancelled">cancel pending</span>
             )}
+            {workspace.lastError && ["failed", "merge_failed", "test_failed"].includes(workspace.status) && (
+              <span className="ws-last-error" title={workspace.lastError}>
+                {workspace.lastError.length > 80 ? workspace.lastError.slice(0, 80) + "…" : workspace.lastError}
+              </span>
+            )}
             <span className="ws-date">
               {new Date(workspace.createdAt).toLocaleString()}
             </span>

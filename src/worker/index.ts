@@ -238,7 +238,8 @@ async function main() {
         }
 
         if (ws.status === "merging") {
-          console.log(`[worker] performing local merge for workspace=${ws._id}`);
+          const wt = ws.worktrees[0];
+          console.log(`[worker] performing local merge for workspace=${ws._id} branch=${wt?.branchName} into=${wt?.baseBranch}`);
           const result = executeLocalMerge(ws.worktrees);
           if (result.success) {
             await convex.mutation(api.workspaces.updateStatus, {
@@ -259,9 +260,9 @@ async function main() {
             }
           } else {
             await convex.mutation(api.workspaces.updateStatus, {
-              id: ws._id, status: "merge_failed",
+              id: ws._id, status: "merge_failed", lastError: result.error,
             });
-            console.error(`[worker] local merge failed for workspace=${ws._id}: ${result.error}`);
+            console.error(`[worker] local merge failed for workspace=${ws._id} branch=${wt?.branchName}: ${result.error}`);
           }
         }
       }

@@ -18,24 +18,24 @@ export async function checkBranchStatus(convex: ConvexClient): Promise<void> {
       const env = cleanGitEnv();
 
       // Try fetching from origin (may fail for local-only repos — that's fine)
-      Bun.spawnSync(
+      const fetchResult = Bun.spawnSync(
         ["git", "-C", wt.worktreePath, "fetch", "origin"],
         { timeout: 30000, env },
       );
 
-      // Check if origin/baseBranch exists
-      const hasOrigin = Bun.spawnSync(
+      // Only trust origin/baseBranch if fetch actually succeeded — a stale
+      // origin ref (e.g. remote configured but never pushed) gives wrong counts
+      const hasOrigin = fetchResult.exitCode === 0 && Bun.spawnSync(
         ["git", "-C", wt.worktreePath, "rev-parse", "--verify", `origin/${wt.baseBranch}`],
         { timeout: 5000, env },
       ).exitCode === 0;
 
       // Compare against origin/baseBranch if available, otherwise compare
-      // against baseBranch in the main repo
+      // against baseBranch in the main repo (source of truth for local merges)
       let behindRef: string;
       if (hasOrigin) {
         behindRef = `origin/${wt.baseBranch}`;
       } else {
-        // For local-only repos, resolve the base branch from the main repo
         const baseRevResult = Bun.spawnSync(
           ["git", "-C", wt.repoPath, "rev-parse", wt.baseBranch],
           { timeout: 5000, env },
