@@ -3,8 +3,19 @@ import { api } from "../../../convex/_generated/api";
 import { useState } from "react";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { PRIORITY_COLORS } from "../utils/constants";
+import { IssueDetailPanel } from "./IssueDetailPanel";
 
-export function ArchiveView({ projectId }: { projectId: Id<"projects"> }) {
+interface ArchiveViewProps {
+  projectId: Id<"projects">;
+  activeIssueSimpleId: string | null;
+  activeWorkspaceId: string | null;
+  onOpenIssue: (simpleId: string) => void;
+  onCloseIssue: () => void;
+  onOpenWorkspace: (workspaceId: string) => void;
+  onCloseWorkspace: () => void;
+}
+
+export function ArchiveView({ projectId, activeIssueSimpleId, activeWorkspaceId, onOpenIssue, onCloseIssue, onOpenWorkspace, onCloseWorkspace }: ArchiveViewProps) {
   const issues = useQuery(api.issues.list, { projectId, archived: true });
   const unarchive = useMutation(api.issues.unarchive);
   const bulkUnarchive = useMutation(api.bulkIssues.bulkUnarchive);
@@ -21,6 +32,7 @@ export function ArchiveView({ projectId }: { projectId: Id<"projects"> }) {
         const s = search.toLowerCase();
         return (
           i.title.toLowerCase().includes(s) ||
+          i.description.toLowerCase().includes(s) ||
           i.simpleId.toLowerCase().includes(s)
         );
       })
@@ -98,8 +110,12 @@ export function ArchiveView({ projectId }: { projectId: Id<"projects"> }) {
           </thead>
           <tbody>
             {filtered.map((issue) => (
-              <tr key={issue._id}>
-                <td>
+              <tr
+                key={issue._id}
+                onClick={() => onOpenIssue(issue.simpleId)}
+                style={{ cursor: "pointer" }}
+              >
+                <td onClick={(e) => e.stopPropagation()}>
                   <input
                     type="checkbox"
                     checked={selectedIds.has(issue._id)}
@@ -124,7 +140,7 @@ export function ArchiveView({ projectId }: { projectId: Id<"projects"> }) {
                     ? new Date(issue.archivedAt).toLocaleDateString()
                     : "—"}
                 </td>
-                <td>
+                <td onClick={(e) => e.stopPropagation()}>
                   <button
                     className="btn btn-sm"
                     onClick={() => handleRestore(issue._id)}
@@ -137,6 +153,20 @@ export function ArchiveView({ projectId }: { projectId: Id<"projects"> }) {
           </tbody>
         </table>
       )}
+
+      {activeIssueSimpleId && (() => {
+        const matchedIssue = issues.find((i) => i.simpleId === activeIssueSimpleId);
+        if (!matchedIssue) return null;
+        return (
+          <IssueDetailPanel
+            issueId={matchedIssue._id}
+            onClose={onCloseIssue}
+            activeWorkspaceId={activeWorkspaceId}
+            onOpenWorkspace={onOpenWorkspace}
+            onCloseWorkspace={onCloseWorkspace}
+          />
+        );
+      })()}
     </div>
   );
 }

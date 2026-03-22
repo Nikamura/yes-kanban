@@ -265,7 +265,15 @@ export function App() {
           ) : view === "activity" ? (
             <ActivityFeed projectId={selectedProjectId} onOpenIssue={openIssue} />
           ) : view === "archive" ? (
-            <ArchiveView projectId={selectedProjectId} />
+            <ArchiveView
+              projectId={selectedProjectId}
+              activeIssueSimpleId={activeIssueSimpleId}
+              activeWorkspaceId={activeWorkspaceId}
+              onOpenIssue={openIssue}
+              onCloseIssue={closeIssue}
+              onOpenWorkspace={openWorkspace}
+              onCloseWorkspace={closeWorkspace}
+            />
           ) : view === "dashboard" ? (
             <DashboardView projectId={selectedProjectId} />
           ) : (

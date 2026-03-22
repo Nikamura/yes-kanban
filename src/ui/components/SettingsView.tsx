@@ -337,7 +337,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
             </select>
           </div>
           <div className="setting-item">
-            <label>Auto-Archive Done</label>
+            <label>Auto-Archive (Done/Cancelled)</label>
             <select
               value={project.autoArchiveDelayMs ?? 0}
               onChange={(e) => {

@@ -1,5 +1,5 @@
 import type { MutationCtx } from "../_generated/server";
-import type { Id, Doc } from "../_generated/dataModel";
+import type { Doc } from "../_generated/dataModel";
 import { recordHistory } from "../issueHistory";
 
 /** Unarchive a single issue: resolves target column, sets position, clears archivedAt, records history. */
