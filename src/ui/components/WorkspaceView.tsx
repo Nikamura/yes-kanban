@@ -335,7 +335,7 @@ export function WorkspaceView({
             </div>
           )}
           {effectiveTab === "logs" && displayAttempt && (
-            <LogStream runAttemptId={displayAttempt._id} prompt={displayAttempt.prompt} />
+            <LogStream runAttemptId={displayAttempt._id} prompt={displayAttempt.prompt} agentType={workspace.agentConfig?.agentType} />
           )}
           {effectiveTab === "logs" && !displayAttempt && (
             <div className="empty-state">No run attempts yet</div>

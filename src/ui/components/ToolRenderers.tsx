@@ -45,10 +45,25 @@ function extractToolResultText(data: any): string | null {
   return null;
 }
 
+/** Normalize tool names from different agents to canonical form */
+const TOOL_NAME_ALIASES: Record<string, string> = {
+  edit_file: "Edit",
+  read_file: "Read",
+  write_file: "Write",
+  create_file: "Write",
+  list_files: "Glob",
+  search_files: "Grep",
+  run_terminal_command: "Bash",
+  execute_command: "Bash",
+  file_search: "Grep",
+  codebase_search: "Grep",
+};
+
 // --- Tool Use (dispatcher) ---
 
 export function ToolUseLine({ data }: { data: any }) {
-  const name = data?.name ?? "unknown";
+  const rawName = data?.name ?? "unknown";
+  const name = TOOL_NAME_ALIASES[rawName] ?? rawName;
   switch (name) {
     case "Bash":
       return <BashToolLine data={data} />;

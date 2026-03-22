@@ -24,12 +24,25 @@ function buildToolIdMap(logs: any[]): Map<string, string> {
   return map;
 }
 
+/** Map agentType to a display label for the assistant badge */
+function agentLabel(agentType?: string): string {
+  switch (agentType) {
+    case "claude-code": return "Claude";
+    case "cursor": return "Cursor";
+    case "codex": return "Codex";
+    case "pi": return "Pi";
+    default: return agentType ?? "Agent";
+  }
+}
+
 export function LogStream({
   runAttemptId,
   prompt,
+  agentType,
 }: {
   runAttemptId: Id<"runAttempts">;
   prompt?: string;
+  agentType?: string;
 }) {
   const logs = useQuery(api.agentLogs.list, { runAttemptId, limit: 500 });
   const containerRef = useRef<HTMLDivElement>(null);
@@ -56,7 +69,7 @@ export function LogStream({
     <div className="log-stream" ref={containerRef} onScroll={handleScroll}>
       {prompt && <PromptBlock prompt={prompt} />}
       {logs.map((log) => (
-        <LogLine key={log._id} log={log} toolIdMap={toolIdMap} />
+        <LogLine key={log._id} log={log} toolIdMap={toolIdMap} agentType={agentType} />
       ))}
     </div>
   );
@@ -101,12 +114,12 @@ const SKIP_SYSTEM_SUBTYPES = new Set([
   "task_completed",
 ]);
 
-function LogLine({ log, toolIdMap }: { log: any; toolIdMap: Map<string, string> }) {
+function LogLine({ log, toolIdMap, agentType }: { log: any; toolIdMap: Map<string, string>; agentType?: string }) {
   if (log.structured) {
     const event = log.structured;
     switch (event.type) {
       case "assistant_message":
-        return <AssistantLine data={event.data} />;
+        return <AssistantLine data={event.data} agentType={agentType} />;
       case "tool_use":
         return <ToolUseLine data={event.data} />;
       case "tool_result":
@@ -145,13 +158,13 @@ function LogLine({ log, toolIdMap }: { log: any; toolIdMap: Map<string, string> 
 
 // --- Assistant ---
 
-function AssistantLine({ data }: { data: any }) {
+function AssistantLine({ data, agentType }: { data: any; agentType?: string }) {
   const text = extractContent(data);
   if (!text) return null;
 
   return (
     <div className="log-line log-assistant">
-      <span className="log-badge log-badge-assistant">Claude</span>
+      <span className="log-badge log-badge-assistant">{agentLabel(agentType)}</span>
       <div className="log-assistant-content log-markdown">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
       </div>
