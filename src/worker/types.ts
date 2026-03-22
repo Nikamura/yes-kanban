@@ -77,6 +77,11 @@ export interface LogEntry {
   timestamp: number;
 }
 
+/** Stream setup/cleanup script output into Convex without importing Convex types in worktree-manager. */
+export type ScriptLogger = {
+  onLine: (stream: "stdout" | "stderr", line: string) => void;
+};
+
 /** Attachment metadata with resolved URL for prompt building. */
 export interface AttachmentInfo {
   filename: string;

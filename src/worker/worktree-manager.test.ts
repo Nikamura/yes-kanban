@@ -422,6 +422,74 @@ describe("GitWorktreeManager", () => {
     expect(files).toContain("README.md");
   });
 
+  test("cleanup script streams lines to logger", async () => {
+    const manager = new GitWorktreeManager(worktreeRoot);
+    const { worktrees } = await manager.createWorktrees({
+      workspaceId: "ws-cleanup-log",
+      simpleId: "TASK-CLOG",
+      repos: [
+        {
+          _id: "r1",
+          path: repoDir,
+          slug: "repo",
+          defaultBranch: "main",
+          scriptTimeoutMs: 10000,
+        } as any,
+      ],
+    });
+    const received: { stream: string; line: string }[] = [];
+    const logger = {
+      onLine: (stream: "stdout" | "stderr", line: string) => {
+        received.push({ stream, line });
+      },
+    };
+    await manager.removeWorktrees({
+      worktrees,
+      repos: [
+        {
+          _id: "r1",
+          path: repoDir,
+          slug: "repo",
+          defaultBranch: "main",
+          scriptTimeoutMs: 10000,
+          cleanupScript: "echo cleanup-msg && echo errline >&2",
+        } as any,
+      ],
+      logger,
+    });
+    expect(received.some((r) => r.line.includes("--- [repo] cleanup ---"))).toBe(true);
+    expect(received.some((r) => r.stream === "stdout" && r.line === "cleanup-msg")).toBe(true);
+    expect(received.some((r) => r.stream === "stderr" && r.line === "errline")).toBe(true);
+  });
+
+  test("setup script streams lines to logger", async () => {
+    const manager = new GitWorktreeManager(worktreeRoot);
+    const received: { stream: string; line: string }[] = [];
+    const logger = {
+      onLine: (stream: "stdout" | "stderr", line: string) => {
+        received.push({ stream, line });
+      },
+    };
+    await manager.createWorktrees({
+      workspaceId: "ws-setup-log",
+      simpleId: "TASK-LOG",
+      repos: [
+        {
+          _id: "r1",
+          path: repoDir,
+          slug: "repo",
+          defaultBranch: "main",
+          scriptTimeoutMs: 10000,
+          setupScript: "echo hello && echo err >&2",
+        } as any,
+      ],
+      logger,
+    });
+    expect(received.some((r) => r.line.includes("--- [repo] setup ---"))).toBe(true);
+    expect(received.some((r) => r.stream === "stdout" && r.line === "hello")).toBe(true);
+    expect(received.some((r) => r.stream === "stderr" && r.line === "err")).toBe(true);
+  });
+
   test("getFileTree includes untracked files", async () => {
     const manager = new GitWorktreeManager(worktreeRoot);
     const { worktrees } = await manager.createWorktrees({

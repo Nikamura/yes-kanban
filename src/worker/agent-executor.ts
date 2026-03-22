@@ -1,4 +1,5 @@
 import type { ExecuteResult } from "./types";
+import { consumeStreamLines } from "./stream-lines";
 
 /**
  * Kill a process and its entire process group aggressively.
@@ -93,28 +94,23 @@ export class AgentExecutor {
     };
     args.signal.addEventListener("abort", onAbort);
 
-    // Stream stdout
-    const readStream = async (
-      reader: ReadableStream<Uint8Array>,
-      stream: "stdout" | "stderr",
-    ) => {
-      const decoder = new TextDecoder();
-      let buffer = "";
-      for await (const chunk of reader) {
-        lastActivity = Date.now();
-        buffer += decoder.decode(chunk, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          if (line) args.onLine(stream, line);
-        }
-      }
-      if (buffer) args.onLine(stream, buffer);
-    };
-
     await Promise.all([
-      readStream(proc.stdout, "stdout"),
-      readStream(proc.stderr, "stderr"),
+      consumeStreamLines(proc.stdout, "stdout", {
+        onChunk: () => {
+          lastActivity = Date.now();
+        },
+        onLine: (stream, line) => {
+          args.onLine(stream, line);
+        },
+      }),
+      consumeStreamLines(proc.stderr, "stderr", {
+        onChunk: () => {
+          lastActivity = Date.now();
+        },
+        onLine: (stream, line) => {
+          args.onLine(stream, line);
+        },
+      }),
     ]);
 
     const exitCode = await proc.exited;

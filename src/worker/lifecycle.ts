@@ -7,8 +7,9 @@ import { getAdapter } from "./adapters";
 import { buildPrompt, buildReviewPrompt, buildPlanReviewPrompt, buildRebaseConflictPrompt, buildPlanningPrompt, buildFixPrompt } from "./prompt-builder";
 import { getForgeAdapter } from "./forge";
 import { McpServer, type ExternalMcpConfig } from "./mcp-server";
-import type { WorkerConfig, DispatchTask, WorktreeEntry, LogEntry, AgentEvent, AttachmentInfo } from "./types";
+import type { WorkerConfig, DispatchTask, WorktreeEntry, LogEntry, AgentEvent, AttachmentInfo, ScriptLogger } from "./types";
 import { computeBackoffDelay, shouldRetry, TERMINAL_STATUSES } from "./retry";
+import { consumeStreamLines } from "./stream-lines";
 import { READ_ONLY_TOOLS, PLANNING_TOOLS, PLANNING_RESEARCH_TOOLS, CODING_TOOLS, REVIEW_TOOLS } from "./mcp-tools";
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync, appendFileSync } from "fs";
 import { unlink } from "fs/promises";
@@ -33,6 +34,8 @@ function clampDepth(value: unknown, maxDepth: number, depth = 0): unknown {
 
 const ATTACHMENTS_DIR = ".yes-kanban-attachments";
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10 MB
+/** Truncate stored script prompts for runAttempts (Convex document size). */
+const MAX_SCRIPT_PROMPT_LEN = 50_000;
 /** Appended to commit messages created by Yes Kanban (git trailer convention). */
 const YES_KANBAN_GIT_TRAILER = "Generated-by: Yes Kanban";
 
@@ -118,6 +121,107 @@ async function downloadAttachments(
  */
 export function hasFileChanges(diff: string): boolean {
   return diff.trim().length > 0;
+}
+
+function createScriptLogFlusher(
+  convex: ConvexClient,
+  runAttemptId: Id<"runAttempts">,
+  workspaceId: Id<"workspaces">,
+): { logger: ScriptLogger; flush: () => Promise<void> } {
+  const logBuffer: LogEntry[] = [];
+  const timerRef: { current: ReturnType<typeof setTimeout> | null } = { current: null };
+  /** After `flush()` finishes, late `onLine` calls flush immediately (no orphaned buffer). */
+  let flushEnded = false;
+
+  const flushLogs = async () => {
+    if (logBuffer.length > 0) {
+      const entries = logBuffer.splice(0, logBuffer.length);
+      try {
+        await convex.mutation(api.agentLogs.appendBatch, { entries });
+      } catch (err) {
+        console.warn("[lifecycle] agentLogs.appendBatch failed:", err);
+      }
+    }
+  };
+
+  const logger: ScriptLogger = {
+    onLine: (stream, line) => {
+      logBuffer.push({
+        runAttemptId,
+        workspaceId,
+        stream,
+        line,
+        structured: null,
+        timestamp: Date.now(),
+      });
+      if (flushEnded) {
+        void flushLogs();
+        return;
+      }
+      if (timerRef.current === null) {
+        timerRef.current = setTimeout(() => {
+          timerRef.current = null;
+          void flushLogs();
+        }, 100);
+      }
+    },
+  };
+
+  const flush = async () => {
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    flushEnded = true;
+    await flushLogs();
+  };
+
+  return { logger, flush };
+}
+
+async function removeWorktreesWithOptionalScriptLogs(
+  convex: ConvexClient,
+  worktreeManager: GitWorktreeManager,
+  workspaceId: Id<"workspaces">,
+  worktrees: WorktreeEntry[],
+  repos: Doc<"repos">[],
+): Promise<void> {
+  const fragments: string[] = [];
+  for (const wt of worktrees) {
+    const repo = repos.find((r) => r._id === wt.repoId);
+    if (repo?.cleanupScript) {
+      fragments.push(`[${repo.slug}]\n${repo.cleanupScript}`);
+    }
+  }
+  if (fragments.length === 0) {
+    await worktreeManager.removeWorktrees({ worktrees, repos });
+    return;
+  }
+  let prompt = fragments.join("\n\n");
+  if (prompt.length > MAX_SCRIPT_PROMPT_LEN) {
+    prompt = prompt.slice(0, MAX_SCRIPT_PROMPT_LEN) + "\n\n... [truncated]";
+  }
+  const runAttemptId = await convex.mutation(api.runAttempts.create, {
+    workspaceId,
+    type: "cleanup",
+    prompt,
+  });
+  const { logger, flush } = createScriptLogFlusher(convex, runAttemptId, workspaceId);
+  let cleanupErr: unknown;
+  try {
+    await worktreeManager.removeWorktrees({ worktrees, repos, logger });
+  } catch (err) {
+    cleanupErr = err;
+    console.error(`[lifecycle] workspace=${workspaceId} removeWorktrees failed:`, err);
+  } finally {
+    await flush();
+    await convex.mutation(api.runAttempts.complete, {
+      id: runAttemptId,
+      status: cleanupErr ? "failed" : "succeeded",
+      exitCode: cleanupErr ? undefined : 0,
+      error: cleanupErr instanceof Error ? cleanupErr.message : cleanupErr ? String(cleanupErr) : undefined,
+    });
+  }
 }
 
 /** Line-start patterns for agent CLI footers in commit messages (subjects or bodies). */
@@ -335,12 +439,63 @@ export async function runLifecycle(
   });
   // 1. Create worktrees
   console.log(`[lifecycle] creating worktrees for workspace=${workspaceId}`);
-  const { worktrees, agentCwd, resumed } = await worktreeManager.createWorktrees({
-    workspaceId,
-    simpleId: issue?.simpleId ?? workspaceId.slice(0, 8),
-    issueTitle: issue?.title,
-    repos,
-  });
+  const reposWithSetup = repos.filter((r) => r.setupScript);
+  let setupRunAttemptId: Id<"runAttempts"> | undefined;
+  let setupFlush: (() => Promise<void>) | undefined;
+  let setupLogger: ScriptLogger | undefined;
+  if (reposWithSetup.length > 0) {
+    const promptLines = reposWithSetup.map((r) => `[${r.slug}]\n${r.setupScript}`);
+    let storedPrompt = promptLines.join("\n\n");
+    if (storedPrompt.length > MAX_SCRIPT_PROMPT_LEN) {
+      storedPrompt = storedPrompt.slice(0, MAX_SCRIPT_PROMPT_LEN) + "\n\n... [truncated]";
+    }
+    const setupAttemptId = await convex.mutation(api.runAttempts.create, {
+      workspaceId,
+      type: "setup",
+      prompt: storedPrompt,
+    });
+    setupRunAttemptId = setupAttemptId;
+    const flusher = createScriptLogFlusher(convex, setupAttemptId, workspaceId);
+    setupFlush = flusher.flush;
+    setupLogger = flusher.logger;
+  }
+
+  let setupError: unknown;
+  let worktrees!: WorktreeEntry[];
+  let agentCwd!: string;
+  let resumed!: boolean;
+  try {
+    const result = await worktreeManager.createWorktrees({
+      workspaceId,
+      simpleId: issue?.simpleId ?? workspaceId.slice(0, 8),
+      issueTitle: issue?.title,
+      repos,
+      logger: setupLogger,
+    });
+    worktrees = result.worktrees;
+    agentCwd = result.agentCwd;
+    resumed = result.resumed;
+  } catch (err) {
+    setupError = err;
+    throw err;
+  } finally {
+    if (setupRunAttemptId) {
+      await setupFlush?.();
+      if (setupError !== undefined) {
+        await convex.mutation(api.runAttempts.complete, {
+          id: setupRunAttemptId,
+          status: "failed",
+          error: setupError instanceof Error ? setupError.message : String(setupError),
+        });
+      } else {
+        await convex.mutation(api.runAttempts.complete, {
+          id: setupRunAttemptId,
+          status: "succeeded",
+          exitCode: 0,
+        });
+      }
+    }
+  }
   if (resumed) {
     console.log(`[lifecycle] resumed existing worktree for workspace=${workspaceId}`);
   }
@@ -891,7 +1046,9 @@ export async function runLifecycle(
       });
       // Clean up worktrees immediately — nothing to preserve
       try {
-        await worktreeManager.removeWorktrees({ worktrees, repos });
+        await removeWorktreesWithOptionalScriptLogs(
+          convex, worktreeManager, workspaceId, worktrees, repos,
+        );
         await convex.mutation(api.workspaces.clearWorktrees, { id: workspaceId });
         await convex.mutation(api.fileContentRequests.deleteByWorkspace, { workspaceId });
         console.log(`[lifecycle] workspace=${workspaceId} worktrees cleaned up (no file changes)`);
@@ -1138,7 +1295,9 @@ export async function runLifecycle(
 
     // Clean up worktrees immediately after merge
     try {
-      await worktreeManager.removeWorktrees({ worktrees, repos });
+      await removeWorktreesWithOptionalScriptLogs(
+        convex, worktreeManager, workspaceId, worktrees, repos,
+      );
       await convex.mutation(api.workspaces.clearWorktrees, { id: workspaceId });
       await convex.mutation(api.fileContentRequests.deleteByWorkspace, { workspaceId });
       console.log(`[lifecycle] workspace=${workspaceId} worktrees cleaned up`);
@@ -1735,14 +1894,23 @@ export async function runTests(
       status: "testing",
     });
 
-    // Use async spawn so the event loop stays responsive to cancel signals
+    let storedPrompt = repo.testCommand;
+    if (storedPrompt.length > MAX_SCRIPT_PROMPT_LEN) {
+      storedPrompt = storedPrompt.slice(0, MAX_SCRIPT_PROMPT_LEN) + "\n\n... [truncated]";
+    }
+    const runAttemptId = await convex.mutation(api.runAttempts.create, {
+      workspaceId,
+      type: "test",
+      prompt: storedPrompt,
+    });
+    const { logger, flush } = createScriptLogFlusher(convex, runAttemptId, workspaceId);
+
     const proc = Bun.spawn(["sh", "-c", repo.testCommand], {
       cwd: wt.worktreePath,
       stdout: "pipe",
       stderr: "pipe",
     });
 
-    // Wire up abort signal to kill test process
     const onAbort = () => {
       try { process.kill(-proc.pid, "SIGTERM"); } catch { /* empty */ }
       try { proc.kill("SIGTERM"); } catch { /* empty */ }
@@ -1753,26 +1921,51 @@ export async function runTests(
     };
     abortSignal?.addEventListener("abort", onAbort);
 
-    // Set up timeout
     const timeoutTimer = repo.testTimeoutMs
       ? setTimeout(() => {
           try { proc.kill("SIGTERM"); } catch { /* empty */ }
         }, repo.testTimeoutMs)
       : null;
 
-    const [stdout, stderr] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
+    const stdoutParts: string[] = [];
+    const stderrParts: string[] = [];
+    await Promise.all([
+      consumeStreamLines(proc.stdout, "stdout", {
+        outParts: stdoutParts,
+        onLine: (stream, line) => logger.onLine(stream, line),
+      }),
+      consumeStreamLines(proc.stderr, "stderr", {
+        outParts: stderrParts,
+        onLine: (stream, line) => logger.onLine(stream, line),
+      }),
     ]);
     const exitCode = await proc.exited;
 
     if (timeoutTimer) clearTimeout(timeoutTimer);
     abortSignal?.removeEventListener("abort", onAbort);
 
-    if (abortSignal?.aborted) return null;
+    await flush();
 
-    const output = stdout + stderr;
-    if (exitCode !== 0) {
+    const output = stdoutParts.join("") + stderrParts.join("");
+
+    if (abortSignal?.aborted) {
+      await convex.mutation(api.runAttempts.complete, {
+        id: runAttemptId,
+        status: "cancelled",
+        error: "Test run cancelled",
+      });
+      return null;
+    }
+
+    const success = exitCode === 0;
+    await convex.mutation(api.runAttempts.complete, {
+      id: runAttemptId,
+      status: success ? "succeeded" : "failed",
+      exitCode,
+      error: success ? undefined : `Exited with code ${exitCode}`,
+    });
+
+    if (!success) {
       return { passed: false, output };
     }
   }

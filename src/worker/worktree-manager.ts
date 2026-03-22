@@ -1,7 +1,8 @@
 import { mkdir } from "fs/promises";
 import { join } from "path";
 import type { Doc } from "../../convex/_generated/dataModel";
-import type { WorktreeEntry } from "./types";
+import type { ScriptLogger, WorktreeEntry } from "./types";
+import { consumeStreamLines } from "./stream-lines";
 
 const BRANCH_SAFE_RE = /[^A-Za-z0-9._\-/]/g;
 
@@ -37,11 +38,52 @@ export function cleanGitEnv(): Record<string, string | undefined> {
 export class GitWorktreeManager {
   constructor(private worktreeRoot: string) {}
 
+  private async runScript(
+    cmd: string,
+    cwd: string,
+    timeoutMs: number,
+    logger?: ScriptLogger,
+  ): Promise<{ exitCode: number; output: string }> {
+    const proc = Bun.spawn(["sh", "-c", cmd], {
+      cwd,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    let timedOut = false;
+    const overallTimer = setTimeout(() => {
+      timedOut = true;
+      try { process.kill(-proc.pid, "SIGTERM"); } catch { /* empty */ }
+      try { proc.kill("SIGTERM"); } catch { /* empty */ }
+    }, timeoutMs);
+
+    const stdoutParts: string[] = [];
+    const stderrParts: string[] = [];
+    await Promise.all([
+      consumeStreamLines(proc.stdout, "stdout", {
+        outParts: stdoutParts,
+        onLine: logger ? (s, l) => logger.onLine(s, l) : undefined,
+      }),
+      consumeStreamLines(proc.stderr, "stderr", {
+        outParts: stderrParts,
+        onLine: logger ? (s, l) => logger.onLine(s, l) : undefined,
+      }),
+    ]);
+    const exitCode = await proc.exited;
+    clearTimeout(overallTimer);
+    const output = stdoutParts.join("") + stderrParts.join("");
+    if (timedOut) {
+      return { exitCode: -1, output: output + "\n[timeout]\n" };
+    }
+    return { exitCode, output };
+  }
+
   async createWorktrees(args: {
     workspaceId: string;
     simpleId: string;
     issueTitle?: string;
     repos: Doc<"repos">[];
+    logger?: ScriptLogger;
   }): Promise<{ worktrees: WorktreeEntry[]; agentCwd: string; resumed: boolean }> {
     const workspaceDir = join(this.worktreeRoot, args.workspaceId);
     await mkdir(workspaceDir, { recursive: true });
@@ -127,13 +169,18 @@ export class GitWorktreeManager {
         // Run setup script
         if (repo.setupScript) {
           log(`running setup script for repo=${repo.slug}`);
-          const setupResult = Bun.spawnSync(["sh", "-c", repo.setupScript], {
-            cwd: worktreePath,
-            timeout: repo.scriptTimeoutMs,
-          });
+          if (args.logger) {
+            args.logger.onLine("stdout", `--- [${repo.slug}] setup ---`);
+          }
+          const setupResult = await this.runScript(
+            repo.setupScript,
+            worktreePath,
+            repo.scriptTimeoutMs,
+            args.logger,
+          );
           if (setupResult.exitCode !== 0) {
             throw new Error(
-              `Setup script failed: ${setupResult.stderr.toString()}`
+              `Setup script failed: ${setupResult.output.trim() || "(no output)"}`
             );
           }
           log(`setup script completed for repo=${repo.slug}`);
@@ -169,15 +216,33 @@ export class GitWorktreeManager {
     }
   }
 
-  removeWorktrees(args: { worktrees: WorktreeEntry[]; repos: Doc<"repos">[] }): Promise<void> {
+  async removeWorktrees(args: {
+    worktrees: WorktreeEntry[];
+    repos: Doc<"repos">[];
+    logger?: ScriptLogger;
+  }): Promise<void> {
     for (const wt of args.worktrees) {
       const repo = args.repos.find((r) => r._id === wt.repoId);
       if (repo?.cleanupScript) {
         try {
-          Bun.spawnSync(["sh", "-c", repo.cleanupScript], {
-            cwd: wt.worktreePath,
-            timeout: repo.scriptTimeoutMs,
-          });
+          if (args.logger) {
+            args.logger.onLine("stdout", `--- [${repo.slug}] cleanup ---`);
+          }
+          const { exitCode, output } = await this.runScript(
+            repo.cleanupScript,
+            wt.worktreePath,
+            repo.scriptTimeoutMs,
+            args.logger,
+          );
+          if (exitCode !== 0) {
+            args.logger?.onLine(
+              "stderr",
+              `cleanup script exited with code ${exitCode}: ${output.trim().slice(0, 2000)}`,
+            );
+            console.warn(
+              `[worktree-manager] cleanup script failed for ${wt.worktreePath}: exit ${exitCode}`,
+            );
+          }
         } catch (err) {
           console.warn(`[worktree-manager] cleanup script failed for ${wt.worktreePath}:`, err);
         }
@@ -234,8 +299,6 @@ export class GitWorktreeManager {
         console.warn(`[worktree-manager] worktree prune failed for ${repoPath}:`, err);
       }
     }
-
-    return Promise.resolve();
   }
 
   /**
