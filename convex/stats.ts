@@ -47,7 +47,10 @@ export const tokenUsage = query({
 
     // Build workspace lookup and agent config lookup
     const wsMap = new Map(workspaces.map((w) => [w._id, w]));
-    const agentConfigIds = Array.from(new Set(workspaces.map((w) => w.agentConfigId)));
+    const agentConfigIds = Array.from(new Set([
+      ...workspaces.map((w) => w.agentConfigId),
+      ...allAttempts.map((a) => a.agentConfigId).filter((id): id is Id<"agentConfigs"> => id !== undefined),
+    ]));
     const agentConfigs = new Map<string, { name: string; model?: string }>();
     for (const configId of agentConfigIds) {
       const config = await ctx.db.get(configId);
@@ -74,7 +77,8 @@ export const tokenUsage = query({
     for (const attempt of allAttempts) {
       const ws = wsMap.get(attempt.workspaceId);
       if (!ws) continue;
-      const configInfo = agentConfigs.get(ws.agentConfigId);
+      const effectiveConfigId = attempt.agentConfigId ?? ws.agentConfigId;
+      const configInfo = agentConfigs.get(effectiveConfigId);
       const configName = configInfo?.name ?? "Unknown";
       const existing = byAgentMap.get(configName) ?? {
         agentConfigName: configName,
@@ -101,7 +105,8 @@ export const tokenUsage = query({
     const sorted = [...allAttempts].sort((a, b) => b.startedAt - a.startedAt);
     const recentRuns = sorted.slice(0, 20).map((attempt) => {
       const ws = wsMap.get(attempt.workspaceId);
-      const configInfo = ws ? agentConfigs.get(ws.agentConfigId) : undefined;
+      const effectiveConfigId = attempt.agentConfigId ?? ws?.agentConfigId;
+      const configInfo = effectiveConfigId ? agentConfigs.get(effectiveConfigId) : undefined;
       const agentConfigName = configInfo?.name ?? "Unknown";
       return {
         _id: attempt._id,
