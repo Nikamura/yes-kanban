@@ -176,18 +176,27 @@ export class GitWorktreeManager {
             cwd: wt.worktreePath,
             timeout: repo.scriptTimeoutMs,
           });
-        } catch { /* empty */ }
+        } catch (err) {
+          console.warn(`[worktree-manager] cleanup script failed for ${wt.worktreePath}:`, err);
+        }
       }
       try {
-        Bun.spawnSync(
+        const result = Bun.spawnSync(
           ["git", "-C", wt.repoPath, "worktree", "remove", "--force", wt.worktreePath],
           { timeout: 10000, env: cleanGitEnv() }
         );
-      } catch { /* empty */ }
+        if (result.exitCode !== 0) {
+          console.warn(`[worktree-manager] git worktree remove failed for ${wt.worktreePath}: ${result.stderr.toString().trim()}`);
+        }
+      } catch (err) {
+        console.warn(`[worktree-manager] git worktree remove threw for ${wt.worktreePath}:`, err);
+      }
       // Fallback: remove leftover directory if worktree remove didn't clean it
       try {
         Bun.spawnSync(["rm", "-rf", wt.worktreePath], { timeout: 10000 });
-      } catch { /* empty */ }
+      } catch (err) {
+        console.warn(`[worktree-manager] rm -rf failed for ${wt.worktreePath}:`, err);
+      }
 
       // Clean up the feature branch now that the worktree is removed.
       // Uses -d (safe delete) which only works if the branch is fully merged.
@@ -198,12 +207,17 @@ export class GitWorktreeManager {
           { timeout: 10000, env: cleanGitEnv() }
         );
         if (result.exitCode !== 0) {
-          Bun.spawnSync(
+          const forceResult = Bun.spawnSync(
             ["git", "-C", wt.repoPath, "branch", "-D", wt.branchName],
             { timeout: 10000, env: cleanGitEnv() }
           );
+          if (forceResult.exitCode !== 0) {
+            console.warn(`[worktree-manager] branch delete failed for ${wt.branchName}: ${forceResult.stderr.toString().trim()}`);
+          }
         }
-      } catch { /* empty */ }
+      } catch (err) {
+        console.warn(`[worktree-manager] branch delete threw for ${wt.branchName}:`, err);
+      }
     }
 
     // Prune stale worktree references for each unique repo
@@ -214,7 +228,9 @@ export class GitWorktreeManager {
           ["git", "-C", repoPath, "worktree", "prune"],
           { timeout: 10000, env: cleanGitEnv() }
         );
-      } catch { /* empty */ }
+      } catch (err) {
+        console.warn(`[worktree-manager] worktree prune failed for ${repoPath}:`, err);
+      }
     }
 
     return Promise.resolve();

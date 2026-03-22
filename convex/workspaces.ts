@@ -107,15 +107,17 @@ export const listForBranchCheck = query({
   },
 });
 
-/** Returns merged workspaces that still have worktrees to clean up. */
+/** Returns merged/cancelled workspaces that still have worktrees to clean up. */
+const CLEANUP_STATUSES = ["merged", "cancelled"] as const;
 export const listReadyForCleanup = query({
   args: {},
   handler: async (ctx) => {
-    const merged = await ctx.db
-      .query("workspaces")
-      .withIndex("by_status", (q) => q.eq("status", "merged"))
-      .collect();
-    return merged.filter((w) => w.worktrees.length > 0 && w.completedAt !== undefined);
+    const results = await Promise.all(
+      CLEANUP_STATUSES.map((s) =>
+        ctx.db.query("workspaces").withIndex("by_status", (q) => q.eq("status", s)).collect()
+      )
+    );
+    return results.flat().filter((w) => w.worktrees.length > 0);
   },
 });
 
@@ -428,7 +430,7 @@ export const requestRebase = mutation({
   handler: async (ctx, args) => {
     const workspace = await ctx.db.get(args.id);
     if (!workspace) throw new Error("Workspace not found");
-    const rebasableStatuses = ["pr_open", "completed", "conflict", "changes_requested"];
+    const rebasableStatuses = ["pr_open", "completed", "conflict", "changes_requested", "merge_failed"];
     if (!rebasableStatuses.includes(workspace.status)) {
       throw new Error(`Cannot rebase workspace with status "${workspace.status}"`);
     }

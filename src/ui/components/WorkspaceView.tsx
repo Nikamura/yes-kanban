@@ -56,7 +56,7 @@ export function WorkspaceView({
   const canRetry = RETRYABLE_STATUSES.includes(workspace.status);
   const canCancel = CANCELLABLE_STATUSES.includes(workspace.status) && !workspace.cancelRequested;
   const hasChanges = !!workspace.diffOutput;
-  const canRebase = ["pr_open", "completed", "conflict", "changes_requested"].includes(workspace.status) &&
+  const canRebase = ["pr_open", "completed", "conflict", "changes_requested", "merge_failed"].includes(workspace.status) &&
     ((workspace.behindMainBy ?? 0) > 0 || workspace.status === "conflict") && workspace.worktrees.length > 0;
   const canCreatePR = ["completed", "changes_requested"].includes(workspace.status) && workspace.worktrees.length > 0 && hasChanges;
   const canMerge = ["completed", "changes_requested"].includes(workspace.status) && workspace.worktrees.length > 0 && hasChanges;

@@ -1708,10 +1708,12 @@ export async function resolveRebaseConflicts(
   abortSignal: AbortSignal,
   template?: string,
 ): Promise<boolean> {
+  const env = cleanGitEnv();
+
   // Get conflicted files — ls-files --unmerged is more reliable than diff --diff-filter=U during rebase
   const diffResult = Bun.spawnSync(
     ["git", "-C", wt.worktreePath, "ls-files", "--unmerged"],
-    { timeout: 10000 },
+    { timeout: 10000, env },
   );
   // ls-files --unmerged outputs "mode hash stage\tpath" — extract unique file paths
   const conflictedFiles = [
@@ -1754,7 +1756,7 @@ export async function resolveRebaseConflicts(
   // Verify rebase completed — check git status for "rebase in progress"
   const statusResult = Bun.spawnSync(
     ["git", "-C", wt.worktreePath, "status", "--porcelain=v2", "--branch"],
-    { timeout: 5000 },
+    { timeout: 5000, env },
   );
   const statusOutput = statusResult.stdout.toString();
   const rebaseInProgress = statusOutput.includes("rebas") ||
@@ -1783,18 +1785,20 @@ export async function executeRebase(
   abortSignal: AbortSignal,
   rebaseTemplate?: string,
 ): Promise<"success" | "conflict"> {
+  const env = cleanGitEnv();
+
   for (const wt of worktrees) {
     // Try fetching from origin (may fail for local-only repos — that's fine)
     Bun.spawnSync(
       ["git", "-C", wt.worktreePath, "fetch", "origin"],
-      { timeout: 60000 },
+      { timeout: 60000, env },
     );
 
     // Determine rebase target: origin/baseBranch if available, otherwise
     // resolve baseBranch from the main repo for local-only setups
     const hasOrigin = Bun.spawnSync(
       ["git", "-C", wt.worktreePath, "rev-parse", "--verify", `origin/${wt.baseBranch}`],
-      { timeout: 5000 },
+      { timeout: 5000, env },
     ).exitCode === 0;
 
     let rebaseTarget: string;
@@ -1803,7 +1807,7 @@ export async function executeRebase(
     } else {
       const baseRev = Bun.spawnSync(
         ["git", "-C", wt.repoPath, "rev-parse", wt.baseBranch],
-        { timeout: 5000 },
+        { timeout: 5000, env },
       );
       if (baseRev.exitCode !== 0) {
         console.error(`[lifecycle] workspace=${workspaceId} cannot resolve base branch ${wt.baseBranch}`);
@@ -1815,7 +1819,7 @@ export async function executeRebase(
     // Stash uncommitted changes before rebasing — git refuses to rebase with a dirty index
     const stashResult = Bun.spawnSync(
       ["git", "-C", wt.worktreePath, "stash", "push", "-u", "-m", "yes-kanban-rebase-stash"],
-      { timeout: 30000 },
+      { timeout: 30000, env },
     );
     const didStash = stashResult.exitCode === 0 &&
       !stashResult.stdout.toString().includes("No local changes");
@@ -1827,7 +1831,7 @@ export async function executeRebase(
     console.log(`[lifecycle] workspace=${workspaceId} rebasing ${wt.branchName} onto ${rebaseTarget}`);
     const rebaseResult = Bun.spawnSync(
       ["git", "-C", wt.worktreePath, "rebase", rebaseTarget],
-      { timeout: 60000 },
+      { timeout: 60000, env },
     );
 
     if (rebaseResult.exitCode !== 0) {
@@ -1843,13 +1847,13 @@ export async function executeRebase(
         // Abort the rebase
         Bun.spawnSync(
           ["git", "-C", wt.worktreePath, "rebase", "--abort"],
-          { timeout: 10000 },
+          { timeout: 10000, env },
         );
         // Pop stash back so changes aren't lost
         if (didStash) {
           Bun.spawnSync(
             ["git", "-C", wt.worktreePath, "stash", "pop"],
-            { timeout: 10000 },
+            { timeout: 10000, env },
           );
         }
         return "conflict";
@@ -1860,7 +1864,7 @@ export async function executeRebase(
     if (didStash) {
       const popResult = Bun.spawnSync(
         ["git", "-C", wt.worktreePath, "stash", "pop"],
-        { timeout: 10000 },
+        { timeout: 10000, env },
       );
       if (popResult.exitCode !== 0) {
         console.log(`[lifecycle] workspace=${workspaceId} stash pop failed — changes may conflict with rebased code`);

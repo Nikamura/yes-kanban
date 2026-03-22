@@ -445,17 +445,18 @@ async function main() {
       }
     }
 
-    // Clean up worktrees for merged workspaces after delay
+    // Clean up worktrees for merged/cancelled workspaces after delay
     try {
-      const mergedWorkspaces = await convex.query(api.workspaces.listReadyForCleanup, {});
-      for (const ws of mergedWorkspaces) {
-        if (!ws.completedAt) continue;
-        // Look up project cleanup delay
-        const project = await convex.query(api.projects.get, { id: ws.projectId });
-        const delay = project?.cleanupDelayMs ?? 3600000; // default 1 hour
-        if (Date.now() - ws.completedAt < delay) continue;
+      const cleanupWorkspaces = await convex.query(api.workspaces.listReadyForCleanup, {});
+      for (const ws of cleanupWorkspaces) {
+        // Merged workspaces clean up immediately; cancelled ones respect the delay
+        if (ws.status !== "merged" && ws.completedAt) {
+          const project = await convex.query(api.projects.get, { id: ws.projectId });
+          const delay = project?.cleanupDelayMs ?? 3600000; // default 1 hour
+          if (Date.now() - ws.completedAt < delay) continue;
+        }
 
-        console.log(`[worker] cleaning up worktrees for merged workspace=${ws._id}`);
+        console.log(`[worker] cleaning up worktrees for ${ws.status} workspace=${ws._id}`);
         const repos = await convex.query(api.repos.list, { projectId: ws.projectId });
         const worktreeManager = new GitWorktreeManager(config.worktreeRoot);
         await worktreeManager.removeWorktrees({ worktrees: ws.worktrees, repos });
