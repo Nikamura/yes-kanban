@@ -96,6 +96,18 @@ describe("Cancellable statuses alignment", () => {
     expect(cancelSection).toContain('"claimed"');
   });
 
+  test("worker orphaned cancel list includes plan_reviewing status", async () => {
+    const indexSource = await Bun.file(
+      new URL("./index.ts", import.meta.url).pathname
+    ).text();
+
+    // The orphaned workspace cancel check must include plan_reviewing
+    // so workspaces stuck in plan review can be cancelled
+    const orphanIdx = indexSource.indexOf("cancelling orphaned workspace");
+    const orphanSection = indexSource.slice(orphanIdx - 500, orphanIdx);
+    expect(orphanSection).toContain("plan_reviewing");
+  });
+
   test("worker skips pending actions when cancelRequested is set", async () => {
     const indexSource = await Bun.file(
       new URL("./index.ts", import.meta.url).pathname
