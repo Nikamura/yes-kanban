@@ -552,10 +552,14 @@ export async function runLifecycle(
 
     // Safety net: if the planning agent succeeded but forgot to call submit_plan,
     // resume the session and ask it to submit the plan via the MCP tool.
+    // Skip if the agent deliberately asked a question — it will resume after the user answers.
     const agentCalledSubmitPlan = planResult.events.some(
       (e) => e.type === "tool_use" && (e.data as { name?: string }).name === "mcp__yes-kanban__submit_plan",
     );
-    if (!agentCalledSubmitPlan) {
+    const agentAskedQuestion = planResult.events.some(
+      (e) => e.type === "tool_use" && (e.data as { name?: string }).name === "mcp__yes-kanban__ask_question",
+    );
+    if (!agentCalledSubmitPlan && !agentAskedQuestion) {
       console.log(`[lifecycle] workspace=${workspaceId} agent did not call submit_plan, resuming session to request it`);
       const resumeSessionId = planResult.events
         .filter((e) => e.type === "system")
