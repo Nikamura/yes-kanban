@@ -1,4 +1,4 @@
-import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { readFileSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import type { IAgentAdapter, AgentEvent, TokenUsage } from "../types";
 
@@ -125,22 +125,8 @@ export class CodexAdapter implements IAgentAdapter {
 
     // MCP config: convert JSON to TOML and set CODEX_HOME
     if (args.mcpConfigPath) {
-      try {
-        const jsonContent = readFileSync(args.mcpConfigPath, "utf-8");
-        const mcpConfig = JSON.parse(jsonContent);
-        if (!mcpConfig.mcpServers || typeof mcpConfig.mcpServers !== "object") {
-          throw new Error("Missing or invalid 'mcpServers' key in MCP config");
-        }
-        const toml = mcpJsonToToml(mcpConfig, args.allowedTools);
-
-        // Derive unique dir from mcpConfigPath (contains workspaceId) + pid to avoid collisions
-        const codexHome = `/tmp/yes-kanban-codex-home-${hashPath(args.mcpConfigPath)}-${process.pid}`;
-        mkdirSync(codexHome, { recursive: true });
-        writeFileSync(`${codexHome}/config.toml`, toml);
-        env["CODEX_HOME"] = codexHome;
-      } catch (err) {
-        throw new Error(`[codex] Failed to convert MCP config to TOML: ${err}`);
-      }
+      const codexHome = this.prepareMcpConfig(args.mcpConfigPath, args.allowedTools);
+      env["CODEX_HOME"] = codexHome;
     }
 
     if (args.config.args.length > 0) {
@@ -151,6 +137,37 @@ export class CodexAdapter implements IAgentAdapter {
     cmdArgs.push(args.prompt);
 
     return { command: args.config.command, args: cmdArgs, env };
+  }
+
+  /**
+   * Read an MCP JSON config, convert it to Codex TOML format, and write it
+   * to a temporary CODEX_HOME directory. Returns the path to use as CODEX_HOME.
+   * Call `cleanupCodexHome` with the returned path after the process exits.
+   */
+  private prepareMcpConfig(mcpConfigPath: string, allowedTools?: string[]): string {
+    try {
+      const jsonContent = readFileSync(mcpConfigPath, "utf-8");
+      const mcpConfig = JSON.parse(jsonContent);
+      if (!mcpConfig.mcpServers || typeof mcpConfig.mcpServers !== "object") {
+        throw new Error("Missing or invalid 'mcpServers' key in MCP config");
+      }
+      const toml = mcpJsonToToml(mcpConfig, allowedTools);
+
+      const codexHome = `/tmp/yes-kanban-codex-home-${hashPath(mcpConfigPath)}-${process.pid}`;
+      mkdirSync(codexHome, { recursive: true });
+      writeFileSync(`${codexHome}/config.toml`, toml);
+      return codexHome;
+    } catch (err) {
+      throw new Error(`[codex] Failed to convert MCP config to TOML: ${err}`, { cause: err });
+    }
+  }
+
+  /** Remove the temporary CODEX_HOME directory created by `prepareMcpConfig`. */
+  cleanupCodexHome(env: Record<string, string>): void {
+    const codexHome = env["CODEX_HOME"];
+    if (codexHome?.startsWith("/tmp/yes-kanban-codex-home-")) {
+      try { rmSync(codexHome, { recursive: true }); } catch { /* best-effort */ }
+    }
   }
 
   parseLine(line: string): AgentEvent[] {

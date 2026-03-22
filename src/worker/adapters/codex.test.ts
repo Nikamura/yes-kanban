@@ -340,6 +340,28 @@ describe("CodexAdapter", () => {
         const tomlContent = readFileSync(`${result.env["CODEX_HOME"]}/config.toml`, "utf-8");
         expect(tomlContent).not.toContain("enabled_tools");
       });
+
+      test("cleanupCodexHome removes temp directory", () => {
+        const mcpConfig = {
+          mcpServers: {
+            "yes-kanban": { command: "bun", args: ["run", "/tmp/bridge.ts"] },
+          },
+        };
+        writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
+
+        const result = buildWithMcp();
+        const codexHome = result.env["CODEX_HOME"];
+        expect(existsSync(codexHome)).toBe(true);
+
+        adapter.cleanupCodexHome(result.env);
+        expect(existsSync(codexHome)).toBe(false);
+      });
+
+      test("cleanupCodexHome ignores non-temp paths", () => {
+        // Should not attempt to delete paths outside the expected prefix
+        adapter.cleanupCodexHome({ CODEX_HOME: "/home/user/.codex" });
+        // No error thrown
+      });
     });
   });
 
