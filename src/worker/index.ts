@@ -172,9 +172,11 @@ async function main() {
               // Restore previous status after rebase (e.g. pr_open stays pr_open)
               // merge_failed should restore to completed — the rebase fixed the issue
               const prev = (ws as any).previousStatus;
-              // conflict/merge_failed/rebasing are not valid restore targets
+              // conflict/merge_failed/rebasing are not valid restore targets;
+              // fall back to "creating" so the lifecycle re-runs and picks up
+              // from the correct stage (it checks planApproved, run attempts, etc.)
               const invalidRestore = !prev || prev === "merge_failed" || prev === "conflict" || prev === "rebasing";
-              const restoreStatus = invalidRestore ? "completed" : prev;
+              const restoreStatus = invalidRestore ? "creating" : prev;
               await convex.mutation(api.workspaces.updateStatus, {
                 id: ws._id,
                 status: restoreStatus,
