@@ -375,8 +375,8 @@ export const remove = mutation({
   },
 });
 
-/** Strip legacy fields (priority, dueDate, cardColor) from all issues. */
-const LEGACY_ISSUE_FIELDS = ["priority", "dueDate", "cardColor"] as const;
+/** Strip legacy fields (priority, dueDate, cardColor, color) from all issues. */
+const LEGACY_ISSUE_FIELDS = ["priority", "dueDate", "cardColor", "color"] as const;
 
 export const migrateLegacyFields = mutation({
   args: {},
