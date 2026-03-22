@@ -179,12 +179,20 @@ function AssistantLine({ data, agentType }: { data: any; agentType?: string }) {
 
 // --- System ---
 
+/** Codex system event types that are lifecycle noise and should be hidden */
+const SKIP_CODEX_SYSTEM_TYPES = new Set([
+  "thread.started",
+  "turn.started",
+]);
+
 function SystemLine({ data }: { data: any }) {
   if (!data) return null;
   const subtype = data.subtype;
 
   if (SKIP_SYSTEM_SUBTYPES.has(subtype)) return null;
   if (subtype === "hook_started") return null;
+  // Codex uses data.type instead of data.subtype for system events
+  if (SKIP_CODEX_SYSTEM_TYPES.has(data.type)) return null;
 
   if (subtype === "init") {
     return (
