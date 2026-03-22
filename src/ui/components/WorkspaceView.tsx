@@ -324,6 +324,7 @@ export function WorkspaceView({
                   key={ra._id}
                   className={`ws-run-btn ${displayAttempt?._id === ra._id ? "active" : ""}`}
                   onClick={() => setSelectedAttemptId(ra._id)}
+                  title={[ra.agentConfig?.name, ra.agentConfig?.model].filter(Boolean).join(" · ") || undefined}
                 >
                   <span className="ws-run-btn-num">#{ra.attemptNumber}</span>
                   <span className="ws-run-btn-type">{ra.type}</span>
@@ -335,7 +336,7 @@ export function WorkspaceView({
             </div>
           )}
           {effectiveTab === "logs" && displayAttempt && (
-            <LogStream runAttemptId={displayAttempt._id} prompt={displayAttempt.prompt} agentType={workspace.agentConfig?.agentType} />
+            <LogStream runAttemptId={displayAttempt._id} prompt={displayAttempt.prompt} agentType={displayAttempt.agentConfig?.agentType ?? workspace.agentConfig?.agentType} />
           )}
           {effectiveTab === "logs" && !displayAttempt && (
             <div className="empty-state">No run attempts yet</div>

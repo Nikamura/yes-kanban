@@ -1273,6 +1273,7 @@ export async function runAgent(
     : prompt;
   const runAttemptId = await convex.mutation(api.runAttempts.create, {
     workspaceId,
+    agentConfigId: agentConfig._id,
     type,
     prompt: storedPrompt,
   });

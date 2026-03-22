@@ -32,7 +32,8 @@ export class CursorAdapter implements IAgentAdapter {
     if (mode === "dangerously-skip-permissions") {
       cmdArgs.push("--force");
     } else if (mode === "plan") {
-      cmdArgs.push("--mode", "plan");
+      // --trust bypasses workspace trust prompt without skipping all permissions like --force
+      cmdArgs.push("--mode", "plan", "--trust");
     }
 
     // Model override

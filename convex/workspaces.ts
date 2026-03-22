@@ -174,12 +174,31 @@ export const get = query({
     const workspace = await ctx.db.get(args.id);
     if (!workspace) return null;
 
-    const runAttempts = await ctx.db
+    const rawRunAttempts = await ctx.db
       .query("runAttempts")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
       .collect();
 
     const agentConfig = await ctx.db.get(workspace.agentConfigId);
+
+    // Resolve agent config for each run attempt (for badge/model display)
+    const configCache = new Map<string, { agentType: string; model?: string; name: string } | null>();
+    const runAttempts = await Promise.all(
+      rawRunAttempts.map(async (ra) => {
+        let attemptAgent: { agentType: string; model?: string; name: string } | null = null;
+        if (ra.agentConfigId) {
+          const key = ra.agentConfigId;
+          if (configCache.has(key)) {
+            attemptAgent = configCache.get(key) ?? null;
+          } else {
+            const cfg = await ctx.db.get(ra.agentConfigId);
+            attemptAgent = cfg ? { agentType: cfg.agentType, model: cfg.model, name: cfg.name } : null;
+            configCache.set(key, attemptAgent);
+          }
+        }
+        return { ...ra, agentConfig: attemptAgent };
+      }),
+    );
 
     return {
       ...workspace,

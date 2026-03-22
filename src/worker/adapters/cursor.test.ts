@@ -40,7 +40,7 @@ describe("CursorAdapter", () => {
       expect(result.args).toContain("--force");
     });
 
-    test("uses --mode plan for plan permission mode", () => {
+    test("uses --mode plan with --trust for plan permission mode", () => {
       const result = adapter.buildCommand({
         config: { command: "agent", args: [], env: {} } as any,
         prompt: "Review code",
@@ -49,6 +49,7 @@ describe("CursorAdapter", () => {
       });
       expect(result.args).toContain("--mode");
       expect(result.args).toContain("plan");
+      expect(result.args).toContain("--trust");
       expect(result.args).not.toContain("--force");
     });
 

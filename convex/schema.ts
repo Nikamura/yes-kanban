@@ -174,6 +174,7 @@ export default defineSchema({
 
   runAttempts: defineTable({
     workspaceId: v.id("workspaces"),
+    agentConfigId: v.optional(v.id("agentConfigs")),
     type: v.string(),
     attemptNumber: v.number(),
     prompt: v.string(),

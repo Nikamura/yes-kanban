@@ -14,6 +14,7 @@ export const list = query({
 export const create = mutation({
   args: {
     workspaceId: v.id("workspaces"),
+    agentConfigId: v.optional(v.id("agentConfigs")),
     type: v.optional(v.string()),
     prompt: v.string(),
   },
@@ -25,6 +26,7 @@ export const create = mutation({
 
     return await ctx.db.insert("runAttempts", {
       workspaceId: args.workspaceId,
+      agentConfigId: args.agentConfigId,
       type: args.type ?? "coding",
       attemptNumber: existing.length + 1,
       prompt: args.prompt,

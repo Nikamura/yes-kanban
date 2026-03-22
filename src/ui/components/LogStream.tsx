@@ -158,6 +158,11 @@ function LogLine({ log, toolIdMap, agentType }: { log: any; toolIdMap: Map<strin
 
 // --- Assistant ---
 
+/** Render links as plain text — agent output contains local file paths that shouldn't be clickable */
+const noLinkComponents = {
+  a: ({ children }: { children?: React.ReactNode }) => <span>{children}</span>,
+};
+
 function AssistantLine({ data, agentType }: { data: any; agentType?: string }) {
   const text = extractContent(data);
   if (!text) return null;
@@ -166,7 +171,7 @@ function AssistantLine({ data, agentType }: { data: any; agentType?: string }) {
     <div className="log-line log-assistant">
       <span className="log-badge log-badge-assistant">{agentLabel(agentType)}</span>
       <div className="log-assistant-content log-markdown">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={noLinkComponents}>{text}</ReactMarkdown>
       </div>
     </div>
   );
