@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { recordHistory } from "./issueHistory";
 import { validateIssueTitle, validateIssueDescription, validateCardColor } from "./lib/issueValidation";
+import { unarchiveIssue } from "./lib/archiveHelpers";
 import { WORKSPACE_TERMINAL_STATUSES } from "./workspaces";
 import { handleIssueCompletion } from "./recurrenceRules";
 
@@ -17,24 +18,33 @@ export const list = query({
   handler: async (ctx, args) => {
     let issues;
     const { status } = args;
-    if (status) {
+    if (args.archived && !status) {
+      // Use by_project_archived index for efficient archive queries
+      issues = await ctx.db
+        .query("issues")
+        .withIndex("by_project_archived", (q) =>
+          q.eq("projectId", args.projectId).gt("archivedAt", 0)
+        )
+        .collect();
+    } else if (status) {
       issues = await ctx.db
         .query("issues")
         .withIndex("by_project_status", (q) =>
           q.eq("projectId", args.projectId).eq("status", status)
         )
         .collect();
+      // Filter by archive status in-memory for status-scoped queries
+      if (args.archived) {
+        issues = issues.filter((i) => i.archivedAt !== undefined);
+      } else {
+        issues = issues.filter((i) => i.archivedAt === undefined);
+      }
     } else {
       issues = await ctx.db
         .query("issues")
         .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
         .collect();
-    }
-
-    // Filter by archive status
-    if (args.archived) {
-      issues = issues.filter((i) => i.archivedAt !== undefined);
-    } else {
+      // Filter out archived issues by default
       issues = issues.filter((i) => i.archivedAt === undefined);
     }
 
@@ -356,41 +366,7 @@ export const unarchive = mutation({
     const issue = await ctx.db.get(args.id);
     if (!issue) throw new Error("Issue not found");
     if (issue.archivedAt === undefined) return;
-
-    // Check if original column still exists; if not, use first visible column
-    const columns = await ctx.db
-      .query("columns")
-      .withIndex("by_project", (q) => q.eq("projectId", issue.projectId))
-      .collect();
-    const columnExists = columns.some((c) => c.name === issue.status);
-    const targetStatus = columnExists
-      ? issue.status
-      : (columns.filter((c) => c.visible).sort((a, b) => a.position - b.position)[0]?.name ?? issue.status);
-
-    // Get max position in target column
-    const existingInColumn = await ctx.db
-      .query("issues")
-      .withIndex("by_project_status", (q) =>
-        q.eq("projectId", issue.projectId).eq("status", targetStatus)
-      )
-      .collect();
-    const maxPos = existingInColumn.reduce((max, i) => Math.max(max, i.position), -1);
-
-    const now = Date.now();
-    await ctx.db.patch(args.id, {
-      archivedAt: undefined,
-      status: targetStatus,
-      position: maxPos + 1,
-      updatedAt: now,
-    });
-    await recordHistory(ctx, {
-      issueId: args.id,
-      projectId: issue.projectId,
-      action: "unarchived",
-      field: "archivedAt",
-      oldValue: JSON.stringify(issue.archivedAt),
-      actor: "user",
-    });
+    await unarchiveIssue(ctx, issue);
   },
 });
 

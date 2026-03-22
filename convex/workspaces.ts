@@ -3,8 +3,7 @@ import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getNextVisibleColumn } from "./lib/columnHelpers";
 import { recordHistory } from "./issueHistory";
-
-export const TERMINAL_COLUMN_NAMES = ["Done", "Cancelled"];
+export { TERMINAL_COLUMN_NAMES } from "./lib/boardConstants";
 
 /** Workspace statuses where the agent is no longer running and a new workspace can be created. */
 export const WORKSPACE_TERMINAL_STATUSES = [

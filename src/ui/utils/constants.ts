@@ -1,4 +1,5 @@
 import { VALID_CARD_COLORS } from "../../../convex/lib/issueValidation";
+export { TERMINAL_COLUMN_NAMES } from "../../../convex/lib/boardConstants";
 
 export const PRIORITY_COLORS: Record<string, string> = {
   urgent: "#EF4444",
@@ -24,8 +25,6 @@ export const CARD_COLORS = VALID_CARD_COLORS.map((value) => ({
 }));
 
 export const TERMINAL_STATUSES = ["completed", "failed", "cancelled", "merged", "merge_failed", "conflict", "test_failed", "changes_requested"];
-
-export const TERMINAL_COLUMN_NAMES = ["Done", "Cancelled"];
 
 export const RETRYABLE_STATUSES = ["failed", "test_failed", "changes_requested", "merge_failed", "cancelled"];
 

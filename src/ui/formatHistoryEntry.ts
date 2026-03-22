@@ -16,6 +16,14 @@ export function formatHistoryEntry(entry: {
     return "Issue created";
   }
 
+  if (entry.action === "archived") {
+    return "Issue archived";
+  }
+
+  if (entry.action === "unarchived") {
+    return "Issue restored from archive";
+  }
+
   if (entry.action === "moved") {
     return `Status changed from ${oldVal} → ${newVal}`;
   }

@@ -212,4 +212,24 @@ describe("formatHistoryEntry", () => {
       })
     ).toBe("Checklist updated");
   });
+
+  it("formats archived action", () => {
+    expect(
+      formatHistoryEntry({
+        action: "archived",
+        field: "archivedAt",
+        newValue: JSON.stringify(Date.now()),
+      })
+    ).toBe("Issue archived");
+  });
+
+  it("formats unarchived action", () => {
+    expect(
+      formatHistoryEntry({
+        action: "unarchived",
+        field: "archivedAt",
+        oldValue: JSON.stringify(Date.now()),
+      })
+    ).toBe("Issue restored from archive");
+  });
 });

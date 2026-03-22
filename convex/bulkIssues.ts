@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation } from "./_generated/server";
 import { recordHistory } from "./issueHistory";
+import { unarchiveIssue } from "./lib/archiveHelpers";
 import { WORKSPACE_TERMINAL_STATUSES } from "./workspaces";
 
 export const bulkMove = mutation({
@@ -190,42 +191,10 @@ export const bulkUnarchive = mutation({
     ids: v.array(v.id("issues")),
   },
   handler: async (ctx, args) => {
-    const now = Date.now();
     for (const id of args.ids) {
       const issue = await ctx.db.get(id);
       if (!issue || issue.archivedAt === undefined) continue;
-
-      const columns = await ctx.db
-        .query("columns")
-        .withIndex("by_project", (q) => q.eq("projectId", issue.projectId))
-        .collect();
-      const columnExists = columns.some((c) => c.name === issue.status);
-      const targetStatus = columnExists
-        ? issue.status
-        : (columns.filter((c) => c.visible).sort((a, b) => a.position - b.position)[0]?.name ?? issue.status);
-
-      const existingInColumn = await ctx.db
-        .query("issues")
-        .withIndex("by_project_status", (q) =>
-          q.eq("projectId", issue.projectId).eq("status", targetStatus)
-        )
-        .collect();
-      const maxPos = existingInColumn.reduce((max, i) => Math.max(max, i.position), -1);
-
-      await ctx.db.patch(id, {
-        archivedAt: undefined,
-        status: targetStatus,
-        position: maxPos + 1,
-        updatedAt: now,
-      });
-      await recordHistory(ctx, {
-        issueId: id,
-        projectId: issue.projectId,
-        action: "unarchived",
-        field: "archivedAt",
-        oldValue: JSON.stringify(issue.archivedAt),
-        actor: "user",
-      });
+      await unarchiveIssue(ctx, issue);
     }
   },
 });
