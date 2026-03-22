@@ -207,6 +207,7 @@ Fields:
 - `command` (string) — CLI command to execute (e.g. `claude`).
 - `args` (list of strings) — Default CLI arguments.
 - `model` (string or null) — Model identifier to pass to the agent.
+- `effort` (`low`, `medium`, or `high`, optional) — Reasoning effort passed to the agent CLI (`--effort` / `-c model_reasoning_effort=` / `--reasoning-effort`). When unset, the CLI default applies.
 - `timeoutMs` (number) — Max execution time per run. Default: `3600000` (1 hour).
 - `maxRetries` (number) — Maximum automatic retry attempts on failure. Default: `3`. Set to `0` to disable auto-retry.
 - `retryBackoffMs` (number) — Base backoff delay in ms. Default: `10000`.

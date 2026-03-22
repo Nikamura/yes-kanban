@@ -110,6 +110,10 @@ export class CodexAdapter implements IAgentAdapter {
       cmdArgs.push("-m", args.config.model);
     }
 
+    if (args.config.effort) {
+      cmdArgs.push("-c", `model_reasoning_effort="${args.config.effort}"`);
+    }
+
     // MCP config: convert JSON to TOML and set CODEX_HOME
     if (args.mcpConfigPath) {
       const codexHome = this.prepareMcpConfig(args.mcpConfigPath, args.allowedTools);

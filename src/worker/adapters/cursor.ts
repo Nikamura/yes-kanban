@@ -41,6 +41,10 @@ export class CursorAdapter implements IAgentAdapter {
       cmdArgs.push("--model", args.config.model);
     }
 
+    if (args.config.effort) {
+      cmdArgs.push("--reasoning-effort", args.config.effort);
+    }
+
     // MCP: Cursor auto-detects .cursor/mcp.json in the workspace.
     // If mcpConfigPath is set, lifecycle.ts has already written the file.
     // We just need --approve-mcps to auto-approve MCP servers.

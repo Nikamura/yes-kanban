@@ -153,6 +153,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
     agentType: "claude-code",
     command: "claude",
     model: "",
+    effort: "",
     args: "",
     timeoutMs: "60",
     maxRetries: "3",
@@ -172,7 +173,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
   });
   const [editingAgentConfigId, setEditingAgentConfigId] = useState<Id<"agentConfigs"> | null>(null);
   const [editAgentConfigForm, setEditAgentConfigForm] = useState({
-    name: "", agentType: "", command: "", model: "",
+    name: "", agentType: "", command: "", model: "", effort: "",
     args: "", timeoutMs: "", maxRetries: "", retryBackoffMs: "", maxRetryBackoffMs: "",
     env: "", mcpEnabled: true, mcpTools: "",
     permissionMode: "bypass" as string,
@@ -954,6 +955,16 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                     autoComplete="off"
                   />
                   <select
+                    aria-label="Effort"
+                    value={editAgentConfigForm.effort}
+                    onChange={(e) => setEditAgentConfigForm({ ...editAgentConfigForm, effort: e.target.value })}
+                  >
+                    <option value="">Default</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                  <select
                     aria-label="Permission mode"
                     value={editAgentConfigForm.permissionMode}
                     onChange={(e) => setEditAgentConfigForm({ ...editAgentConfigForm, permissionMode: e.target.value })}
@@ -987,6 +998,10 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                         agentType: editAgentConfigForm.agentType,
                         command: editAgentConfigForm.command,
                         model: editAgentConfigForm.model || undefined,
+                        effort:
+                          editAgentConfigForm.effort === ""
+                            ? null
+                            : (editAgentConfigForm.effort as "low" | "medium" | "high"),
                         args: parseArgs(editAgentConfigForm.args),
                         timeoutMs: Number(editAgentConfigForm.timeoutMs) * 60000,
                         maxRetries: Number(editAgentConfigForm.maxRetries),
@@ -1037,6 +1052,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                       agentType: ac.agentType,
                       command: ac.command,
                       model: ac.model ?? "",
+                      effort: ac.effort ?? "",
                       args: argsToString(ac.args),
                       timeoutMs: String(Math.round(ac.timeoutMs / 60000)),
                       maxRetries: String(ac.maxRetries),
@@ -1102,6 +1118,10 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                 agentType: agentForm.agentType,
                 command: agentForm.command,
                 model: agentForm.model || undefined,
+                effort:
+                  agentForm.effort === ""
+                    ? undefined
+                    : (agentForm.effort as "low" | "medium" | "high"),
                 args: parseArgs(agentForm.args),
                 timeoutMs: Number(agentForm.timeoutMs) * 60000,
                 maxRetries: Number(agentForm.maxRetries),
@@ -1113,7 +1133,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                 permissionMode: agentForm.permissionMode as "bypass" | "accept",
               });
               setAgentForm({
-                name: "", agentType: "claude-code", command: "claude", model: "",
+                name: "", agentType: "claude-code", command: "claude", model: "", effort: "",
                 args: "", timeoutMs: "60", maxRetries: "3", retryBackoffMs: "10",
                 maxRetryBackoffMs: "300", env: "", mcpEnabled: true, mcpTools: "",
                 permissionMode: "bypass",
@@ -1152,6 +1172,16 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                 onChange={(e) => setAgentForm({ ...agentForm, model: e.target.value })}
                 autoComplete="off"
               />
+              <select
+                aria-label="Effort"
+                value={agentForm.effort}
+                onChange={(e) => setAgentForm({ ...agentForm, effort: e.target.value })}
+              >
+                <option value="">Default</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
               <select
                 aria-label="Permission mode"
                 value={agentForm.permissionMode}

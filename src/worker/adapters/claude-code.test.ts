@@ -51,6 +51,26 @@ describe("ClaudeCodeAdapter", () => {
       expect(result.args).toContain("sonnet");
     });
 
+    test("includes --effort when config has effort", () => {
+      const result = adapter.buildCommand({
+        config: { command: "claude", args: [], effort: "high", env: {} } as any,
+        prompt: "Task",
+        cwd: "/tmp",
+      });
+      const idx = result.args.indexOf("--effort");
+      expect(idx).toBeGreaterThan(-1);
+      expect(result.args[idx + 1]).toBe("high");
+    });
+
+    test("omits --effort when config has no effort", () => {
+      const result = adapter.buildCommand({
+        config: { command: "claude", args: [], env: {} } as any,
+        prompt: "Task",
+        cwd: "/tmp",
+      });
+      expect(result.args).not.toContain("--effort");
+    });
+
     test("passes additional args from config", () => {
       const result = adapter.buildCommand({
         config: { command: "claude", args: ["--max-turns", "5"], env: {} } as any,

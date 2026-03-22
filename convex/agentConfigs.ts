@@ -28,6 +28,7 @@ export const create = mutation({
     command: v.string(),
     args: v.optional(v.array(v.string())),
     model: v.optional(v.string()),
+    effort: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
     timeoutMs: v.optional(v.number()),
     maxRetries: v.optional(v.number()),
     retryBackoffMs: v.optional(v.number()),
@@ -48,6 +49,7 @@ export const create = mutation({
       command: args.command,
       args: args.args ?? [],
       model: args.model,
+      effort: args.effort,
       timeoutMs: args.timeoutMs ?? 3600000,
       maxRetries: args.maxRetries ?? 3,
       retryBackoffMs: args.retryBackoffMs ?? 10000,
@@ -69,6 +71,9 @@ export const update = mutation({
     command: v.optional(v.string()),
     args: v.optional(v.array(v.string())),
     model: v.optional(v.string()),
+    effort: v.optional(
+      v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.null()),
+    ),
     timeoutMs: v.optional(v.number()),
     maxRetries: v.optional(v.number()),
     retryBackoffMs: v.optional(v.number()),
@@ -83,11 +88,13 @@ export const update = mutation({
     validateAgentConfigArgs(args);
 
     const { id, ...updates } = args;
-    const filtered = Object.fromEntries(
-      Object.entries(updates as Record<string, unknown>).filter(([, v]) => v !== undefined)
-    );
-    if (Object.keys(filtered).length > 0) {
-      await ctx.db.patch(id, filtered);
+    const patch: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(updates) as [string, unknown][]) {
+      if (value === undefined) continue;
+      patch[key] = value === null ? undefined : value;
+    }
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(id, patch as any);
     }
   },
 });

@@ -5,11 +5,20 @@ import { CodexAdapter } from "./codex";
 describe("CodexAdapter", () => {
   const adapter = new CodexAdapter();
 
-  const makeConfig = (overrides: Partial<{ command: string; args: string[]; model: string; env: Record<string, string> }> = {}) =>
+  const makeConfig = (
+    overrides: Partial<{
+      command: string;
+      args: string[];
+      model: string;
+      effort: "low" | "medium" | "high";
+      env: Record<string, string>;
+    }> = {},
+  ) =>
     ({
       command: overrides.command ?? "codex",
       args: overrides.args ?? [],
       model: overrides.model ?? undefined,
+      effort: overrides.effort ?? undefined,
       env: overrides.env ?? {},
     }) as any;
 
@@ -109,6 +118,26 @@ describe("CodexAdapter", () => {
         cwd: "/tmp",
       });
       expect(result.args).not.toContain("-m");
+    });
+
+    test("includes model_reasoning_effort via -c when effort is set", () => {
+      const result = adapter.buildCommand({
+        config: makeConfig({ effort: "medium" }),
+        prompt: "Task",
+        cwd: "/tmp",
+      });
+      const cIdx = result.args.indexOf("-c");
+      expect(cIdx).toBeGreaterThan(-1);
+      expect(result.args[cIdx + 1]).toBe('model_reasoning_effort="medium"');
+    });
+
+    test("omits model_reasoning_effort when effort is not set", () => {
+      const result = adapter.buildCommand({
+        config: makeConfig(),
+        prompt: "Task",
+        cwd: "/tmp",
+      });
+      expect(result.args).not.toContain("-c");
     });
 
     test("passes additional args from config", () => {

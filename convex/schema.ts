@@ -78,6 +78,7 @@ export default defineSchema({
     command: v.string(),
     args: v.array(v.string()),
     model: v.optional(v.string()),
+    effort: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
     timeoutMs: v.number(),
     maxRetries: v.number(),
     retryBackoffMs: v.number(),

@@ -63,6 +63,26 @@ describe("CursorAdapter", () => {
       expect(result.args).toContain("gpt-4o");
     });
 
+    test("includes --reasoning-effort when config has effort", () => {
+      const result = adapter.buildCommand({
+        config: { command: "agent", args: [], effort: "low", env: {} } as any,
+        prompt: "Task",
+        cwd: "/tmp",
+      });
+      const idx = result.args.indexOf("--reasoning-effort");
+      expect(idx).toBeGreaterThan(-1);
+      expect(result.args[idx + 1]).toBe("low");
+    });
+
+    test("omits --reasoning-effort when config has no effort", () => {
+      const result = adapter.buildCommand({
+        config: { command: "agent", args: [], env: {} } as any,
+        prompt: "Task",
+        cwd: "/tmp",
+      });
+      expect(result.args).not.toContain("--reasoning-effort");
+    });
+
     test("uses --resume when sessionId provided", () => {
       const result = adapter.buildCommand({
         config: { command: "agent", args: [], env: {} } as any,
