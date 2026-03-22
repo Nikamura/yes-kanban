@@ -10,3 +10,6 @@ test-results/
 last-run.json
 convex/_generated/api.d.ts
 package-lock.json
+
+# Local Cursor MCP config (machine-specific; do not commit)
+.cursor/mcp.json
