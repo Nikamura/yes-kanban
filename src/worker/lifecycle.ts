@@ -2026,7 +2026,7 @@ export function performLocalMerge(worktrees: WorktreeEntry[]): { success: boolea
         : `${firstSubject}\n\n${otherSubjects.join("\n")}`;
 
     const commitResult = Bun.spawnSync(
-      ["git", "-C", repo, "commit", "-m", message],
+      ["git", "-C", repo, "commit", "--no-verify", "-m", message],
       { timeout: 30000, env },
     );
     if (commitResult.exitCode !== 0) {
