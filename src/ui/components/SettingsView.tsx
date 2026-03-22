@@ -25,6 +25,14 @@ const AGENT_TYPES = [
   { value: "pi", label: "Pi (pi.dev)" },
 ] as const;
 
+const DEFAULT_COMMANDS: Record<string, string> = {
+  "claude-code": "claude",
+  codex: "codex",
+  gemini: "gemini",
+  cursor: "agent",
+  pi: "pi",
+};
+
 const WEBHOOK_EVENTS = [
   "dispatch",
   "completion",
@@ -1069,7 +1077,10 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
               />
               <select
                 value={agentForm.agentType}
-                onChange={(e) => setAgentForm({ ...agentForm, agentType: e.target.value })}
+                onChange={(e) => {
+                  const agentType = e.target.value;
+                  setAgentForm({ ...agentForm, agentType, command: DEFAULT_COMMANDS[agentType] ?? agentType });
+                }}
               >
                 {AGENT_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>{t.label}</option>

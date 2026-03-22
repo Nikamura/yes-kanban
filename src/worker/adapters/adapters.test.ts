@@ -2,6 +2,7 @@ import { describe, test, expect } from "bun:test";
 import { getAdapter } from "./index";
 import { ClaudeCodeAdapter } from "./claude-code";
 import { CodexAdapter } from "./codex";
+import { CursorAdapter } from "./cursor";
 import { PiAdapter } from "./pi";
 import { PlainTextAdapter } from "./plain-text";
 
@@ -21,9 +22,14 @@ describe("getAdapter", () => {
     expect(adapter).toBeInstanceOf(CodexAdapter);
   });
 
-  test("returns PlainTextAdapter for cursor", () => {
-    const adapter = getAdapter("cursor");
+  test("returns PlainTextAdapter for gemini", () => {
+    const adapter = getAdapter("gemini");
     expect(adapter).toBeInstanceOf(PlainTextAdapter);
+  });
+
+  test("returns CursorAdapter for cursor", () => {
+    const adapter = getAdapter("cursor");
+    expect(adapter).toBeInstanceOf(CursorAdapter);
   });
 
   test("throws on unknown agent type", () => {

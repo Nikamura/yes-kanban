@@ -15,7 +15,7 @@ export class PlainTextAdapter implements IAgentAdapter {
   }): { command: string; args: string[]; env: Record<string, string> } {
     const cmdArgs: string[] = [];
 
-    if (this.agentType === "cursor") {
+    if (this.agentType === "gemini") {
       cmdArgs.push("-p", args.prompt);
     }
 

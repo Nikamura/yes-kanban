@@ -10,7 +10,7 @@ import { McpServer, type ExternalMcpConfig } from "./mcp-server";
 import type { WorkerConfig, DispatchTask, WorktreeEntry, LogEntry, AgentEvent, AttachmentInfo } from "./types";
 import { computeBackoffDelay, shouldRetry, TERMINAL_STATUSES } from "./retry";
 import { READ_ONLY_TOOLS, PLANNING_TOOLS, PLANNING_RESEARCH_TOOLS, CODING_TOOLS, REVIEW_TOOLS } from "./mcp-tools";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync, appendFileSync } from "fs";
 import { unlink } from "fs/promises";
 import { basename, dirname, join, resolve } from "path";
 
@@ -374,6 +374,51 @@ export async function runLifecycle(
     const mcpResult = await mcpServer.start();
     mcpConfigPath = mcpResult.configPath;
     console.log(`[lifecycle] MCP server started on port ${mcpResult.port} for workspace=${workspaceId}`);
+
+    // Clean up any stale .cursor/ dirs from previous runs (e.g., worktree reuse with different agent)
+    for (const wt of worktrees) {
+      const cursorDir = join(wt.worktreePath, ".cursor");
+      if (agentConfig.agentType !== "cursor" && existsSync(cursorDir)) {
+        try { rmSync(cursorDir, { recursive: true, force: true }); } catch { /* best-effort */ }
+      }
+    }
+
+    // Cursor auto-detects MCP from .cursor/mcp.json in the workspace.
+    // Copy the generated config there so Cursor picks it up.
+    if (agentConfig.agentType === "cursor" && mcpConfigPath && worktrees.length > 0) {
+      for (const wt of worktrees) {
+        try {
+          const cursorDir = join(wt.worktreePath, ".cursor");
+          mkdirSync(cursorDir, { recursive: true });
+          const mcpConfig = readFileSync(mcpConfigPath, "utf-8");
+          writeFileSync(join(cursorDir, "mcp.json"), mcpConfig);
+
+          // Add .cursor/ to git exclude so it's not committed
+          const dotGit = join(wt.worktreePath, ".git");
+          let excludePath = join(dotGit, "info", "exclude");
+          try {
+            const stat = statSync(dotGit);
+            if (stat.isFile()) {
+              // Worktree: .git is a file containing "gitdir: <path>"
+              const content = readFileSync(dotGit, "utf-8").trim();
+              if (content.startsWith("gitdir:")) {
+                const gitdir = resolve(wt.worktreePath, content.slice("gitdir:".length).trim());
+                excludePath = join(gitdir, "info", "exclude");
+              }
+            }
+            // If .git is a directory, the default excludePath is already correct
+          } catch { /* .git missing — fall back to default */ }
+          const excludeContent = existsSync(excludePath) ? readFileSync(excludePath, "utf-8") : "";
+          if (!excludeContent.includes(".cursor/")) {
+            mkdirSync(dirname(excludePath), { recursive: true });
+            appendFileSync(excludePath, "\n.cursor/\n");
+          }
+          console.log(`[lifecycle] wrote .cursor/mcp.json for workspace=${workspaceId}`);
+        } catch (err) {
+          console.warn(`[lifecycle] failed to write .cursor/mcp.json:`, err);
+        }
+      }
+    }
   }
 
   // Check for a previous session ID to resume
