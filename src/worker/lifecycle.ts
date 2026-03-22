@@ -632,7 +632,7 @@ export async function runLifecycle(
             );
 
             const replanResult = await runAgent(
-              convex, config, executor, workspaceId, agentConfig, agentCwd,
+              convex, config, executor, workspaceId, planningAgentConfig, agentCwd,
               replanPrompt, "planning", abortSignal,
               { mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: previousSessionId, settingsPath, disableSlashCommands, allowedTools: planningTools },
             );
