@@ -1,5 +1,8 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { FIXED_COLUMNS } from "./lib/boardConstants";
+
+const fixedSet = new Set<string>(FIXED_COLUMNS);
 
 export const list = query({
   args: { projectId: v.id("projects") },
@@ -8,7 +11,9 @@ export const list = query({
       .query("columns")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
-    return columns.sort((a, b) => a.position - b.position);
+    return columns
+      .filter((c) => fixedSet.has(c.name))
+      .sort((a, b) => a.position - b.position);
   },
 });
 

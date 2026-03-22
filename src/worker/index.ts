@@ -53,6 +53,7 @@ async function main() {
     console.error("[worker] migrateLegacyFields failed:", err);
   }
 
+
   // Recover orphaned workspaces — re-queue them for dispatch instead of
   // permanently failing them. This handles both crashes and graceful restarts
   // (e.g., `--watch` restart after a local merge changes files).

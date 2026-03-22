@@ -26,8 +26,6 @@ export const create = mutation({
     path: v.string(),
     defaultBranch: v.optional(v.string()),
     setupScript: v.optional(v.string()),
-    beforeRunScript: v.optional(v.string()),
-    afterRunScript: v.optional(v.string()),
     cleanupScript: v.optional(v.string()),
     scriptTimeoutMs: v.optional(v.number()),
     testCommand: v.optional(v.string()),
@@ -41,8 +39,6 @@ export const create = mutation({
       path: args.path,
       defaultBranch: args.defaultBranch ?? "main",
       setupScript: args.setupScript,
-      beforeRunScript: args.beforeRunScript,
-      afterRunScript: args.afterRunScript,
       cleanupScript: args.cleanupScript,
       scriptTimeoutMs: args.scriptTimeoutMs ?? 120000,
       testCommand: args.testCommand,
@@ -59,8 +55,6 @@ export const update = mutation({
     path: v.optional(v.string()),
     defaultBranch: v.optional(v.string()),
     setupScript: v.optional(v.string()),
-    beforeRunScript: v.optional(v.string()),
-    afterRunScript: v.optional(v.string()),
     cleanupScript: v.optional(v.string()),
     scriptTimeoutMs: v.optional(v.number()),
     testCommand: v.optional(v.string()),
@@ -72,7 +66,7 @@ export const update = mutation({
       (Object.entries(updates) as [string, unknown][]).filter(([, v]) => v !== undefined)
     );
     // Treat empty strings as clearing the field for optional script/test fields
-    const clearableFields = ["setupScript", "beforeRunScript", "afterRunScript", "cleanupScript", "testCommand"];
+    const clearableFields = ["setupScript", "cleanupScript", "testCommand"];
     for (const k of clearableFields) {
       if (provided[k] === "") {
         provided[k] = undefined;

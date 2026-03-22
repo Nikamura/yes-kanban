@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
-/** Default column rows for new projects and for `migrations.simplifyFlow` resets. */
+/** Default column rows for new projects. */
 export const DEFAULT_COLUMNS = [
   { name: "Backlog", color: "#6B7280", position: 0, visible: true, autoDispatch: false, skipReview: false, skipTests: false, skipPlanning: true },
   { name: "To Do", color: "#3B82F6", position: 1, visible: true, autoDispatch: true, skipReview: false, skipTests: false, skipPlanning: true },

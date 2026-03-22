@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { FIXED_COLUMNS } from "./lib/boardConstants";
 
 export const tokenUsage = query({
   args: { projectId: v.id("projects") },
@@ -199,7 +200,9 @@ export const analyticsData = query({
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
+    const fixedSet = new Set<string>(FIXED_COLUMNS);
     const orderedColumns = columns
+      .filter((c) => fixedSet.has(c.name))
       .sort((a, b) => a.position - b.position)
       .map((c) => ({ name: c.name, color: c.color, position: c.position }));
 

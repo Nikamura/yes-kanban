@@ -166,7 +166,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
   const [editingRepoId, setEditingRepoId] = useState<Id<"repos"> | null>(null);
   const [editRepoForm, setEditRepoForm] = useState({
     name: "", path: "", defaultBranch: "",
-    setupScript: "", beforeRunScript: "", afterRunScript: "", cleanupScript: "",
+    setupScript: "", cleanupScript: "",
     scriptTimeoutMs: "", testCommand: "", testTimeoutMs: "",
   });
   const [editingAgentConfigId, setEditingAgentConfigId] = useState<Id<"agentConfigs"> | null>(null);
@@ -525,8 +525,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
             >
               <option value="">None</option>
               <option value="local_merge">Local merge</option>
-              <option value="auto_merge">Auto merge</option>
-              <option value="manual_merge">Manual merge</option>
             </select>
           </div>
           <div className="setting-item">
@@ -617,18 +615,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                       autoComplete="off"
                     />
                     <input
-                      placeholder="Before Run Script (runs before each agent run)"
-                      value={editRepoForm.beforeRunScript}
-                      onChange={(e) => setEditRepoForm({ ...editRepoForm, beforeRunScript: e.target.value })}
-                      autoComplete="off"
-                    />
-                    <input
-                      placeholder="After Run Script (runs after each agent run)"
-                      value={editRepoForm.afterRunScript}
-                      onChange={(e) => setEditRepoForm({ ...editRepoForm, afterRunScript: e.target.value })}
-                      autoComplete="off"
-                    />
-                    <input
                       placeholder="Cleanup Script (runs on workspace cleanup)"
                       value={editRepoForm.cleanupScript}
                       onChange={(e) => setEditRepoForm({ ...editRepoForm, cleanupScript: e.target.value })}
@@ -672,8 +658,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                         path: editRepoForm.path,
                         defaultBranch: editRepoForm.defaultBranch,
                         setupScript: editRepoForm.setupScript,
-                        beforeRunScript: editRepoForm.beforeRunScript,
-                        afterRunScript: editRepoForm.afterRunScript,
                         cleanupScript: editRepoForm.cleanupScript,
                         scriptTimeoutMs: editRepoForm.scriptTimeoutMs ? Number(editRepoForm.scriptTimeoutMs) : undefined,
                         testCommand: editRepoForm.testCommand,
@@ -703,8 +687,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                       path: repo.path,
                       defaultBranch: repo.defaultBranch,
                       setupScript: repo.setupScript ?? "",
-                      beforeRunScript: repo.beforeRunScript ?? "",
-                      afterRunScript: repo.afterRunScript ?? "",
                       cleanupScript: repo.cleanupScript ?? "",
                       scriptTimeoutMs: String(repo.scriptTimeoutMs),
                       testCommand: repo.testCommand ?? "",
