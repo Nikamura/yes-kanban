@@ -48,11 +48,11 @@ describe("performLocalMerge", () => {
       true,
     );
     expect(calls.some(c => c.includes("log") && c.includes("main..yes-kanban/proj/T-1"))).toBe(true);
-    expect(commitMessage).toBe("first change\n\nsecond change");
+    expect(commitMessage).toBe("first change\n\nsecond change\n\nGenerated-by: Yes Kanban");
     expect(calls.some(c => c.includes("branch") && c.includes("-d"))).toBe(false);
   });
 
-  test("single commit branch uses subject only (no body)", () => {
+  test("single commit branch includes trailer", () => {
     let commitMessage: string | undefined;
 
     spyOn(Bun, "spawnSync").mockImplementation((cmd: any) => {
@@ -74,7 +74,7 @@ describe("performLocalMerge", () => {
     const result = performLocalMerge([wt]);
 
     expect(result.success).toBe(true);
-    expect(commitMessage).toBe("only change");
+    expect(commitMessage).toBe("only change\n\nGenerated-by: Yes Kanban");
   });
 
   test("fails when checkout fails", () => {

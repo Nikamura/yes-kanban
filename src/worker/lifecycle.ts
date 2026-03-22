@@ -33,6 +33,8 @@ function clampDepth(value: unknown, maxDepth: number, depth = 0): unknown {
 
 const ATTACHMENTS_DIR = ".yes-kanban-attachments";
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10 MB
+/** Appended to commit messages created by Yes Kanban (git trailer convention). */
+const YES_KANBAN_GIT_TRAILER = "Generated-by: Yes Kanban";
 
 /**
  * Download issue attachments to a local directory inside the worktree
@@ -151,7 +153,14 @@ function commitUnstagedChanges(worktreePath: string, issueId: string): boolean {
 
   // Commit
   const result = Bun.spawnSync(
-    ["git", "-C", worktreePath, "commit", "-m", `${issueId}: WIP — auto-commit uncommitted changes`],
+    [
+      "git",
+      "-C",
+      worktreePath,
+      "commit",
+      "-m",
+      `${issueId}: WIP — auto-commit uncommitted changes\n\n${YES_KANBAN_GIT_TRAILER}`,
+    ],
     { timeout: 10000, env: cleanGitEnv() },
   );
 
@@ -2021,8 +2030,8 @@ export function performLocalMerge(worktrees: WorktreeEntry[]): { success: boolea
     }
     const message =
       otherSubjects.length === 0
-        ? firstSubject
-        : `${firstSubject}\n\n${otherSubjects.join("\n")}`;
+        ? `${firstSubject}\n\n${YES_KANBAN_GIT_TRAILER}`
+        : `${firstSubject}\n\n${otherSubjects.join("\n")}\n\n${YES_KANBAN_GIT_TRAILER}`;
 
     const commitResult = Bun.spawnSync(
       ["git", "-C", repo, "commit", "--no-verify", "-m", message],
