@@ -259,7 +259,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
   const [showDeleteProject, setShowDeleteProject] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
 
-
   // Convert DB MCP configs to standard JSON format for the editor
   useEffect(() => {
     if (mcpJsonDirty || !mcpServerConfigs) return;
