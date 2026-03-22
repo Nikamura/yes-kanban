@@ -15,4 +15,10 @@ crons.interval(
   internal.recurrenceRules.processFixedScheduleRules
 );
 
+crons.interval(
+  "auto-archive completed issues",
+  { hours: 1 },
+  internal.autoArchive.runAutoArchive
+);
+
 export default crons;

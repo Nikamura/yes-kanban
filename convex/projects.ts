@@ -80,6 +80,7 @@ export const update = mutation({
     maxReviewCycles: v.optional(v.number()),
     cleanupDelayMs: v.optional(v.number()),
     disableBuiltInMcp: v.optional(v.boolean()),
+    autoArchiveDelayMs: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;

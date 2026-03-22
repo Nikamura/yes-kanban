@@ -13,6 +13,7 @@ export default defineSchema({
     maxReviewCycles: v.number(),
     cleanupDelayMs: v.number(),
     disableBuiltInMcp: v.optional(v.boolean()),
+    autoArchiveDelayMs: v.optional(v.number()),
     createdAt: v.number(),
   }).index("by_slug", ["slug"]),
 
@@ -50,13 +51,15 @@ export default defineSchema({
       completed: v.boolean(),
     }))),
     recurrenceRuleId: v.optional(v.id("recurrenceRules")),
+    archivedAt: v.optional(v.number()),
     position: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_project", ["projectId"])
     .index("by_project_status", ["projectId", "status"])
-    .index("by_recurrenceRuleId", ["recurrenceRuleId"]),
+    .index("by_recurrenceRuleId", ["recurrenceRuleId"])
+    .index("by_project_archived", ["projectId", "archivedAt"]),
 
   repos: defineTable({
     projectId: v.id("projects"),

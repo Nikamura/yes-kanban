@@ -163,6 +163,73 @@ export const bulkRemoveTags = mutation({
   },
 });
 
+export const bulkArchive = mutation({
+  args: {
+    ids: v.array(v.id("issues")),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    for (const id of args.ids) {
+      const issue = await ctx.db.get(id);
+      if (!issue || issue.archivedAt !== undefined) continue;
+      await ctx.db.patch(id, { archivedAt: now, updatedAt: now });
+      await recordHistory(ctx, {
+        issueId: id,
+        projectId: issue.projectId,
+        action: "archived",
+        field: "archivedAt",
+        newValue: JSON.stringify(now),
+        actor: "user",
+      });
+    }
+  },
+});
+
+export const bulkUnarchive = mutation({
+  args: {
+    ids: v.array(v.id("issues")),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    for (const id of args.ids) {
+      const issue = await ctx.db.get(id);
+      if (!issue || issue.archivedAt === undefined) continue;
+
+      const columns = await ctx.db
+        .query("columns")
+        .withIndex("by_project", (q) => q.eq("projectId", issue.projectId))
+        .collect();
+      const columnExists = columns.some((c) => c.name === issue.status);
+      const targetStatus = columnExists
+        ? issue.status
+        : (columns.filter((c) => c.visible).sort((a, b) => a.position - b.position)[0]?.name ?? issue.status);
+
+      const existingInColumn = await ctx.db
+        .query("issues")
+        .withIndex("by_project_status", (q) =>
+          q.eq("projectId", issue.projectId).eq("status", targetStatus)
+        )
+        .collect();
+      const maxPos = existingInColumn.reduce((max, i) => Math.max(max, i.position), -1);
+
+      await ctx.db.patch(id, {
+        archivedAt: undefined,
+        status: targetStatus,
+        position: maxPos + 1,
+        updatedAt: now,
+      });
+      await recordHistory(ctx, {
+        issueId: id,
+        projectId: issue.projectId,
+        action: "unarchived",
+        field: "archivedAt",
+        oldValue: JSON.stringify(issue.archivedAt),
+        actor: "user",
+      });
+    }
+  },
+});
+
 export const bulkDelete = mutation({
   args: {
     ids: v.array(v.id("issues")),
