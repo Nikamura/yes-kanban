@@ -1,6 +1,6 @@
 import { ConvexClient } from "convex/browser";
 import { api } from "../../convex/_generated/api";
-import { runLifecycle, executeRebase, executeCreatePR, executeLocalMerge, performLocalMerge } from "./lifecycle";
+import { runLifecycle, executeRebase, executeCreatePR, performLocalMerge } from "./lifecycle";
 import { GitWorktreeManager } from "./worktree-manager";
 import { AgentExecutor } from "./agent-executor";
 import type { WorkerConfig } from "./types";
