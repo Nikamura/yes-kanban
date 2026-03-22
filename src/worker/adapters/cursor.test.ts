@@ -167,7 +167,7 @@ describe("CursorAdapter", () => {
       expect(events[1]!.type).toBe("tool_use");
     });
 
-    test("parses tool_call started as tool_use", () => {
+    test("parses tool_call started as tool_use with flat format", () => {
       const events = adapter.parseLine(JSON.stringify({
         type: "tool_call",
         subtype: "started",
@@ -176,14 +176,97 @@ describe("CursorAdapter", () => {
       }));
       expect(events).toHaveLength(1);
       expect(events[0]!.type).toBe("tool_use");
+      const data = events[0]!.data as any;
+      expect(data.name).toBe("edit_file");
+      expect(data.input).toEqual({ path: "/tmp/foo.ts" });
     });
 
-    test("parses tool_call completed as tool_result", () => {
+    test("parses tool_call started with nested shellToolCall", () => {
+      const events = adapter.parseLine(JSON.stringify({
+        type: "tool_call",
+        subtype: "started",
+        call_id: "tool_abc123",
+        tool_call: {
+          shellToolCall: {
+            args: { command: "git status && git diff --stat" },
+          },
+        },
+        description: "Show git status",
+      }));
+      expect(events).toHaveLength(1);
+      expect(events[0]!.type).toBe("tool_use");
+      const data = events[0]!.data as any;
+      expect(data.name).toBe("Bash");
+      expect(data.input.command).toBe("git status && git diff --stat");
+      expect(data.input.description).toBe("Show git status");
+      expect(data.tool_use_id).toBe("tool_abc123");
+    });
+
+    test("parses tool_call started with nested fileEditToolCall", () => {
+      const events = adapter.parseLine(JSON.stringify({
+        type: "tool_call",
+        subtype: "started",
+        call_id: "tool_edit1",
+        tool_call: {
+          fileEditToolCall: {
+            filePath: "/tmp/foo.ts",
+            oldString: "const x = 1",
+            newString: "const x = 2",
+          },
+        },
+      }));
+      expect(events).toHaveLength(1);
+      const data = events[0]!.data as any;
+      expect(data.name).toBe("Edit");
+      expect(data.input.file_path).toBe("/tmp/foo.ts");
+      expect(data.tool_use_id).toBe("tool_edit1");
+    });
+
+    test("parses tool_call started with nested readToolCall", () => {
+      const events = adapter.parseLine(JSON.stringify({
+        type: "tool_call",
+        subtype: "started",
+        call_id: "tool_read1",
+        tool_call: {
+          readToolCall: { filePath: "/tmp/file.ts" },
+        },
+      }));
+      expect(events).toHaveLength(1);
+      const data = events[0]!.data as any;
+      expect(data.name).toBe("Read");
+      expect(data.input.file_path).toBe("/tmp/file.ts");
+    });
+
+    test("parses tool_call completed as tool_result with output", () => {
+      const events = adapter.parseLine(JSON.stringify({
+        type: "tool_call",
+        subtype: "completed",
+        call_id: "tool_abc123",
+        tool_call: {
+          shellToolCall: {
+            args: { command: "git status" },
+          },
+        },
+        result: {
+          success: true,
+          stdout: "On branch main\nnothing to commit",
+          exitCode: 0,
+        },
+      }));
+      expect(events).toHaveLength(1);
+      expect(events[0]!.type).toBe("tool_result");
+      const data = events[0]!.data as any;
+      expect(data.name).toBe("Bash");
+      expect(data.content).toBe("On branch main\nnothing to commit");
+      expect(data.tool_use_id).toBe("tool_abc123");
+    });
+
+    test("parses tool_call completed with flat format", () => {
       const events = adapter.parseLine(JSON.stringify({
         type: "tool_call",
         subtype: "completed",
         name: "edit_file",
-        output: "File edited successfully",
+        input: { path: "/tmp/foo.ts" },
       }));
       expect(events).toHaveLength(1);
       expect(events[0]!.type).toBe("tool_result");

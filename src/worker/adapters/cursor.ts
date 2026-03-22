@@ -81,10 +81,13 @@ export class CursorAdapter implements IAgentAdapter {
 
       if (parsed.type === "tool_call") {
         if (parsed.subtype === "started") {
-          return [{ type: "tool_use", data: parsed }];
+          return [{ type: "tool_use", data: this.normalizeToolData(parsed) }];
         }
         if (parsed.subtype === "completed") {
-          return [{ type: "tool_result", data: parsed }];
+          const normalized = this.normalizeToolData(parsed);
+          const result = parsed.result as Record<string, unknown> | undefined;
+          const output = (result?.["stdout"] as string | undefined) ?? (result?.["interleavedOutput"] as string | undefined) ?? "";
+          return [{ type: "tool_result", data: { ...normalized, content: output, tool_use_id: normalized["tool_use_id"] } }];
         }
         return [{ type: "unknown", data: parsed }];
       }
@@ -105,6 +108,89 @@ export class CursorAdapter implements IAgentAdapter {
     } catch {
       return [];
     }
+  }
+
+  /**
+   * Normalize Cursor tool_call data to the shape ToolRenderers expect: { name, input, tool_use_id }.
+   * Cursor nests tool info under tool_call.shellToolCall / tool_call.fileEditToolCall etc.
+   */
+  private normalizeToolData(parsed: Record<string, unknown>): Record<string, unknown> {
+    const callId = parsed["call_id"] as string | undefined;
+    const toolCall = parsed["tool_call"] as Record<string, unknown> | undefined;
+    const description = parsed["description"] as string | undefined;
+
+    // If the event already has top-level name/input (test/simple format), use it directly
+    if (parsed["name"] && parsed["input"]) {
+      return { name: parsed["name"], input: parsed["input"], tool_use_id: callId };
+    }
+
+    if (!toolCall) {
+      return { name: "unknown", tool_use_id: callId };
+    }
+
+    if (toolCall["shellToolCall"]) {
+      const shell = toolCall["shellToolCall"] as Record<string, unknown>;
+      const args = shell["args"] as Record<string, unknown> | undefined;
+      const command = (args?.["command"] as string | undefined) ?? "";
+      return { name: "Bash", input: { command, description: description ?? "" }, tool_use_id: callId };
+    }
+
+    if (toolCall["fileEditToolCall"]) {
+      const edit = toolCall["fileEditToolCall"] as Record<string, unknown>;
+      return {
+        name: "Edit",
+        input: {
+          file_path: edit["filePath"] ?? edit["file_path"] ?? "unknown",
+          old_string: edit["oldString"] ?? edit["old_string"] ?? "",
+          new_string: edit["newString"] ?? edit["new_string"] ?? "",
+        },
+        tool_use_id: callId,
+      };
+    }
+
+    if (toolCall["readToolCall"]) {
+      const read = toolCall["readToolCall"] as Record<string, unknown>;
+      return {
+        name: "Read",
+        input: { file_path: read["filePath"] ?? read["file_path"] ?? "unknown" },
+        tool_use_id: callId,
+      };
+    }
+
+    if (toolCall["writeToolCall"]) {
+      const write = toolCall["writeToolCall"] as Record<string, unknown>;
+      return {
+        name: "Write",
+        input: {
+          file_path: write["filePath"] ?? write["file_path"] ?? "unknown",
+          content: write["content"] ?? "",
+        },
+        tool_use_id: callId,
+      };
+    }
+
+    if (toolCall["searchToolCall"]) {
+      const search = toolCall["searchToolCall"] as Record<string, unknown>;
+      return {
+        name: "Grep",
+        input: { pattern: search["query"] ?? search["pattern"] ?? "", path: search["path"] },
+        tool_use_id: callId,
+      };
+    }
+
+    if (toolCall["listToolCall"]) {
+      const list = toolCall["listToolCall"] as Record<string, unknown>;
+      return {
+        name: "Glob",
+        input: { pattern: list["pattern"] ?? "*", path: list["path"] },
+        tool_use_id: callId,
+      };
+    }
+
+    // Fallback: use first key as tool type
+    const keys = Object.keys(toolCall).filter((k) => k.endsWith("ToolCall") || k.endsWith("Call"));
+    const toolType = keys[0] ?? "unknown";
+    return { name: toolType.replace(/ToolCall$|Call$/, ""), input: toolCall[toolType], tool_use_id: callId };
   }
 
   private splitAssistantMessage(parsed: Record<string, unknown>): AgentEvent[] {
