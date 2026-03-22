@@ -1387,6 +1387,7 @@ The coding agent receives a prompt that includes:
 - Instructions to self-review changes before finishing.
 - Instructions to run tests if a test command is configured.
 - Instructions to commit changes with meaningful commit messages referencing the issue simple ID.
+- **Default workflow only** (when no custom `workflow` template): instructions to create new Backlog issues via MCP `create_issue` for out-of-scope follow-ups, with a reference to the current issue, instead of leaving informal notes in comments.
 
 The agent's prompt is constructed so that it treats its own work as a complete unit — it should not exit until it believes the work is done and tests pass.
 

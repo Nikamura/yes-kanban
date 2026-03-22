@@ -91,6 +91,15 @@ describe("buildPrompt", () => {
     expect(prompt).toContain("Self-review");
     expect(prompt).toContain("Commit your changes");
     expect(prompt).toContain("T-1");
+    expect(prompt).toContain("create_issue");
+    expect(prompt).toContain('status: "Backlog"');
+    expect(prompt).toContain("Do NOT leave");
+  });
+
+  test("default instructions reference standalone task when no issue", () => {
+    const prompt = buildPrompt(undefined, undefined, []);
+    expect(prompt).toContain("current task (this task)");
+    expect(prompt).toContain("create_issue");
   });
 });
 

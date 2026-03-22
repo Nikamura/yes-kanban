@@ -547,7 +547,8 @@ client.on("error", () => process.exit(1));
     const allTools = [
       {
         name: "create_issue",
-        description: "Create a new issue in the project",
+        description:
+          "Create a new issue in the project. Use status 'Backlog' for follow-up items discovered during implementation.",
         inputSchema: {
           type: "object",
           properties: {

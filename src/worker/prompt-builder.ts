@@ -98,6 +98,9 @@ export function buildPrompt(
     parts.push("3. Run tests if available and fix any failures.");
     parts.push(`4. Commit your changes with meaningful commit messages referencing ${issue?.simpleId ?? "this task"}.`);
     parts.push("5. Do not exit until you believe the work is complete and tests pass.");
+    parts.push(
+      `6. If you notice anything that should be improved but is out of scope for this task, create a new Backlog ticket for it using the \`create_issue\` tool with \`status: "Backlog"\`. Include a reference to the current task (${issue?.simpleId ?? "this task"}) in the description. Do NOT leave "notes" or "observations" as comments — create tickets instead so they can be planned.`,
+    );
   }
 
   if (plan) {
