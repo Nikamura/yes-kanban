@@ -1823,13 +1823,14 @@ export async function resolveRebaseConflicts(
 
   const prompt = buildRebaseConflictPrompt(wt.baseBranch, conflictedFiles, template);
 
-  // Override max-turns to 30 for bounded conflict resolution
-  const conflictConfig = {
-    ...agentConfig,
-    args: [...agentConfig.args.filter((_a: string, i: number, arr: string[]) =>
-      arr[i - 1] !== "--max-turns" && _a !== "--max-turns"
-    ), "--max-turns", "30"],
-  };
+  // Override max-turns to 30 for bounded conflict resolution (only for adapters that support it)
+  const supportsMaxTurns = agentConfig.agentType === "claude-code" || agentConfig.agentType === "codex";
+  const filteredArgs = supportsMaxTurns
+    ? [...agentConfig.args.filter((_a: string, i: number, arr: string[]) =>
+        arr[i - 1] !== "--max-turns" && _a !== "--max-turns"
+      ), "--max-turns", "30"]
+    : [...agentConfig.args];
+  const conflictConfig = { ...agentConfig, args: filteredArgs };
 
   const result = await runAgent(
     convex, config, executor, workspaceId, conflictConfig, wt.worktreePath,
