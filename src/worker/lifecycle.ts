@@ -550,6 +550,24 @@ export async function runLifecycle(
       });
     }
 
+    // Safety net: if the planning agent succeeded but forgot to call submit_plan,
+    // extract the assistant text and save it as the plan so the user has something to review.
+    const agentCalledSubmitPlan = planResult.events.some(
+      (e) => e.type === "tool_use" && (e.data as { name?: string }).name === "mcp__yes-kanban__submit_plan",
+    );
+    if (!agentCalledSubmitPlan) {
+      const fallbackPlan = extractAssistantText(planResult.events);
+      if (fallbackPlan) {
+        console.log(`[lifecycle] workspace=${workspaceId} agent did not call submit_plan, saving extracted text as plan`);
+        await convex.mutation(api.workspaces.updatePlan, {
+          id: workspaceId,
+          plan: fallbackPlan,
+        });
+      } else {
+        console.log(`[lifecycle] workspace=${workspaceId} agent did not submit a plan and no text could be extracted`);
+      }
+    }
+
     // After planning agent finishes, either run AI plan review or wait for user
     if (column?.autoPlanReview && project) {
       const planReviewTemplate = await convex.query(api.promptTemplates.resolve, {
