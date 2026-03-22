@@ -3,7 +3,7 @@ import { api } from "../../../convex/_generated/api";
 import { useState, useRef, useCallback } from "react";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { formatFileSize, getFileIcon } from "../utils/fileUtils";
-import { useEscapeClose } from "../hooks/useEscapeClose";
+import { ImageLightbox } from "./ImageLightbox";
 
 function isImageMimeType(mimeType: string): boolean {
   return mimeType.startsWith("image/");
@@ -14,19 +14,6 @@ function AttachmentPreview({ url, mimeType, filename, onClick }: { url?: string 
     return <img src={url} alt={filename} className="attachment-preview-thumb" onClick={onClick} style={onClick ? { cursor: "pointer" } : undefined} />;
   }
   return <span className="attachment-preview-icon">{getFileIcon(mimeType)}</span>;
-}
-
-function ImageLightbox({ url, filename, onClose }: { url: string; filename: string; onClose: () => void }) {
-  useEscapeClose(onClose);
-  return (
-    <div className="dialog-overlay" onClick={onClose} style={{ zIndex: 200 }}>
-      <div className="image-lightbox-content" onClick={(e) => e.stopPropagation()}>
-        <button className="image-lightbox-close" onClick={onClose}>&times;</button>
-        <img src={url} alt={filename} className="image-lightbox-img" />
-        <div className="image-lightbox-caption">{filename}</div>
-      </div>
-    </div>
-  );
 }
 
 export function AttachmentsSection({ issueId }: { issueId: Id<"issues"> }) {

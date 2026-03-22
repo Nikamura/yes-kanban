@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { useEscapeClose } from "../hooks/useEscapeClose";
 import { formatFileSize, getFileIcon } from "../utils/fileUtils";
+import { ImageLightbox } from "./ImageLightbox";
 interface PendingFile {
   file: File;
   id: string;
@@ -14,9 +15,25 @@ function isImageFile(file: File): boolean {
   return file.type.startsWith("image/");
 }
 
-function FilePreview({ file, previewUrl }: { file: File; previewUrl?: string }) {
+function FilePreview({
+  file,
+  previewUrl,
+  onClick,
+}: {
+  file: File;
+  previewUrl?: string;
+  onClick?: () => void;
+}) {
   if (previewUrl && isImageFile(file)) {
-    return <img src={previewUrl} alt={file.name} className="attachment-preview-thumb" />;
+    return (
+      <img
+        src={previewUrl}
+        alt={file.name}
+        className="attachment-preview-thumb"
+        onClick={onClick}
+        style={onClick ? { cursor: "pointer" } : undefined}
+      />
+    );
   }
   return <span className="attachment-preview-icon">{getFileIcon(file.type)}</span>;
 }
@@ -42,6 +59,10 @@ export function CreateIssueDialog({
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<{
+    url: string;
+    filename: string;
+  } | null>(null);
   useEscapeClose(onClose);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
@@ -284,7 +305,19 @@ export function CreateIssueDialog({
               <div className="pending-files">
                 {pendingFiles.map((pf) => (
                   <div key={pf.id} className="attachment-row attachment-row-with-preview">
-                    <FilePreview file={pf.file} previewUrl={pf.previewUrl} />
+                    <FilePreview
+                      file={pf.file}
+                      previewUrl={pf.previewUrl}
+                      onClick={
+                        pf.previewUrl && isImageFile(pf.file)
+                          ? () =>
+                              setLightboxImage({
+                                url: pf.previewUrl!,
+                                filename: pf.file.name,
+                              })
+                          : undefined
+                      }
+                    />
                     <div className="attachment-info">
                       <span className="attachment-name" title={pf.file.name}>
                         {pf.file.name}
@@ -315,6 +348,13 @@ export function CreateIssueDialog({
           </div>
         </form>
       </div>
+      {lightboxImage && (
+        <ImageLightbox
+          url={lightboxImage.url}
+          filename={lightboxImage.filename}
+          onClose={() => setLightboxImage(null)}
+        />
+      )}
     </div>
   );
 }
