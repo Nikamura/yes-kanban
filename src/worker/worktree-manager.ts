@@ -37,7 +37,6 @@ export class GitWorktreeManager {
 
   async createWorktrees(args: {
     workspaceId: string;
-    projectSlug: string;
     simpleId: string;
     issueTitle?: string;
     repos: Doc<"repos">[];
@@ -55,7 +54,7 @@ export class GitWorktreeManager {
       for (const repo of args.repos) {
         const titleSlug = args.issueTitle ? `-${slugifyTitle(args.issueTitle)}` : "";
         const branchName = sanitizeBranch(
-          `yes-kanban/${args.projectSlug}/${args.simpleId}${titleSlug}`
+          `yes-kanban/${args.simpleId}${titleSlug}`
         );
         const worktreePath =
           args.repos.length === 1

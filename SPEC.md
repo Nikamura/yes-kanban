@@ -696,7 +696,6 @@ interface IWorktreeManager {
   // Returns the populated WorktreeEntry[] and the agent cwd path.
   createWorktrees(args: {
     workspaceId: string;
-    projectSlug: string;
     simpleId: string;
     repos: Repo[];
   }): Promise<{ worktrees: WorktreeEntry[]; agentCwd: string }>;
@@ -716,13 +715,13 @@ interface IWorktreeManager {
 
 // Worktree creation pseudocode:
 //
-// async createWorktrees({ workspaceId, projectSlug, simpleId, repos }) {
+// async createWorktrees({ workspaceId, simpleId, repos }) {
 //   const worktrees: WorktreeEntry[] = [];
 //   const workspaceDir = path.join(this.worktreeRoot, workspaceId);
 //   await fs.mkdir(workspaceDir, { recursive: true });
 //
 //   for (const repo of repos) {
-//     const branchName = `yes-kanban/${projectSlug}/${simpleId}`;
+//     const branchName = `yes-kanban/${simpleId}`;
 //     const worktreePath = repos.length === 1
 //       ? workspaceDir  // single repo: worktree IS the workspace dir
 //       : path.join(workspaceDir, repo.slug);
@@ -854,7 +853,7 @@ interface IForgeAdapter {
 //   // 1. Create worktrees
 //   const worktreeManager: IWorktreeManager = new GitWorktreeManager(config.worktreeRoot);
 //   const { worktrees, agentCwd } = await worktreeManager.createWorktrees({
-//     workspaceId, projectSlug, simpleId: issue.simpleId, repos,
+//     workspaceId, simpleId: issue.simpleId, repos,
 //   });
 //   await convex.mutation(api.workspaces.updateStatus, {
 //     id: workspaceId, status: "ready", worktrees, agentCwd,
@@ -1957,7 +1956,6 @@ All worker logs should include structured context fields:
 For issue-related logs:
 - `issueId`
 - `simpleId`
-- `projectSlug`
 
 For workspace-related logs:
 - `workspaceId`
@@ -2080,7 +2078,6 @@ function execute_task(convex, config, task):
   try:
     worktrees, agentCwd = worktreeManager.createWorktrees({
       workspaceId: workspace._id,
-      projectSlug: task.projectSlug,
       simpleId: issue.simpleId,
       repos: repos
     })

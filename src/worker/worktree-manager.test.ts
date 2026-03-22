@@ -80,20 +80,19 @@ describe("GitWorktreeManager", () => {
     const manager = new GitWorktreeManager(worktreeRoot);
     const { worktrees, agentCwd } = await manager.createWorktrees({
       workspaceId: "ws-123",
-      projectSlug: "myproj",
       simpleId: "TASK-1",
       issueTitle: "Add user authentication",
       repos: [{ _id: "repo1", path: repoDir, slug: "repo", defaultBranch: "main", scriptTimeoutMs: 10000 } as any],
     });
 
     expect(worktrees).toHaveLength(1);
-    expect(worktrees[0]!.branchName).toBe("yes-kanban/myproj/TASK-1-add-user-authentication");
+    expect(worktrees[0]!.branchName).toBe("yes-kanban/TASK-1-add-user-authentication");
     expect(worktrees[0]!.baseBranch).toBe("main");
     expect(agentCwd).toBe(worktrees[0]!.worktreePath);
 
     // Verify worktree exists
     const check = git("-C", worktrees[0]!.worktreePath, "branch", "--show-current");
-    expect(check.stdout.toString().trim()).toBe("yes-kanban/myproj/TASK-1-add-user-authentication");
+    expect(check.stdout.toString().trim()).toBe("yes-kanban/TASK-1-add-user-authentication");
   });
 
   test("creates worktrees for multiple repos", async () => {
@@ -109,7 +108,6 @@ describe("GitWorktreeManager", () => {
     const manager = new GitWorktreeManager(worktreeRoot);
     const { worktrees, agentCwd } = await manager.createWorktrees({
       workspaceId: "ws-456",
-      projectSlug: "proj",
       simpleId: "TASK-2",
       repos: [
         { _id: "r1", path: repoDir, slug: "frontend", defaultBranch: "main", scriptTimeoutMs: 10000 } as any,
@@ -128,13 +126,12 @@ describe("GitWorktreeManager", () => {
     const manager = new GitWorktreeManager(worktreeRoot);
     const { worktrees } = await manager.createWorktrees({
       workspaceId: "ws-789",
-      projectSlug: "my project!",
       simpleId: "TASK 3",
       repos: [{ _id: "r1", path: repoDir, slug: "repo", defaultBranch: "main", scriptTimeoutMs: 10000 } as any],
     });
 
     // Special chars should be replaced with _
-    expect(worktrees[0]!.branchName).toBe("yes-kanban/my_project_/TASK_3");
+    expect(worktrees[0]!.branchName).toBe("yes-kanban/TASK_3");
   });
 
   test("cleans up on partial failure", async () => {
@@ -144,7 +141,6 @@ describe("GitWorktreeManager", () => {
     try {
       await manager.createWorktrees({
         workspaceId: "ws-fail",
-        projectSlug: "proj",
         simpleId: "TASK-99",
         repos: [{ _id: "r1", path: repoDir, slug: "repo", defaultBranch: "nonexistent", scriptTimeoutMs: 10000 } as any],
       });
@@ -158,7 +154,6 @@ describe("GitWorktreeManager", () => {
     const manager = new GitWorktreeManager(worktreeRoot);
     const { worktrees } = await manager.createWorktrees({
       workspaceId: "ws-diff",
-      projectSlug: "proj",
       simpleId: "TASK-4",
       repos: [{ _id: "r1", path: repoDir, slug: "repo", defaultBranch: "main", scriptTimeoutMs: 10000 } as any],
     });
@@ -177,7 +172,6 @@ describe("GitWorktreeManager", () => {
     const manager = new GitWorktreeManager(worktreeRoot);
     const { worktrees } = await manager.createWorktrees({
       workspaceId: "ws-diff-advanced",
-      projectSlug: "proj",
       simpleId: "TASK-ADV",
       repos: [{ _id: "r1", path: repoDir, slug: "repo", defaultBranch: "main", scriptTimeoutMs: 10000 } as any],
     });
@@ -207,7 +201,6 @@ describe("GitWorktreeManager", () => {
     const manager = new GitWorktreeManager(worktreeRoot);
     const { worktrees } = await manager.createWorktrees({
       workspaceId: "ws-files",
-      projectSlug: "proj",
       simpleId: "TASK-5",
       repos: [{ _id: "r1", path: repoDir, slug: "repo", defaultBranch: "main", scriptTimeoutMs: 10000 } as any],
     });
@@ -224,7 +217,6 @@ describe("GitWorktreeManager", () => {
     const manager = new GitWorktreeManager(worktreeRoot);
     const { worktrees } = await manager.createWorktrees({
       workspaceId: "ws-files-adv",
-      projectSlug: "proj",
       simpleId: "TASK-FADV",
       repos: [{ _id: "r1", path: repoDir, slug: "repo", defaultBranch: "main", scriptTimeoutMs: 10000 } as any],
     });
@@ -247,7 +239,6 @@ describe("GitWorktreeManager", () => {
     const manager = new GitWorktreeManager(worktreeRoot);
     const { worktrees } = await manager.createWorktrees({
       workspaceId: "ws-rm",
-      projectSlug: "proj",
       simpleId: "TASK-6",
       repos: [{ _id: "r1", path: repoDir, slug: "repo", defaultBranch: "main", scriptTimeoutMs: 10000 } as any],
     });
@@ -267,7 +258,6 @@ describe("GitWorktreeManager", () => {
     const manager = new GitWorktreeManager(worktreeRoot);
     const { worktrees } = await manager.createWorktrees({
       workspaceId: "ws-merge-cleanup",
-      projectSlug: "proj",
       simpleId: "TASK-7",
       repos: [{ _id: "r1", path: repoDir, slug: "repo", defaultBranch: "main", scriptTimeoutMs: 10000 } as any],
     });
@@ -310,7 +300,6 @@ describe("GitWorktreeManager", () => {
     // First creation at workspace ws-old
     const { worktrees: first } = await manager.createWorktrees({
       workspaceId: "ws-old",
-      projectSlug: "proj",
       simpleId: "TASK-DUP",
       issueTitle: "duplicate test",
       repos: [{ _id: "r1", path: repoDir, slug: "repo", defaultBranch: "main", scriptTimeoutMs: 10000 } as any],
@@ -326,7 +315,6 @@ describe("GitWorktreeManager", () => {
     // This should succeed by removing the old worktree first
     const { worktrees: second, resumed } = await manager.createWorktrees({
       workspaceId: "ws-new",
-      projectSlug: "proj",
       simpleId: "TASK-DUP",
       issueTitle: "duplicate test",
       repos: [{ _id: "r1", path: repoDir, slug: "repo", defaultBranch: "main", scriptTimeoutMs: 10000 } as any],
@@ -345,7 +333,6 @@ describe("GitWorktreeManager", () => {
     const manager = new GitWorktreeManager(worktreeRoot);
     const { worktrees } = await manager.createWorktrees({
       workspaceId: "ws-branch-cleanup",
-      projectSlug: "proj",
       simpleId: "TASK-8",
       repos: [{ _id: "r1", path: repoDir, slug: "repo", defaultBranch: "main", scriptTimeoutMs: 10000 } as any],
     });
@@ -375,7 +362,6 @@ describe("GitWorktreeManager", () => {
     const manager = new GitWorktreeManager(worktreeRoot);
     const { worktrees } = await manager.createWorktrees({
       workspaceId: "ws-filetree",
-      projectSlug: "proj",
       simpleId: "TASK-9",
       repos: [{ _id: "r1", path: repoDir, slug: "repo", defaultBranch: "main", scriptTimeoutMs: 10000 } as any],
     });
@@ -389,7 +375,6 @@ describe("GitWorktreeManager", () => {
     const manager = new GitWorktreeManager(worktreeRoot);
     const { worktrees } = await manager.createWorktrees({
       workspaceId: "ws-filetree2",
-      projectSlug: "proj",
       simpleId: "TASK-10",
       repos: [{ _id: "r1", path: repoDir, slug: "repo", defaultBranch: "main", scriptTimeoutMs: 10000 } as any],
     });

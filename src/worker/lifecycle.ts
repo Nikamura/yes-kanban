@@ -279,7 +279,6 @@ export async function runLifecycle(
   console.log(`[lifecycle] creating worktrees for workspace=${workspaceId}`);
   const { worktrees, agentCwd, resumed } = await worktreeManager.createWorktrees({
     workspaceId,
-    projectSlug: task.projectSlug ?? "project",
     simpleId: issue?.simpleId ?? workspaceId.slice(0, 8),
     issueTitle: issue?.title,
     repos,
