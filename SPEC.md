@@ -418,7 +418,9 @@ export default defineSchema({
     author: v.string(),
     runAttemptId: v.optional(v.id("runAttempts")),
     createdAt: v.number(),
-  }).index("by_issue", ["issueId", "createdAt"]),
+  })
+    .index("by_issue", ["issueId", "createdAt"])
+    .index("by_run_attempt", ["runAttemptId"]),
 
   attachments: defineTable({
     issueId: v.id("issues"),
@@ -550,8 +552,11 @@ api.workspaces.updateStatus: (args: {
   completedAt?: number;
 }) => void
 
-// Mutation: delete workspace record (worker handles worktree cleanup)
+// Mutation: delete a terminal workspace record after worktrees are empty (cascades related rows)
 api.workspaces.remove: (args: { id: Id<"workspaces"> }) => void
+// — Only allowed when status is terminal (completed, failed, cancelled, merged, merge_failed, conflict, test_failed, changes_requested) and worktrees array is empty.
+// — Before deleting run attempts, clears optional comments.runAttemptId for those attempts so issue comments are not left pointing at deleted rows.
+// — There is no separate reviewComments table; PR/code review notes use feedbackMessages, agentQuestions, and workspace fields such as reviewFeedback.
 
 // ─── RUN ATTEMPT FUNCTIONS ───────────────────────────────
 
@@ -1723,7 +1728,9 @@ comments: defineTable({
   author: v.string(),
   runAttemptId: v.optional(v.id("runAttempts")),
   createdAt: v.number(),
-}).index("by_issue", ["issueId", "createdAt"]),
+})
+  .index("by_issue", ["issueId", "createdAt"])
+  .index("by_run_attempt", ["runAttemptId"]),
 ```
 
 ### 14.5 MCP Tool Scoping and Safety

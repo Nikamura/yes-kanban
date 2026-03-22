@@ -34,6 +34,6 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["src", "convex"],
+  "include": ["src", "convex", "tests"],
   "exclude": ["node_modules", "dist"]
 }

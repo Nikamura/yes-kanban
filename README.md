@@ -24,6 +24,8 @@ Built for solo developers. Mobile-first. Convention over configuration.
 
 **Code review** -- Monaco-based diff viewer. File tree visualization. Review feedback loop: leave notes and the agent re-runs.
 
+**Workspace cleanup** -- Delete finished workspace records from the issue panel or workspace view once the worker has cleared worktrees, so cancelled or stale runs do not clutter the issue.
+
 **PR lifecycle** -- Agents create branches, commit, open PRs, and merge. GitHub, GitLab, and Azure DevOps via forge adapters (`gh`, `glab`, `az` CLIs).
 
 **Real-time** -- All UI reads are Convex subscriptions. No polling. Agent logs stream as they happen.
@@ -66,6 +68,7 @@ bun run dev:worker
 | `bun run dev` | Convex backend + Vite dev server |
 | `bun run dev:worker` | Worker process (watches for changes) |
 | `bun run test` | Unit + E2E tests (isolated Convex via Docker) |
+| `bun run test:convex` | Convex integration tests (`convex-test` + Vitest, no Docker) |
 | `bun run test -- --file src/worker/foo.test.ts` | Run a single unit test file + E2E |
 | `bun run typecheck` | TypeScript type checking |
 | `bun run lint` | ESLint |

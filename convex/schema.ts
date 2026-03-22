@@ -207,7 +207,9 @@ export default defineSchema({
     author: v.string(),
     runAttemptId: v.optional(v.id("runAttempts")),
     createdAt: v.number(),
-  }).index("by_issue", ["issueId", "createdAt"]),
+  })
+    .index("by_issue", ["issueId", "createdAt"])
+    .index("by_run_attempt", ["runAttemptId"]),
 
   attachments: defineTable({
     issueId: v.id("issues"),

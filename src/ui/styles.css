@@ -1135,6 +1135,40 @@ body {
   border-radius: var(--radius-sm);
 }
 
+.workspace-item .ws-date {
+  flex: 1;
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.workspace-item-delete {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 2px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.workspace-item-delete:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.workspace-item-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.workspaces-section .ws-error-banner.issue-workspace-error {
+  margin: 0 0 8px 0;
+}
+
 .ws-status {
   padding: 2px 8px;
   border-radius: var(--radius-sm);

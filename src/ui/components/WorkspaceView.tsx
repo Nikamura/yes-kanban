@@ -6,7 +6,7 @@ import { DiffViewer } from "./DiffViewer";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { RETRYABLE_STATUSES, CANCELLABLE_STATUSES } from "../utils/constants";
+import { RETRYABLE_STATUSES, CANCELLABLE_STATUSES, TERMINAL_STATUSES } from "../utils/constants";
 
 export function WorkspaceView({
   workspaceId,
@@ -29,6 +29,7 @@ export function WorkspaceView({
   const requestReview = useMutation(api.workspaces.requestReview);
   const requestChanges = useMutation(api.workspaces.requestChanges);
   const dismissFeedback = useMutation(api.workspaces.dismissReviewFeedback);
+  const removeWorkspace = useMutation(api.workspaces.remove);
   const updatePlan = useMutation(api.workspaces.updatePlan);
   const answerQuestion = useMutation(api.agentQuestions.answer);
   const dismissQuestion = useMutation(api.agentQuestions.dismiss);
@@ -67,6 +68,10 @@ export function WorkspaceView({
   const canRequestReview = ["completed", "changes_requested"].includes(workspace.status) && workspace.worktrees.length > 0 && hasChanges;
   const canRequestChanges = ["completed", "changes_requested"].includes(workspace.status) && workspace.worktrees.length > 0;
   const canDismissFeedback = workspace.status === "changes_requested" && !!workspace.reviewFeedback;
+  const canDeleteWorkspace =
+    TERMINAL_STATUSES.includes(workspace.status) && workspace.worktrees.length === 0;
+  const deleteDisabledByWorktrees =
+    TERMINAL_STATUSES.includes(workspace.status) && workspace.worktrees.length > 0;
 
   const pendingQuestions = questions?.filter((q) => q.status === "pending") ?? [];
   const hasQuestions = pendingQuestions.length > 0;
@@ -200,6 +205,36 @@ export function WorkspaceView({
                 onClick={() => requestCancel({ id: workspaceId })}
               >
                 Cancel
+              </button>
+            )}
+            {(canDeleteWorkspace || deleteDisabledByWorktrees) && (
+              <button
+                className="btn btn-danger btn-sm"
+                disabled={deleteDisabledByWorktrees}
+                title={
+                  deleteDisabledByWorktrees
+                    ? "Clean up worktrees first"
+                    : "Delete this workspace permanently"
+                }
+                onClick={() => {
+                  if (
+                    !window.confirm(
+                      "Delete this workspace? This cannot be undone.",
+                    )
+                  ) {
+                    return;
+                  }
+                  setActionError(null);
+                  void removeWorkspace({ id: workspaceId })
+                    .then(() => onClose())
+                    .catch((e: unknown) =>
+                      setActionError(
+                        e instanceof Error ? e.message : "Failed to delete workspace",
+                      ),
+                    );
+                }}
+              >
+                Delete
               </button>
             )}
             <button className="close-btn" onClick={onClose}>

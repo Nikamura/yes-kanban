@@ -17,6 +17,9 @@ if [ -n "$UNIT_FILE" ]; then
   bun test --max-concurrency=1 "$UNIT_FILE"
 else
   bun test --max-concurrency=1 src/
+  bun test --max-concurrency=1 convex/
+  echo "[test] Running Convex integration tests (vitest + convex-test)..."
+  bunx vitest run --config vitest.config.ts
 fi
 
 # E2E test runner with isolated Convex instance and Vite port.

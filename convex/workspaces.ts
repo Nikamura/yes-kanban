@@ -587,12 +587,61 @@ export const requestPlanning = mutation({
 export const remove = mutation({
   args: { id: v.id("workspaces") },
   handler: async (ctx, args) => {
-    // Delete run attempts and their logs
+    const workspace = await ctx.db.get(args.id);
+    if (!workspace) throw new Error("Workspace not found");
+
+    const terminal = (WORKSPACE_TERMINAL_STATUSES as readonly string[]).includes(
+      workspace.status,
+    );
+    if (!terminal) {
+      throw new Error("Only finished workspaces can be deleted");
+    }
+    if (workspace.worktrees.length > 0) {
+      throw new Error("Worktrees must be cleaned up before deleting this workspace");
+    }
+
+    const questions = await ctx.db
+      .query("agentQuestions")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
+      .collect();
+    for (const row of questions) await ctx.db.delete(row._id);
+
+    const feedbackRows = await ctx.db
+      .query("feedbackMessages")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
+      .collect();
+    for (const row of feedbackRows) await ctx.db.delete(row._id);
+
+    const permissionRows = await ctx.db
+      .query("permissionRequests")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
+      .collect();
+    for (const row of permissionRows) await ctx.db.delete(row._id);
+
+    const retryRows = await ctx.db
+      .query("retries")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
+      .collect();
+    for (const row of retryRows) await ctx.db.delete(row._id);
+
+    const fileContentRows = await ctx.db
+      .query("fileContentRequests")
+      .withIndex("by_workspace_path", (q) => q.eq("workspaceId", args.id))
+      .collect();
+    for (const row of fileContentRows) await ctx.db.delete(row._id);
+
     const runAttempts = await ctx.db
       .query("runAttempts")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
       .collect();
     for (const ra of runAttempts) {
+      const commentsWithAttempt = await ctx.db
+        .query("comments")
+        .withIndex("by_run_attempt", (q) => q.eq("runAttemptId", ra._id))
+        .collect();
+      for (const c of commentsWithAttempt) {
+        await ctx.db.patch(c._id, { runAttemptId: undefined });
+      }
       const logs = await ctx.db
         .query("agentLogs")
         .withIndex("by_run_attempt", (q) => q.eq("runAttemptId", ra._id))
@@ -601,6 +650,14 @@ export const remove = mutation({
         await ctx.db.delete(log._id);
       }
       await ctx.db.delete(ra._id);
+    }
+
+    const strayLogs = await ctx.db
+      .query("agentLogs")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
+      .collect();
+    for (const log of strayLogs) {
+      await ctx.db.delete(log._id);
     }
 
     await ctx.db.delete(args.id);

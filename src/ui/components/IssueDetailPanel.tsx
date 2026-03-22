@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { WorkspaceView } from "./WorkspaceView";
 import { AttachmentsSection } from "./AttachmentsSection";
@@ -54,6 +54,7 @@ export function IssueDetailPanel({
     [agentConfigs],
   );
   const createWorkspace = useMutation(api.workspaces.create);
+  const removeWorkspace = useMutation(api.workspaces.remove);
 
   const [editing, setEditing] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -71,6 +72,12 @@ export function IssueDetailPanel({
   const [additionalInstructions, setAdditionalInstructions] = useState("");
   const [blockerSearch, setBlockerSearch] = useState("");
   const [newTag, setNewTag] = useState("");
+  const [workspaceDeleteError, setWorkspaceDeleteError] = useState<string | null>(null);
+  useEffect(() => {
+    // Reset stale delete error when the open issue changes (same panel, new issue).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset on issueId
+    setWorkspaceDeleteError(null);
+  }, [issueId]);
   useEscapeClose(activeWorkspaceId ? onCloseWorkspace : onClose);
 
   const blockerSearchResults = useMemo(() => {
@@ -313,24 +320,81 @@ export function IssueDetailPanel({
             </div>
           </div>
 
-          {workspaces && workspaces.length > 0 && (
+          {((workspaces !== undefined && workspaces.length > 0) ||
+            workspaceDeleteError !== null) && (
             <div className="workspaces-section">
-              <h3>Workspaces</h3>
-              {workspaces.map((ws) => (
-                <div
-                  key={ws._id}
-                  className="workspace-item"
-                  style={{ cursor: "pointer" }}
-                  onClick={() => onOpenWorkspace(ws._id)}
-                >
-                  <span className={`ws-status ws-status-${ws.status}`}>
-                    {ws.status}
-                  </span>
-                  <span className="ws-date">
-                    {new Date(ws.createdAt).toLocaleString()}
-                  </span>
+              {workspaceDeleteError && (
+                <div className="ws-error-banner issue-workspace-error" role="alert">
+                  {workspaceDeleteError}
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    aria-label="Dismiss error"
+                    onClick={() => setWorkspaceDeleteError(null)}
+                  >
+                    &times;
+                  </button>
                 </div>
-              ))}
+              )}
+              {workspaces && workspaces.length > 0 && (
+                <>
+                  <h3>Workspaces</h3>
+                  {workspaces.map((ws) => {
+                    const isTerminal = TERMINAL_STATUSES.includes(ws.status);
+                    const canDeleteRecord =
+                      isTerminal && ws.worktrees.length === 0;
+                    return (
+                      <div
+                        key={ws._id}
+                        className="workspace-item"
+                        style={{ cursor: "pointer" }}
+                        onClick={() => onOpenWorkspace(ws._id)}
+                      >
+                        <span className={`ws-status ws-status-${ws.status}`}>
+                          {ws.status}
+                        </span>
+                        <span className="ws-date">
+                          {new Date(ws.createdAt).toLocaleString()}
+                        </span>
+                        {isTerminal && (
+                          <button
+                            type="button"
+                            className="workspace-item-delete"
+                            title={
+                              canDeleteRecord
+                                ? "Delete workspace"
+                                : "Clean up worktrees first"
+                            }
+                            disabled={!canDeleteRecord}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!canDeleteRecord) return;
+                              if (
+                                !window.confirm(
+                                  "Delete this workspace? This cannot be undone.",
+                                )
+                              ) {
+                                return;
+                              }
+                              setWorkspaceDeleteError(null);
+                              void removeWorkspace({ id: ws._id })
+                                .catch((err: unknown) =>
+                                  setWorkspaceDeleteError(
+                                    err instanceof Error
+                                      ? err.message
+                                      : "Failed to delete workspace",
+                                  ),
+                                );
+                            }}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
           )}
 
