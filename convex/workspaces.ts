@@ -3,6 +3,7 @@ import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getNextVisibleColumn } from "./lib/columnHelpers";
 import { recordHistory } from "./issueHistory";
+import { TERMINAL_COLUMN_NAMES } from "./lib/boardConstants";
 export { TERMINAL_COLUMN_NAMES } from "./lib/boardConstants";
 
 /** Workspace statuses where the agent is no longer running and a new workspace can be created. */
