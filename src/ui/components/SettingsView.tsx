@@ -232,7 +232,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
       setLocalMaxReviewCycles(String(project.maxReviewCycles));
       setLocalCleanupDelayMin(String(Math.round(project.cleanupDelayMs / 60000)));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.maxReviewCycles, project?.cleanupDelayMs]);
 
   const commitMaxReviewCycles = useCallback(() => {
@@ -484,7 +483,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                   className="btn btn-sm"
                   disabled={index === columns.length - 1}
                   onClick={() => {
-                    const next = columns[(index) + 1];
+                    const next = columns[index + 1];
                     if (!next) return;
                     void updateColumn({ id: col._id, position: next.position });
                     void updateColumn({ id: next._id, position: col.position });
@@ -780,9 +779,9 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                       beforeRunScript: repo.beforeRunScript ?? "",
                       afterRunScript: repo.afterRunScript ?? "",
                       cleanupScript: repo.cleanupScript ?? "",
-                      scriptTimeoutMs: repo.scriptTimeoutMs ? String(repo.scriptTimeoutMs) : "",
+                      scriptTimeoutMs: String(repo.scriptTimeoutMs),
                       testCommand: repo.testCommand ?? "",
-                      testTimeoutMs: repo.testTimeoutMs ? String(repo.testTimeoutMs) : "",
+                      testTimeoutMs: String(repo.testTimeoutMs),
                     });
                   }}
                 >
