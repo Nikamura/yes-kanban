@@ -1,0 +1,55 @@
+{
+  "name": "yes-kanban",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"bun run dev:convex\" \"bun run dev:ui\"",
+    "dev:convex": "bunx convex dev",
+    "dev:ui": "bunx --bun vite",
+    "dev:worker": "bun run --watch src/worker/index.ts",
+    "build": "bunx --bun vite build",
+    "test": "bun test --max-concurrency=1 src/",
+    "test:coverage": "bun test --coverage --max-concurrency=1 src/ && bun run scripts/coverage-html.ts",
+    "test:watch": "bun test --watch --max-concurrency=1",
+    "test:e2e": "bunx playwright test",
+    "test:e2e:isolated": "./scripts/test-e2e.sh",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "convex": "^1.33.1",
+    "monaco-editor": "^0.55.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-markdown": "^10.1.0",
+    "recharts": "^3.8.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@eslint/compat": "^2.0.3",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.58.2",
+    "@types/bun": "^1.2.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.4.1",
+    "concurrently": "^9.1.2",
+    "eslint": "^10.0.3",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.57.1",
+    "vite": "^6.3.5"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix"
+    ]
+  }
+}

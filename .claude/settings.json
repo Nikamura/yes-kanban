@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun install --frozen-lockfile",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}

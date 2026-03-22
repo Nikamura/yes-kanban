@@ -1,0 +1,17 @@
+services:
+  convex-backend-test:
+    image: ghcr.io/get-convex/convex-backend:latest
+    ports:
+      - "${TEST_CONVEX_PORT:-3220}:3210"
+      - "${TEST_CONVEX_SITE_PORT:-3221}:3211"
+    volumes:
+      - convex-data:/convex/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3210/version"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    stop_grace_period: 5s
+
+volumes:
+  convex-data:

@@ -1,0 +1,18 @@
+import { cronJobs } from "convex/server";
+import { internal } from "./_generated/api";
+
+const crons = cronJobs();
+
+crons.daily(
+  "cleanup old webhook deliveries",
+  { hourUTC: 3, minuteUTC: 0 },
+  internal.webhooks.cleanupOldDeliveries
+);
+
+crons.interval(
+  "process recurring tasks",
+  { minutes: 5 },
+  internal.recurrenceRules.processFixedScheduleRules
+);
+
+export default crons;
