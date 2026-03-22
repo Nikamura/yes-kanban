@@ -200,6 +200,45 @@ export class CodexAdapter implements IAgentAdapter {
     }
   }
 
+  /**
+   * Split Codex `agent_message` items into UI-shaped events.
+   * Codex JSONL nests content under `item.content`; LogStream.extractContent expects
+   * `data.message.content` (Claude Code shape). Also peel embedded `tool_use` blocks
+   * into separate events like ClaudeCodeAdapter.splitAssistantMessage.
+   */
+  private splitCodexAgentMessage(parsed: Record<string, unknown>): AgentEvent[] {
+    const item = parsed["item"] as Record<string, unknown> | undefined;
+    const content = item?.["content"];
+    if (!Array.isArray(content)) {
+      return [{ type: "assistant_message", data: { ...parsed, message: { content: [] } } }];
+    }
+
+    const events: AgentEvent[] = [];
+    const textBlocks = content.filter((b: { type?: string }) => b.type === "text");
+    const toolBlocks = content.filter((b: { type?: string }) => b.type === "tool_use");
+
+    if (textBlocks.length > 0) {
+      events.push({
+        type: "assistant_message",
+        data: { ...parsed, message: { content: textBlocks } },
+      });
+    }
+
+    for (const block of toolBlocks) {
+      const b = block as { name?: string; input?: unknown; id?: string };
+      events.push({
+        type: "tool_use",
+        data: { name: b.name, input: b.input, tool_use_id: b.id },
+      });
+    }
+
+    if (events.length === 0) {
+      events.push({ type: "assistant_message", data: { ...parsed, message: { content } } });
+    }
+
+    return events;
+  }
+
   private handleItemStarted(parsed: Record<string, unknown>): AgentEvent[] {
     const item = parsed["item"] as Record<string, unknown> | undefined;
     const itemType = item?.["type"] as string | undefined;
@@ -208,7 +247,7 @@ export class CodexAdapter implements IAgentAdapter {
       return [{ type: "tool_use", data: parsed }];
     }
     if (itemType === "agent_message") {
-      return [{ type: "assistant_message", data: parsed }];
+      return this.splitCodexAgentMessage(parsed);
     }
     if (itemType === "reasoning") {
       return [{ type: "system", data: parsed }];
@@ -224,7 +263,7 @@ export class CodexAdapter implements IAgentAdapter {
       return [{ type: "tool_result", data: parsed }];
     }
     if (itemType === "agent_message") {
-      return [{ type: "assistant_message", data: parsed }];
+      return this.splitCodexAgentMessage(parsed);
     }
     return [{ type: "unknown", data: parsed }];
   }

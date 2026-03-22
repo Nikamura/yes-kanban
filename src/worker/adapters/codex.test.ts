@@ -374,10 +374,48 @@ describe("CodexAdapter", () => {
       expect(events[0]!.type).toBe("tool_use");
     });
 
-    test("item.started with agent_message → assistant_message", () => {
+    test("item.started with agent_message → assistant_message with message.content for UI", () => {
       const events = adapter.parseLine(JSON.stringify({ type: "item.started", item: { type: "agent_message" } }));
       expect(events).toHaveLength(1);
       expect(events[0]!.type).toBe("assistant_message");
+      const data = events[0]!.data as { message?: { content?: unknown[] } };
+      expect(data.message?.content).toEqual([]);
+    });
+
+    test("item.started agent_message maps item.content text blocks to message.content", () => {
+      const events = adapter.parseLine(
+        JSON.stringify({
+          type: "item.started",
+          item: { type: "agent_message", content: [{ type: "text", text: "Hello from Codex" }] },
+        }),
+      );
+      expect(events).toHaveLength(1);
+      expect(events[0]!.type).toBe("assistant_message");
+      const data = events[0]!.data as { message: { content: Array<{ type: string; text: string }> } };
+      expect(data.message.content).toEqual([{ type: "text", text: "Hello from Codex" }]);
+    });
+
+    test("item.completed agent_message splits embedded tool_use blocks", () => {
+      const events = adapter.parseLine(
+        JSON.stringify({
+          type: "item.completed",
+          item: {
+            type: "agent_message",
+            content: [
+              { type: "text", text: "Reading the file" },
+              { type: "tool_use", id: "call_1", name: "Read", input: { file_path: "/tmp/x" } },
+            ],
+          },
+        }),
+      );
+      expect(events).toHaveLength(2);
+      expect(events[0]!.type).toBe("assistant_message");
+      expect(events[1]!.type).toBe("tool_use");
+      const assistant = events[0]!.data as { message: { content: unknown[] } };
+      expect(assistant.message.content).toEqual([{ type: "text", text: "Reading the file" }]);
+      const tool = events[1]!.data as { name: string; tool_use_id: string };
+      expect(tool.name).toBe("Read");
+      expect(tool.tool_use_id).toBe("call_1");
     });
 
     test("item.started with reasoning → system", () => {
@@ -392,10 +430,12 @@ describe("CodexAdapter", () => {
       expect(events[0]!.type).toBe("tool_result");
     });
 
-    test("item.completed with agent_message → assistant_message", () => {
+    test("item.completed with agent_message → assistant_message with message.content for UI", () => {
       const events = adapter.parseLine(JSON.stringify({ type: "item.completed", item: { type: "agent_message" } }));
       expect(events).toHaveLength(1);
       expect(events[0]!.type).toBe("assistant_message");
+      const data = events[0]!.data as { message?: { content?: unknown[] } };
+      expect(data.message?.content).toEqual([]);
     });
 
     test("turn.completed → completion + token_usage", () => {
