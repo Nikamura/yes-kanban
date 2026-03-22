@@ -36,7 +36,6 @@ Important boundary:
 - Require no authentication (single user, self-hosted, localhost by default).
 - Support auto-retry with exponential backoff on agent failure.
 - Track token usage and API costs across all agent runs.
-- Send webhook notifications on dispatch, completion, and failure events.
 
 ### 2.2 Non-Goals
 
@@ -452,7 +451,7 @@ api.projects.create: (args: { name: string; slug: string; simpleIdPrefix: string
 // Mutation: update project settings
 api.projects.update: (args: { id: Id<"projects">; name?: string; defaultAgentConfigId?: Id<"agentConfigs"> }) => void
 
-// Mutation: delete a project and all its data (cascade deletes columns, issues, workspaces, repos, agent configs, webhooks, and all nested records)
+// Mutation: delete a project and all its data (cascade deletes columns, issues, workspaces, repos, agent configs, and all nested records)
 api.projects.remove: (args: { id: Id<"projects"> }) => void
 
 // ─── COLUMN FUNCTIONS ────────────────────────────────────
@@ -964,7 +963,7 @@ New projects are created with these default columns:
 
 ### 7.2 Project Deletion
 
-- Deleting a project removes all associated data: columns, issues (with comments and attachments), workspaces (with run attempts and agent logs), repositories, agent configurations, and webhooks.
+- Deleting a project removes all associated data: columns, issues (with comments and attachments), workspaces (with run attempts and agent logs), repositories, and agent configurations.
 - Active workspaces are terminated before deletion.
 - This operation is irreversible.
 
@@ -2440,7 +2439,6 @@ A conforming implementation must complete all items below.
 - Worker health indicators in UI.
 - Token usage dashboard.
 - Cost tracking and API usage reporting.
-- Webhook integrations for external notifications (dispatch, completion, failure events).
 
 ### 23.10 MCP Server
 

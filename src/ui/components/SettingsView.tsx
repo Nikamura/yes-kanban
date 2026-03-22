@@ -6,7 +6,6 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { PromptTemplatesSection } from "./PromptTemplatesSection";
 import { IssueTemplatesSection } from "./IssueTemplatesSection";
 import { NotificationPrefsSection } from "./NotificationPrefsSection";
-import { WebhookDeliveriesSection } from "./WebhookDeliveriesSection";
 import {
   type AgentAdvancedForm,
   parseEnvString,
@@ -28,16 +27,6 @@ const DEFAULT_COMMANDS: Record<string, string> = {
   codex: "codex",
   cursor: "agent",
 };
-
-const WEBHOOK_EVENTS = [
-  "dispatch",
-  "completion",
-  "failure",
-  "test_failed",
-  "review_complete",
-  "pr_created",
-  "merged",
-] as const;
 
 function AgentAdvancedFields({ form, setForm }: {
   form: AgentAdvancedForm;
@@ -134,7 +123,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
   const repos = useQuery(api.repos.list, { projectId });
   const agentConfigs = useQuery(api.agentConfigs.list, { projectId });
   const dispatchStatus = useQuery(api.dispatch.status);
-  const webhooks = useQuery(api.webhooks.list, { projectId });
   const mcpServerConfigs = useQuery(api.mcpServerConfigs.list, { projectId });
   const skills = useQuery(api.skills.list, { projectId });
 
@@ -151,9 +139,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
   const updateProject = useMutation(api.projects.update);
   const removeProject = useMutation(api.projects.remove);
   const updateMaxConcurrent = useMutation(api.dispatch.updateMaxConcurrent);
-  const createWebhook = useMutation(api.webhooks.create);
-  const updateWebhook = useMutation(api.webhooks.update);
-  const removeWebhook = useMutation(api.webhooks.remove);
   const syncMcpFromJson = useMutation(api.mcpServerConfigs.syncFromJson);
   const updateSkill = useMutation(api.skills.update);
   const removeSkill = useMutation(api.skills.remove);
@@ -162,7 +147,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
 
   const [showAddRepo, setShowAddRepo] = useState(false);
   const [showAddAgent, setShowAddAgent] = useState(false);
-  const [showAddWebhook, setShowAddWebhook] = useState(false);
   const [repoForm, setRepoForm] = useState({ name: "", path: "", slug: "" });
   const [agentForm, setAgentForm] = useState({
     name: "",
@@ -194,17 +178,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
     permissionMode: "bypass" as string,
   });
   const [showEditAgentAdvanced, setShowEditAgentAdvanced] = useState(false);
-  const [webhookForm, setWebhookForm] = useState({
-    url: "",
-    secret: "",
-    events: [...WEBHOOK_EVENTS] as string[],
-  });
-  const [editingWebhookId, setEditingWebhookId] = useState<Id<"webhooks"> | null>(null);
-  const [editWebhookForm, setEditWebhookForm] = useState({
-    url: "",
-    secret: "",
-    events: [] as string[],
-  });
   const [mcpJsonValue, setMcpJsonValue] = useState("");
   const [mcpJsonDirty, setMcpJsonDirty] = useState(false);
   const [mcpJsonError, setMcpJsonError] = useState<string | null>(null);
@@ -314,7 +287,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
     setMcpJsonValue(JSON.stringify({ mcpServers }, null, 2));
   }, [mcpServerConfigs, mcpJsonDirty]);
 
-  if (!project || !columns || !repos || !agentConfigs || webhooks === undefined) {
+  if (!project || !columns || !repos || !agentConfigs) {
     return <div className="loading">Loading settings...</div>;
   }
 
@@ -1468,159 +1441,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
       <PromptTemplatesSection projectId={projectId} />
 
       <IssueTemplatesSection projectId={projectId} />
-
-      <section className="settings-section">
-        <h2>
-          Webhooks
-          <button className="btn btn-sm" onClick={() => setShowAddWebhook(!showAddWebhook)}>
-            + Add
-          </button>
-        </h2>
-        {webhooks.map((wh) => (
-          <div key={wh._id}>
-            {editingWebhookId === wh._id ? (
-              <form
-                className="inline-form"
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  await updateWebhook({
-                    id: wh._id,
-                    url: editWebhookForm.url,
-                    events: editWebhookForm.events,
-                    secret: editWebhookForm.secret || undefined,
-                  });
-                  setEditingWebhookId(null);
-                }}
-              >
-                <input
-                  placeholder="Webhook URL"
-                  value={editWebhookForm.url}
-                  onChange={(e) => setEditWebhookForm({ ...editWebhookForm, url: e.target.value })}
-                  autoComplete="off"
-                />
-                <input
-                  placeholder="Secret (optional, leave blank to keep)"
-                  value={editWebhookForm.secret}
-                  onChange={(e) => setEditWebhookForm({ ...editWebhookForm, secret: e.target.value })}
-                  autoComplete="off"
-                />
-                <div className="webhook-events">
-                  {WEBHOOK_EVENTS.map((event) => (
-                    <label key={event} className="toggle-label">
-                      <input
-                        type="checkbox"
-                        checked={editWebhookForm.events.includes(event)}
-                        onChange={(e) => {
-                          const events = e.target.checked
-                            ? [...editWebhookForm.events, event]
-                            : editWebhookForm.events.filter((ev) => ev !== event);
-                          setEditWebhookForm({ ...editWebhookForm, events });
-                        }}
-                      />
-                      {event}
-                    </label>
-                  ))}
-                </div>
-                <button type="submit" className="btn btn-primary btn-sm">
-                  Save
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  onClick={() => setEditingWebhookId(null)}
-                >
-                  Cancel
-                </button>
-              </form>
-            ) : (
-              <div className="settings-row">
-                <span>{wh.url}</span>
-                <span className="meta-value">{wh.events.join(", ")}</span>
-                <label className="toggle-label">
-                  <input
-                    type="checkbox"
-                    checked={wh.enabled}
-                    onChange={(e) =>
-                      updateWebhook({ id: wh._id, enabled: e.target.checked })
-                    }
-                  />
-                  Enabled
-                </label>
-                <button
-                  className="btn btn-sm"
-                  onClick={() => {
-                    setEditingWebhookId(wh._id);
-                    setEditWebhookForm({
-                      url: wh.url,
-                      secret: "",
-                      events: [...wh.events],
-                    });
-                  }}
-                >
-                  Edit
-                </button>
-                <button
-                  className="btn btn-sm btn-danger"
-                  onClick={() => removeWebhook({ id: wh._id })}
-                >
-                  Remove
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-        {showAddWebhook && (
-          <form
-            className="inline-form"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              await createWebhook({
-                projectId,
-                url: webhookForm.url,
-                events: webhookForm.events,
-                secret: webhookForm.secret || undefined,
-              });
-              setWebhookForm({ url: "", secret: "", events: [...WEBHOOK_EVENTS] });
-              setShowAddWebhook(false);
-            }}
-          >
-            <input
-              placeholder="Webhook URL"
-              value={webhookForm.url}
-              onChange={(e) => setWebhookForm({ ...webhookForm, url: e.target.value })}
-              autoComplete="off"
-            />
-            <input
-              placeholder="Secret (optional)"
-              value={webhookForm.secret}
-              onChange={(e) => setWebhookForm({ ...webhookForm, secret: e.target.value })}
-              autoComplete="off"
-            />
-            <div className="webhook-events">
-              {WEBHOOK_EVENTS.map((event) => (
-                <label key={event} className="toggle-label">
-                  <input
-                    type="checkbox"
-                    checked={webhookForm.events.includes(event)}
-                    onChange={(e) => {
-                      const events = e.target.checked
-                        ? [...webhookForm.events, event]
-                        : webhookForm.events.filter((ev) => ev !== event);
-                      setWebhookForm({ ...webhookForm, events });
-                    }}
-                  />
-                  {event}
-                </label>
-              ))}
-            </div>
-            <button type="submit" className="btn btn-primary btn-sm">
-              Add
-            </button>
-          </form>
-        )}
-
-        <WebhookDeliveriesSection projectId={projectId} />
-      </section>
 
       <section
         className="settings-section"

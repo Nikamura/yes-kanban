@@ -225,40 +225,6 @@ export default defineSchema({
     maxConcurrentAgents: v.optional(v.number()),
   }).index("by_workerId", ["workerId"]),
 
-  webhooks: defineTable({
-    projectId: v.id("projects"),
-    url: v.string(),
-    events: v.array(v.string()),
-    enabled: v.boolean(),
-    secret: v.optional(v.string()),
-    createdAt: v.number(),
-  }).index("by_project", ["projectId"]),
-
-  webhookDeliveries: defineTable({
-    webhookId: v.id("webhooks"),
-    projectId: v.id("projects"),
-    event: v.string(),
-    body: v.string(),
-    url: v.string(),
-    attempt: v.number(),
-    maxAttempts: v.number(),
-    status: v.union(
-      v.literal("success"),
-      v.literal("retrying"),
-      v.literal("dead_letter")
-    ),
-    lastError: v.optional(v.string()),
-    lastStatusCode: v.optional(v.number()),
-    nextRetryAt: v.optional(v.number()),
-    createdAt: v.number(),
-    completedAt: v.optional(v.number()),
-  })
-    .index("by_webhook", ["webhookId"])
-    .index("by_status", ["status"])
-    .index("by_project", ["projectId"])
-    .index("by_project_status", ["projectId", "status"])
-    .index("by_status_createdAt", ["status", "createdAt"]),
-
   promptTemplates: defineTable({
     projectId: v.optional(v.id("projects")), // null = global template
     name: v.string(),

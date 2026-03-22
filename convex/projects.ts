@@ -210,15 +210,6 @@ export const remove = mutation({
       await ctx.db.delete(ac._id);
     }
 
-    // Delete webhooks
-    const webhooks = await ctx.db
-      .query("webhooks")
-      .withIndex("by_project", (q) => q.eq("projectId", args.id))
-      .collect();
-    for (const wh of webhooks) {
-      await ctx.db.delete(wh._id);
-    }
-
     await ctx.db.delete(args.id);
   },
 });
