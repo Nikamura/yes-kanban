@@ -472,8 +472,14 @@ export async function runLifecycle(
       );
     }
 
+    // Resolve planning-specific agent config (falls back to default agent)
+    const planningConfigId = project?.planningAgentConfigId ?? agentConfig._id;
+    const planningAgentConfig = planningConfigId !== agentConfig._id
+      ? (await convex.query(api.agentConfigs.get, { id: planningConfigId })) ?? agentConfig
+      : agentConfig;
+
     const planResult = await runAgent(
-      convex, config, executor, workspaceId, agentConfig, agentCwd,
+      convex, config, executor, workspaceId, planningAgentConfig, agentCwd,
       planningPrompt, "planning", abortSignal,
       {
         mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: previousSessionId,
@@ -485,7 +491,7 @@ export async function runLifecycle(
     if (abortSignal.aborted) return; // cancelled — status already set by worker
 
     if (!planResult.success) {
-      await handleFailure(convex, config, workspaceId, agentConfig, planResult, worktrees, issue);
+      await handleFailure(convex, config, workspaceId, planningAgentConfig, planResult, worktrees, issue);
       if (mcpServer) { mcpServer.stop(); }
       return;
     }

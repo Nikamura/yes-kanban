@@ -75,6 +75,7 @@ export const update = mutation({
     id: v.id("projects"),
     name: v.optional(v.string()),
     defaultAgentConfigId: v.optional(v.id("agentConfigs")),
+    planningAgentConfigId: v.optional(v.union(v.id("agentConfigs"), v.null())),
     reviewAgentConfigId: v.optional(v.union(v.id("agentConfigs"), v.null())),
     maxReviewCycles: v.optional(v.number()),
     cleanupDelayMs: v.optional(v.number()),

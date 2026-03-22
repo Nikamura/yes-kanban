@@ -8,6 +8,7 @@ export default defineSchema({
     simpleIdPrefix: v.string(),
     simpleIdCounter: v.number(),
     defaultAgentConfigId: v.optional(v.id("agentConfigs")),
+    planningAgentConfigId: v.optional(v.id("agentConfigs")),
     reviewAgentConfigId: v.optional(v.id("agentConfigs")),
     maxReviewCycles: v.number(),
     cleanupDelayMs: v.number(),

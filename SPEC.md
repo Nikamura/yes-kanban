@@ -149,6 +149,7 @@ Fields:
 - `simpleIdPrefix` (string) — e.g. `TASK`, used for generating simple IDs.
 - `simpleIdCounter` (number) — Next sequential number.
 - `defaultAgentConfigId` (Id<"agentConfigs"> or null) — Default agent config for auto-dispatch.
+- `planningAgentConfigId` (Id<"agentConfigs"> or null) — Agent config for planning runs. If null, uses the default agent config.
 - `reviewAgentConfigId` (Id<"agentConfigs"> or null) — Agent config for review runs. If null, uses the coding agent config.
 - `maxReviewCycles` (number) — Maximum code → review → fix iterations. Default: `3`.
 - `cleanupDelayMs` (number) — Delay before worktree cleanup after merge. Default: `3600000` (1 hour).
@@ -297,6 +298,7 @@ export default defineSchema({
     simpleIdPrefix: v.string(),
     simpleIdCounter: v.number(),
     defaultAgentConfigId: v.optional(v.id("agentConfigs")),
+    planningAgentConfigId: v.optional(v.id("agentConfigs")),
     reviewAgentConfigId: v.optional(v.id("agentConfigs")),
     maxReviewCycles: v.number(),
     cleanupDelayMs: v.number(),
@@ -1495,7 +1497,15 @@ Example configurations:
 - **"Quick Fix" column**: `autoDispatch: true`, `skipReview: true`, `mergePolicy: "auto_merge"` — Skip review for trivial fixes, auto-merge after tests pass.
 - **"Offline" column**: `autoDispatch: true`, `mergePolicy: "local_merge"` — Full automation without any forge/PR tooling. Merges directly into the base branch locally.
 
-### 11.10 Review Agent Configuration
+### 11.10 Planning Agent Configuration
+
+Projects can configure a separate agent configuration for planning runs:
+
+- `planningAgentConfigId` (Id<"agentConfigs"> or null) — Agent config to use for planning runs. If null, the same config as the default agent is used.
+
+The planning agent can be a different model than the coding agent (e.g. use a strong reasoning model for planning and a faster model for coding).
+
+### 11.11 Review Agent Configuration
 
 Projects can configure a separate agent configuration for review runs:
 

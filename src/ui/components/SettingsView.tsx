@@ -333,6 +333,26 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
             />
           </div>
           <div className="setting-item">
+            <label>Planning Agent</label>
+            <select
+              value={project.planningAgentConfigId ?? ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                void updateProject({
+                  id: projectId,
+                  planningAgentConfigId: val ? (val as Id<"agentConfigs">) : null,
+                });
+              }}
+            >
+              <option value="">Same as default</option>
+              {agentConfigs.map((ac) => (
+                <option key={ac._id} value={ac._id}>
+                  {ac.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="setting-item">
             <label>Review Agent</label>
             <select
               value={project.reviewAgentConfigId ?? ""}
