@@ -306,6 +306,25 @@ describe("CodexAdapter", () => {
         expect(tomlContent).toContain('enabled_tools = ["do_thing"]');
       });
 
+      test("escapes control characters in env values", () => {
+        const mcpConfig = {
+          mcpServers: {
+            svc: { command: "node", args: ["s.js"], env: { MULTI: "line1\nline2\ttab" } },
+          },
+        };
+        writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
+
+        const result = buildWithMcp();
+
+        const tomlContent = readFileSync(`${result.env["CODEX_HOME"]}/config.toml`, "utf-8");
+        expect(tomlContent).toContain('MULTI = "line1\\nline2\\ttab"');
+      });
+
+      test("throws when mcpServers key is missing", () => {
+        writeFileSync(tempConfigPath, JSON.stringify({ other: true }));
+        expect(() => buildWithMcp()).toThrow("Missing or invalid 'mcpServers'");
+      });
+
       test("does not add enabled_tools for non-MCP allowed tools", () => {
         const mcpConfig = {
           mcpServers: {

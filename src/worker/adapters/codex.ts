@@ -57,7 +57,12 @@ function mcpJsonToToml(
 const TOML_BARE_KEY = /^[A-Za-z0-9_-]+$/;
 
 function tomlString(value: string): string {
-  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  return `"${value
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "\\r")
+    .replace(/\t/g, "\\t")}"`;
 }
 
 function tomlKey(key: string): string {
@@ -123,6 +128,9 @@ export class CodexAdapter implements IAgentAdapter {
       try {
         const jsonContent = readFileSync(args.mcpConfigPath, "utf-8");
         const mcpConfig = JSON.parse(jsonContent);
+        if (!mcpConfig.mcpServers || typeof mcpConfig.mcpServers !== "object") {
+          throw new Error("Missing or invalid 'mcpServers' key in MCP config");
+        }
         const toml = mcpJsonToToml(mcpConfig, args.allowedTools);
 
         // Derive unique dir from mcpConfigPath (contains workspaceId) + pid to avoid collisions
