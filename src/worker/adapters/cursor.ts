@@ -27,7 +27,7 @@ export class CursorAdapter implements IAgentAdapter {
       cmdArgs.push("--workspace", args.cwd);
     }
 
-    // Permission mode
+    // Permission mode — "accept" falls through with no flags (Cursor default interactive mode)
     const mode = args.permissionMode ?? "dangerously-skip-permissions";
     if (mode === "dangerously-skip-permissions") {
       cmdArgs.push("--force");
@@ -46,6 +46,9 @@ export class CursorAdapter implements IAgentAdapter {
     if (args.mcpConfigPath) {
       cmdArgs.push("--approve-mcps");
     }
+
+    // Note: Cursor CLI has no --max-turns flag. Runaway sessions are bounded
+    // by the executor's overall timeout and stall detection instead.
 
     // Custom args from config
     if (args.config.args.length > 0) {

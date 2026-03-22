@@ -379,7 +379,7 @@ export async function runLifecycle(
     for (const wt of worktrees) {
       const cursorDir = join(wt.worktreePath, ".cursor");
       if (agentConfig.agentType !== "cursor" && existsSync(cursorDir)) {
-        try { rmSync(cursorDir, { recursive: true }); } catch { /* best-effort */ }
+        try { rmSync(cursorDir, { recursive: true, force: true }); } catch { /* best-effort */ }
       }
     }
 
