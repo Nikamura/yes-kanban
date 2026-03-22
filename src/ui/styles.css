@@ -1408,12 +1408,12 @@ textarea { resize: vertical; }
 /* Settings */
 .settings {
   padding: 24px;
-  max-width: 800px;
   overflow-y: auto;
   height: 100%;
 }
 
 .settings-section {
+  max-width: 800px;
   margin-bottom: 32px;
 }
 
@@ -3203,9 +3203,12 @@ button.log-expand-icon {
 /* Token Usage Dashboard */
 .dashboard {
   padding: 24px;
-  max-width: 960px;
   overflow-y: auto;
   height: 100%;
+}
+
+.dashboard > * {
+  max-width: 960px;
 }
 
 .dashboard-title {
@@ -3413,9 +3416,12 @@ button.log-expand-icon {
 /* Analytics dashboard */
 .analytics {
   padding: 24px;
-  max-width: 960px;
   overflow-y: auto;
   height: 100%;
+}
+
+.analytics > * {
+  max-width: 960px;
 }
 
 .analytics-filters {
