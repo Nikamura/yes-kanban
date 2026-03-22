@@ -1446,6 +1446,19 @@ export async function runAgent(
         if (lastStderrLines.length > MAX_STDERR_LINES) lastStderrLines.shift();
       }
       const events = adapter.parseLine(line);
+      for (const event of events) {
+        if (event.type === "system") {
+          const data = event.data as Record<string, unknown>;
+          if (data["subtype"] === "init") {
+            if (!data["permissionMode"] && options?.permissionMode) {
+              data["permissionMode"] = options.permissionMode;
+            }
+            if (!data["model"] && agentConfig.model) {
+              data["model"] = agentConfig.model;
+            }
+          }
+        }
+      }
       structuredEvents.push(...events);
 
       // Handle permission requests for accept mode or adapters with their own permission protocol

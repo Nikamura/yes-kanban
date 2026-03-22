@@ -338,6 +338,7 @@ describe("CodexAdapter", () => {
   });
 
   describe("parseLine", () => {
+    // permissionMode for init is filled in by runAgent (lifecycle) from execution context when missing.
     test("thread.started → system with init subtype and model", () => {
       const events = adapter.parseLine(JSON.stringify({ type: "thread.started", model: "o3" }));
       expect(events).toHaveLength(1);

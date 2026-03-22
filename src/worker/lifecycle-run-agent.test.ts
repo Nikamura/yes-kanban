@@ -190,6 +190,35 @@ describe("runAgent", () => {
     expect(result.sessionId).toBe("sess_123");
   });
 
+  test("enriches Codex system init with model and permissionMode from run context (E2E--183)", async () => {
+    const convex = mockConvex();
+    const codexConfig = {
+      ...baseAgentConfig,
+      agentType: "codex",
+      model: "gpt-4.1",
+    };
+    const executor = {
+      execute: mock((args: any) => {
+        args.onLine("stdout", JSON.stringify({ type: "thread.started" }));
+        return Promise.resolve({ exitCode: 0, timedOut: false, stalled: false });
+      }),
+    };
+
+    const result = await runAgent(
+      convex as any, baseConfig, executor as any, "wsId" as any,
+      codexConfig, "/tmp/cwd", "Task", "review",
+      new AbortController().signal,
+      { permissionMode: "plan" },
+    );
+
+    expect(result.events.length).toBe(1);
+    expect(result.events[0]!.type).toBe("system");
+    const data = result.events[0]!.data as Record<string, unknown>;
+    expect(data["subtype"]).toBe("init");
+    expect(data["model"]).toBe("gpt-4.1");
+    expect(data["permissionMode"]).toBe("plan");
+  });
+
   test("includes last stderr lines in error message on failure", async () => {
     const convex = mockConvex();
     const executor = {
