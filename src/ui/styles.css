@@ -4294,3 +4294,52 @@ button.log-expand-icon {
   margin-left: 0.75rem;
   flex-shrink: 0;
 }
+
+/* Archive View */
+.archive-view {
+  padding: 24px;
+  height: 100%;
+  overflow-y: auto;
+}
+.archive-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.archive-header h2 {
+  font-size: 18px;
+  color: var(--text);
+}
+.archive-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.archive-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.archive-table th {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 2px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.archive-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.archive-table tr:hover td {
+  background: var(--surface);
+}
+.archive-date {
+  color: var(--text-muted);
+  font-size: 12px;
+}

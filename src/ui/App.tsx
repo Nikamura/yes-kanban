@@ -8,12 +8,13 @@ import { SettingsView } from "./components/SettingsView";
 import { ListView } from "./components/ListView";
 import { DashboardView } from "./components/DashboardView";
 import { ActivityFeed } from "./components/ActivityFeed";
+import { ArchiveView } from "./components/ArchiveView";
 import { useNotifications } from "./hooks/useNotifications";
 import type { Id } from "../../convex/_generated/dataModel";
 
-type View = "board" | "list" | "dashboard" | "settings" | "activity";
+type View = "board" | "list" | "dashboard" | "settings" | "activity" | "archive";
 
-const VALID_VIEWS = new Set<string>(["board", "list", "dashboard", "settings", "activity"]);
+const VALID_VIEWS = new Set<string>(["board", "list", "dashboard", "settings", "activity", "archive"]);
 
 interface HashState {
   slug: string | null;
@@ -212,6 +213,12 @@ export function App() {
               Activity
             </button>
             <button
+              className={`nav-btn ${view === "archive" ? "active" : ""}`}
+              onClick={() => { setView("archive"); closeIssue(); }}
+            >
+              Archive
+            </button>
+            <button
               className={`nav-btn ${view === "dashboard" ? "active" : ""}`}
               onClick={() => { setView("dashboard"); closeIssue(); }}
             >
@@ -257,6 +264,8 @@ export function App() {
             />
           ) : view === "activity" ? (
             <ActivityFeed projectId={selectedProjectId} onOpenIssue={openIssue} />
+          ) : view === "archive" ? (
+            <ArchiveView projectId={selectedProjectId} />
           ) : view === "dashboard" ? (
             <DashboardView projectId={selectedProjectId} />
           ) : (

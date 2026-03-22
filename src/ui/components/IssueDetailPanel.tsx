@@ -45,6 +45,8 @@ export function IssueDetailPanel({
   const moveIssue = useMutation(api.issues.move);
   const addComment = useMutation(api.comments.create);
   const removeIssue = useMutation(api.issues.remove);
+  const archiveIssue = useMutation(api.issues.archive);
+  const unarchiveIssue = useMutation(api.issues.unarchive);
 
   const agentConfigs = useQuery(api.agentConfigs.list, issue ? { projectId: issue.projectId } : "skip");
   const createWorkspace = useMutation(api.workspaces.create);
@@ -135,6 +137,21 @@ export function IssueDetailPanel({
       <div className="detail-panel" onClick={(e) => e.stopPropagation()}>
         <div className="panel-header">
           <span className="issue-id">{issue.simpleId}</span>
+          {issue.archivedAt !== undefined ? (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={async () => { await unarchiveIssue({ id: issueId }); }}
+            >
+              Restore
+            </button>
+          ) : (
+            <button
+              className="btn btn-sm"
+              onClick={async () => { await archiveIssue({ id: issueId }); onClose(); }}
+            >
+              Archive
+            </button>
+          )}
           <button className="btn btn-danger btn-sm" onClick={handleDelete}>
             Delete
           </button>

@@ -25,6 +25,8 @@ export const CARD_COLORS = VALID_CARD_COLORS.map((value) => ({
 
 export const TERMINAL_STATUSES = ["completed", "failed", "cancelled", "merged", "merge_failed", "conflict", "test_failed", "changes_requested"];
 
+export const TERMINAL_COLUMN_NAMES = ["Done", "Cancelled"];
+
 export const RETRYABLE_STATUSES = ["failed", "test_failed", "changes_requested", "merge_failed", "cancelled"];
 
 export const CANCELLABLE_STATUSES = ["creating", "claimed", "planning", "plan_reviewing", "awaiting_feedback", "coding", "testing", "reviewing", "rebasing", "creating_pr", "merging"];

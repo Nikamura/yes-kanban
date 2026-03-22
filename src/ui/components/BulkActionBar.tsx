@@ -18,6 +18,7 @@ export function BulkActionBar({
   const bulkAddTags = useMutation(api.bulkIssues.bulkAddTags);
   const bulkRemoveTags = useMutation(api.bulkIssues.bulkRemoveTags);
   const bulkDelete = useMutation(api.bulkIssues.bulkDelete);
+  const bulkArchive = useMutation(api.bulkIssues.bulkArchive);
 
   const [showMoveMenu, setShowMoveMenu] = useState(false);
   const [showPriorityMenu, setShowPriorityMenu] = useState(false);
@@ -200,6 +201,17 @@ export function BulkActionBar({
             </div>
           )}
         </div>
+
+        {/* Archive */}
+        <button
+          className="bulk-btn"
+          onClick={async () => {
+            await bulkArchive({ ids });
+            onClearSelection();
+          }}
+        >
+          Archive
+        </button>
 
         {/* Delete */}
         {!confirmDelete ? (

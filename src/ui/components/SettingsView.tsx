@@ -337,6 +337,24 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
             </select>
           </div>
           <div className="setting-item">
+            <label>Auto-Archive Done</label>
+            <select
+              value={project.autoArchiveDelayMs ?? 0}
+              onChange={(e) => {
+                void updateProject({
+                  id: projectId,
+                  autoArchiveDelayMs: Number(e.target.value),
+                });
+              }}
+            >
+              <option value={0}>Off</option>
+              <option value={86400000}>After 24 hours</option>
+              <option value={604800000}>After 7 days</option>
+              <option value={1209600000}>After 14 days</option>
+              <option value={2592000000}>After 30 days</option>
+            </select>
+          </div>
+          <div className="setting-item">
             <label>Review Agent</label>
             <select
               value={project.reviewAgentConfigId ?? ""}

@@ -7,6 +7,7 @@ import { CreateIssueDialog } from "./CreateIssueDialog";
 import { IssueDetailPanel } from "./IssueDetailPanel";
 import { BulkActionBar } from "./BulkActionBar";
 import { filterIssues, sortIssues, type SortKey } from "../boardFilters";
+import { TERMINAL_COLUMN_NAMES } from "../utils/constants";
 import { WorkspaceStatusFilters } from "./WorkspaceStatusFilters";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { ShortcutsHelpModal } from "./ShortcutsHelpModal";
@@ -34,6 +35,7 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
   const workspaceStatuses = useQuery(api.workspaces.latestByProject, { projectId });
   const moveIssue = useMutation(api.issues.move);
   const updateIssue = useMutation(api.issues.update);
+  const bulkArchive = useMutation(api.bulkIssues.bulkArchive);
 
   const [showCreateIssue, setShowCreateIssue] = useState(false);
   const [createInColumn, setCreateInColumn] = useState<string>("To Do");
@@ -385,6 +387,16 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
                     style={{ marginLeft: "auto", marginRight: 4 }}
                   >
                     All
+                  </button>
+                )}
+                {TERMINAL_COLUMN_NAMES.includes(col.name) && colIssues.length > 0 && (
+                  <button
+                    className="column-add-btn"
+                    onClick={() => bulkArchive({ ids: colIssues.map((i) => i._id) })}
+                    title={`Archive all ${col.name} issues`}
+                    style={{ fontSize: "0.7rem", marginRight: 2 }}
+                  >
+                    Archive
                   </button>
                 )}
                 <button
