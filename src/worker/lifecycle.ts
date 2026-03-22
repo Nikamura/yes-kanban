@@ -1826,33 +1826,16 @@ export async function executeRebase(
   const env = cleanGitEnv();
 
   for (const wt of worktrees) {
-    // Try fetching from origin (may fail for local-only repos — that's fine)
-    const fetchResult = Bun.spawnSync(
-      ["git", "-C", wt.worktreePath, "fetch", "origin"],
-      { timeout: 60000, env },
-    );
-
-    // Only trust origin/baseBranch if fetch actually succeeded — a stale
-    // origin ref (e.g. remote configured but never pushed) gives wrong target
-    const hasOrigin = fetchResult.exitCode === 0 && Bun.spawnSync(
-      ["git", "-C", wt.worktreePath, "rev-parse", "--verify", `origin/${wt.baseBranch}`],
+    // Resolve the local base branch — this is what performLocalMerge merges into
+    const localBaseRev = Bun.spawnSync(
+      ["git", "-C", wt.repoPath, "rev-parse", wt.baseBranch],
       { timeout: 5000, env },
-    ).exitCode === 0;
-
-    let rebaseTarget: string;
-    if (hasOrigin) {
-      rebaseTarget = `origin/${wt.baseBranch}`;
-    } else {
-      const baseRev = Bun.spawnSync(
-        ["git", "-C", wt.repoPath, "rev-parse", wt.baseBranch],
-        { timeout: 5000, env },
-      );
-      if (baseRev.exitCode !== 0) {
-        console.error(`[lifecycle] workspace=${workspaceId} cannot resolve base branch ${wt.baseBranch}`);
-        return "conflict";
-      }
-      rebaseTarget = baseRev.stdout.toString().trim();
+    );
+    if (localBaseRev.exitCode !== 0) {
+      console.error(`[lifecycle] workspace=${workspaceId} cannot resolve base branch ${wt.baseBranch}`);
+      return "conflict";
     }
+    const rebaseTarget = localBaseRev.stdout.toString().trim();
 
     // Stash uncommitted changes before rebasing — git refuses to rebase with a dirty index
     const stashResult = Bun.spawnSync(
@@ -1938,12 +1921,6 @@ export function performLocalMerge(worktrees: WorktreeEntry[], ffOnly = true): { 
       const err = checkout.stderr.toString().trim();
       return { success: false, error: `checkout ${wt.baseBranch} failed: ${err}` };
     }
-
-    // Pull latest from origin so local base matches what we rebased onto
-    Bun.spawnSync(
-      ["git", "-C", wt.repoPath, "pull", "--ff-only", "origin", wt.baseBranch],
-      { timeout: 30000, env },
-    );
 
     // Try fast-forward first; fall back to merge commit only if not ff-only mode
     const ffMerge = Bun.spawnSync(

@@ -33,22 +33,6 @@ describe("performLocalMerge", () => {
     expect(calls.some(c => c.includes("branch") && c.includes("-d"))).toBe(false);
   });
 
-  test("pulls latest base branch before merging", () => {
-    const calls: string[][] = [];
-    spyOn(Bun, "spawnSync").mockImplementation((cmd: any) => {
-      const args = Array.isArray(cmd) ? cmd.map(String) : [];
-      calls.push(args);
-      return { exitCode: 0, stdout: Buffer.from(""), stderr: Buffer.from("") } as any;
-    });
-
-    performLocalMerge([wt]);
-
-    const pullIdx = calls.findIndex(c => c.includes("pull") && c.includes("--ff-only") && c.includes("origin"));
-    const mergeIdx = calls.findIndex(c => c.includes("merge") && c.includes("--ff-only") && c.includes(wt.branchName));
-    expect(pullIdx).toBeGreaterThan(-1);
-    expect(mergeIdx).toBeGreaterThan(pullIdx);
-  });
-
   test("fails when checkout fails", () => {
     spyOn(Bun, "spawnSync").mockImplementation((cmd: any) => {
       const args = Array.isArray(cmd) ? cmd : [];
