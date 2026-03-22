@@ -20,7 +20,7 @@ export class CursorAdapter implements IAgentAdapter {
     }
 
     // Structured output
-    cmdArgs.push("--output-format", "stream-json");
+    cmdArgs.push("--output-format", "stream-json", "--workspace", args.cwd);
 
     // Permission mode
     const mode = args.permissionMode ?? "dangerously-skip-permissions";

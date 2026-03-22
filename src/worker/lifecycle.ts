@@ -10,7 +10,7 @@ import { McpServer, type ExternalMcpConfig } from "./mcp-server";
 import type { WorkerConfig, DispatchTask, WorktreeEntry, LogEntry, AgentEvent, AttachmentInfo } from "./types";
 import { computeBackoffDelay, shouldRetry, TERMINAL_STATUSES } from "./retry";
 import { READ_ONLY_TOOLS, PLANNING_TOOLS, PLANNING_RESEARCH_TOOLS, CODING_TOOLS, REVIEW_TOOLS } from "./mcp-tools";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync, appendFileSync } from "fs";
 import { unlink } from "fs/promises";
 import { basename, dirname, join, resolve } from "path";
 
@@ -388,15 +388,18 @@ export async function runLifecycle(
           // Add .cursor/ to git exclude so it's not committed
           const dotGit = join(wt.worktreePath, ".git");
           let excludePath = join(dotGit, "info", "exclude");
-          if (existsSync(dotGit)) {
-            try {
+          try {
+            const stat = statSync(dotGit);
+            if (stat.isFile()) {
+              // Worktree: .git is a file containing "gitdir: <path>"
               const content = readFileSync(dotGit, "utf-8").trim();
               if (content.startsWith("gitdir:")) {
                 const gitdir = resolve(wt.worktreePath, content.slice("gitdir:".length).trim());
                 excludePath = join(gitdir, "info", "exclude");
               }
-            } catch { /* fall back to default */ }
-          }
+            }
+            // If .git is a directory, the default excludePath is already correct
+          } catch { /* .git missing — fall back to default */ }
           const excludeContent = existsSync(excludePath) ? readFileSync(excludePath, "utf-8") : "";
           if (!excludeContent.includes(".cursor/")) {
             mkdirSync(dirname(excludePath), { recursive: true });

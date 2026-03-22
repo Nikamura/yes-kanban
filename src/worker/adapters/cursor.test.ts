@@ -16,6 +16,8 @@ describe("CursorAdapter", () => {
       expect(result.args).toContain("Fix the bug");
       expect(result.args).toContain("--output-format");
       expect(result.args).toContain("stream-json");
+      expect(result.args).toContain("--workspace");
+      expect(result.args).toContain("/tmp/workspace");
     });
 
     test("uses --force for dangerously-skip-permissions mode", () => {
