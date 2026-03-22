@@ -226,7 +226,7 @@ export const update = mutation({
             field,
             // eslint-disable-next-line eqeqeq
             oldValue: oldVal != null ? JSON.stringify(oldVal) : undefined,
-            // eslint-disable-next-line eqeqeq
+            // eslint-disable-next-line eqeqeq, @typescript-eslint/no-unnecessary-condition
             newValue: newVal != null ? JSON.stringify(newVal) : undefined,
             actor,
           });
@@ -372,5 +372,29 @@ export const remove = mutation({
     } while (historyBatch.length === 500);
 
     await ctx.db.delete(args.id);
+  },
+});
+
+/** Strip legacy fields (priority, dueDate, cardColor) from all issues. */
+const LEGACY_ISSUE_FIELDS = ["priority", "dueDate", "cardColor"] as const;
+
+export const migrateLegacyFields = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("issues").collect();
+    let migrated = 0;
+    for (const issue of all) {
+      const raw = issue as Record<string, unknown>;
+      const hasLegacy = LEGACY_ISSUE_FIELDS.some((f) => f in raw);
+      if (hasLegacy) {
+        const patch: Record<string, undefined> = {};
+        for (const f of LEGACY_ISSUE_FIELDS) {
+          if (f in raw) patch[f] = undefined;
+        }
+        await ctx.db.patch(issue._id, patch);
+        migrated++;
+      }
+    }
+    return { migrated };
   },
 });

@@ -1,6 +1,6 @@
 import { ConvexClient } from "convex/browser";
 import { api } from "../../convex/_generated/api";
-import { runLifecycle, executeRebase, executeCreatePR, performLocalMerge } from "./lifecycle";
+import { runLifecycle, executeRebase, executeCreatePR, performLocalMerge, tryFastRebase } from "./lifecycle";
 import { GitWorktreeManager } from "./worktree-manager";
 import { AgentExecutor } from "./agent-executor";
 import type { WorkerConfig } from "./types";
@@ -40,6 +40,17 @@ async function main() {
     }
   } catch (err) {
     console.error("[worker] migrateLegacyAgentTypes failed:", err);
+  }
+
+  try {
+    const m = await convex.mutation(api.issues.migrateLegacyFields, {});
+    if (m.migrated > 0) {
+      console.log(
+        `[worker] migrated ${m.migrated} issue(s) (removed legacy fields)`,
+      );
+    }
+  } catch (err) {
+    console.error("[worker] migrateLegacyFields failed:", err);
   }
 
   // Recover orphaned workspaces — re-queue them for dispatch instead of
@@ -256,9 +267,48 @@ async function main() {
 
         if (ws.status === "merging") {
           if (activeAbortControllers.has(ws._id)) continue; // already being processed
-          if (activeCount >= maxConcurrentAgents) break; // respect concurrency limit
 
-          console.log(`[worker] rebasing before local merge for workspace=${ws._id}`);
+          // Fast path: try git-only rebase (no agent slot needed)
+          console.log(`[worker] attempting fast rebase+merge for workspace=${ws._id}`);
+          const fastResult = tryFastRebase(ws.worktrees);
+
+          if (fastResult === "success") {
+            // Rebase was clean — merge immediately without consuming an agent slot
+            console.log(`[worker] fast rebase succeeded, performing squash merge for workspace=${ws._id}`);
+            const mergeResult = performLocalMerge(ws.worktrees);
+            if (mergeResult.success) {
+              await convex.mutation(api.workspaces.updateStatus, {
+                id: ws._id, status: "merged", completedAt: Date.now(),
+              });
+              console.log(`[worker] local merge succeeded for workspace=${ws._id}`);
+
+              // Clean up worktrees immediately after merge
+              try {
+                const repos = await convex.query(api.repos.list, { projectId: ws.projectId });
+                const worktreeManager = new GitWorktreeManager(config.worktreeRoot);
+                await worktreeManager.removeWorktrees({ worktrees: ws.worktrees, repos });
+                await convex.mutation(api.workspaces.clearWorktrees, { id: ws._id });
+                await convex.mutation(api.fileContentRequests.deleteByWorkspace, { workspaceId: ws._id });
+                console.log(`[worker] worktrees cleaned up for workspace=${ws._id}`);
+              } catch (cleanupErr) {
+                console.error(`[worker] worktree cleanup failed for workspace=${ws._id}:`, cleanupErr);
+              }
+            } else {
+              await convex.mutation(api.workspaces.updateStatus, {
+                id: ws._id, status: "merge_failed",
+              });
+              console.error(`[worker] local merge failed for workspace=${ws._id}: ${mergeResult.error}`);
+            }
+            continue;
+          }
+
+          // Slow path: rebase has conflicts, need an agent slot for resolution
+          if (activeCount >= maxConcurrentAgents) {
+            console.log(`[worker] rebase needs agent for workspace=${ws._id}, waiting for slot (active=${activeCount}/${maxConcurrentAgents})`);
+            break;
+          }
+
+          console.log(`[worker] rebase needs agent for conflict resolution, workspace=${ws._id}`);
           activeCount++;
           const abortController = new AbortController();
           activeAbortControllers.set(ws._id, abortController);

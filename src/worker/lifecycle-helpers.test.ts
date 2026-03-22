@@ -163,7 +163,7 @@ describe("runTests", () => {
     );
 
     const testCreates = convex.mutation.mock.calls.filter(
-      (c: unknown[]) => (c[1] as { type?: string })?.type === "test",
+      (c: unknown[]) => (c[1] as { type?: string }).type === "test",
     );
     expect(testCreates.length).toBe(1);
   });
@@ -176,24 +176,24 @@ describe("runTests", () => {
       [{ repoId: "repo1", worktreePath: "/tmp" } as any],
     );
     const testCreate = convex.mutation.mock.calls.find(
-      (c: unknown[]) => (c[1] as { type?: string })?.type === "test",
+      (c: unknown[]) => (c[1] as { type?: string }).type === "test",
     ) as unknown[] | undefined;
     expect(testCreate).toBeDefined();
     expect((testCreate![1] as { prompt: string }).prompt).toContain("echo hi");
 
     const testComplete = convex.mutation.mock.calls.find(
       (c: unknown[]) =>
-        (c[1] as { id?: string })?.id === "mockRunAttemptId" &&
-        (c[1] as { status?: string })?.status === "succeeded" &&
-        (c[1] as { exitCode?: number })?.exitCode === 0,
+        (c[1] as { id?: string }).id === "mockRunAttemptId" &&
+        (c[1] as { status?: string }).status === "succeeded" &&
+        (c[1] as { exitCode?: number }).exitCode === 0,
     );
     expect(testComplete).toBeDefined();
 
     const appendBatchCalls = convex.mutation.mock.calls.filter(
-      (c: unknown[]) => (c[1] as { entries?: unknown[] })?.entries !== undefined,
+      (c: unknown[]) => (c[1] as { entries?: unknown[] }).entries !== undefined,
     );
     expect(appendBatchCalls.length).toBe(1);
-    const entries = (appendBatchCalls[0]![1] as { entries: Array<{ stream: string; line: string; structured: null }> })
+    const entries = ((appendBatchCalls[0] as unknown[])[1] as { entries: Array<{ stream: string; line: string; structured: null }> })
       .entries;
     expect(entries.length).toBeGreaterThan(0);
     expect(entries[0]).toMatchObject({

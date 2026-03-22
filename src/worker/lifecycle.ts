@@ -158,12 +158,10 @@ function createScriptLogFlusher(
         void flushLogs();
         return;
       }
-      if (timerRef.current === null) {
-        timerRef.current = setTimeout(() => {
-          timerRef.current = null;
-          void flushLogs();
-        }, 100);
-      }
+      timerRef.current ??= setTimeout(() => {
+        timerRef.current = null;
+        void flushLogs();
+      }, 100);
     },
   };
 
@@ -219,7 +217,8 @@ async function removeWorktreesWithOptionalScriptLogs(
       id: runAttemptId,
       status: cleanupErr ? "failed" : "succeeded",
       exitCode: cleanupErr ? undefined : 0,
-      error: cleanupErr instanceof Error ? cleanupErr.message : cleanupErr ? String(cleanupErr) : undefined,
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions
+      error: cleanupErr instanceof Error ? cleanupErr.message : cleanupErr ? `${cleanupErr}` : undefined,
     });
   }
 }
@@ -485,7 +484,8 @@ export async function runLifecycle(
         await convex.mutation(api.runAttempts.complete, {
           id: setupRunAttemptId,
           status: "failed",
-          error: setupError instanceof Error ? setupError.message : String(setupError),
+          // eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions
+          error: setupError instanceof Error ? setupError.message : `${setupError}`,
         });
       } else {
         await convex.mutation(api.runAttempts.complete, {
@@ -2114,6 +2114,70 @@ export async function resolveRebaseConflicts(
 
   console.log(`[lifecycle] workspace=${workspaceId} rebase conflicts resolved`);
   return true;
+}
+
+/**
+ * Attempt a fast (git-only) rebase for all worktrees.
+ * Returns "success" if rebase completed cleanly, "needs_agent" if conflicts
+ * require agent-based resolution (rebase is aborted and stash restored).
+ */
+export function tryFastRebase(
+  worktrees: WorktreeEntry[],
+): "success" | "needs_agent" {
+  const env = cleanGitEnv();
+
+  for (const wt of worktrees) {
+    const localBaseRev = Bun.spawnSync(
+      ["git", "-C", wt.repoPath, "rev-parse", wt.baseBranch],
+      { timeout: 5000, env },
+    );
+    if (localBaseRev.exitCode !== 0) {
+      return "needs_agent";
+    }
+    const rebaseTarget = localBaseRev.stdout.toString().trim();
+
+    // Stash uncommitted changes
+    const stashResult = Bun.spawnSync(
+      ["git", "-C", wt.worktreePath, "stash", "push", "-u", "-m", "yes-kanban-rebase-stash"],
+      { timeout: 30000, env },
+    );
+    const didStash = stashResult.exitCode === 0 &&
+      !stashResult.stdout.toString().includes("No local changes");
+
+    const rebaseResult = Bun.spawnSync(
+      ["git", "-C", wt.worktreePath, "rebase", rebaseTarget],
+      { timeout: 60000, env },
+    );
+
+    if (rebaseResult.exitCode !== 0) {
+      // Abort the rebase and restore stash — caller will use agent-based resolution
+      Bun.spawnSync(
+        ["git", "-C", wt.worktreePath, "rebase", "--abort"],
+        { timeout: 10000, env },
+      );
+      if (didStash) {
+        Bun.spawnSync(
+          ["git", "-C", wt.worktreePath, "stash", "pop"],
+          { timeout: 10000, env },
+        );
+      }
+      return "needs_agent";
+    }
+
+    // Restore stashed changes
+    if (didStash) {
+      const popResult = Bun.spawnSync(
+        ["git", "-C", wt.worktreePath, "stash", "pop"],
+        { timeout: 10000, env },
+      );
+      if (popResult.exitCode !== 0) {
+        // Stash pop conflict — needs agent
+        return "needs_agent";
+      }
+    }
+  }
+
+  return "success";
 }
 
 /**
