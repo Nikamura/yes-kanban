@@ -1101,15 +1101,6 @@ export async function executeCreatePR(
 }
 
 /**
- * Perform a local merge for a completed workspace. Triggered manually from the UI.
- */
-export function executeLocalMerge(
-  worktrees: WorktreeEntry[],
-): { success: boolean; error?: string } {
-  return performLocalMerge(worktrees, false);
-}
-
-/**
  * Serialize and truncate tool input for DB storage.
  * The result is stored as a plain string field (not parsed as JSON),
  * so truncation mid-serialization is safe for display purposes.

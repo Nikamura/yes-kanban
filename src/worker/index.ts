@@ -241,6 +241,7 @@ async function main() {
 
         if (ws.status === "merging") {
           if (activeAbortControllers.has(ws._id)) continue; // already being processed
+          if (activeCount >= maxConcurrentAgents) break; // respect concurrency limit
 
           console.log(`[worker] rebasing before local merge for workspace=${ws._id}`);
           activeCount++;
