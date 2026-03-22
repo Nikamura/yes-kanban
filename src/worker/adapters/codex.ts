@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { readFileSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { readFileSync, mkdirSync, writeFileSync, rmSync, existsSync, copyFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import type { IAgentAdapter, AgentEvent, TokenUsage } from "../types";
 
@@ -154,6 +156,14 @@ export class CodexAdapter implements IAgentAdapter {
       const codexHome = `/tmp/yes-kanban-codex-home-${randomUUID()}`;
       mkdirSync(codexHome, { recursive: true });
       writeFileSync(`${codexHome}/config.toml`, toml);
+
+      // Copy auth credentials from the real codex home so the agent can authenticate
+      const realHome = process.env["CODEX_HOME"] ?? join(homedir(), ".codex");
+      const authPath = join(realHome, "auth.json");
+      if (existsSync(authPath)) {
+        copyFileSync(authPath, join(codexHome, "auth.json"));
+      }
+
       return codexHome;
     } catch (err) {
       throw new Error(`[codex] Failed to convert MCP config to TOML: ${String(err)}`, { cause: err });
