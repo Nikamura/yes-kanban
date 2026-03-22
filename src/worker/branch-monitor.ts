@@ -1,5 +1,6 @@
 import type { ConvexClient } from "convex/browser";
 import { api } from "../../convex/_generated/api";
+import { cleanGitEnv } from "./worktree-manager";
 
 /**
  * Checks workspaces to see how many commits behind the base branch they are.
@@ -14,16 +15,18 @@ export async function checkBranchStatus(convex: ConvexClient): Promise<void> {
     if (!wt) continue;
 
     try {
+      const env = cleanGitEnv();
+
       // Try fetching from origin (may fail for local-only repos — that's fine)
       Bun.spawnSync(
         ["git", "-C", wt.worktreePath, "fetch", "origin"],
-        { timeout: 30000 },
+        { timeout: 30000, env },
       );
 
       // Check if origin/baseBranch exists
       const hasOrigin = Bun.spawnSync(
         ["git", "-C", wt.worktreePath, "rev-parse", "--verify", `origin/${wt.baseBranch}`],
-        { timeout: 5000 },
+        { timeout: 5000, env },
       ).exitCode === 0;
 
       // Compare against origin/baseBranch if available, otherwise compare
@@ -35,7 +38,7 @@ export async function checkBranchStatus(convex: ConvexClient): Promise<void> {
         // For local-only repos, resolve the base branch from the main repo
         const baseRevResult = Bun.spawnSync(
           ["git", "-C", wt.repoPath, "rev-parse", wt.baseBranch],
-          { timeout: 5000 },
+          { timeout: 5000, env },
         );
         if (baseRevResult.exitCode !== 0) continue;
         behindRef = baseRevResult.stdout.toString().trim();
@@ -44,7 +47,7 @@ export async function checkBranchStatus(convex: ConvexClient): Promise<void> {
       // Count commits behind
       const result = Bun.spawnSync(
         ["git", "-C", wt.worktreePath, "rev-list", "--count", `HEAD..${behindRef}`],
-        { timeout: 10000 },
+        { timeout: 10000, env },
       );
 
       const behindBy = parseInt(result.stdout.toString().trim(), 10);
