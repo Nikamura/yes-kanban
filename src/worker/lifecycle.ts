@@ -1939,6 +1939,12 @@ export function performLocalMerge(worktrees: WorktreeEntry[], ffOnly = true): { 
       return { success: false, error: `checkout ${wt.baseBranch} failed: ${err}` };
     }
 
+    // Pull latest from origin so local base matches what we rebased onto
+    Bun.spawnSync(
+      ["git", "-C", wt.repoPath, "pull", "--ff-only", "origin", wt.baseBranch],
+      { timeout: 30000, env },
+    );
+
     // Try fast-forward first; fall back to merge commit only if not ff-only mode
     const ffMerge = Bun.spawnSync(
       ["git", "-C", wt.repoPath, "merge", "--ff-only", wt.branchName],
