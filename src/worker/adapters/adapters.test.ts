@@ -21,11 +21,6 @@ describe("getAdapter", () => {
     expect(adapter).toBeInstanceOf(CodexAdapter);
   });
 
-  test("returns PlainTextAdapter for gemini", () => {
-    const adapter = getAdapter("gemini");
-    expect(adapter).toBeInstanceOf(PlainTextAdapter);
-  });
-
   test("returns PlainTextAdapter for cursor", () => {
     const adapter = getAdapter("cursor");
     expect(adapter).toBeInstanceOf(PlainTextAdapter);
@@ -36,7 +31,7 @@ describe("getAdapter", () => {
   });
 
   test("all adapters implement IAgentAdapter interface", () => {
-    for (const type of ["claude-code", "pi", "codex", "gemini", "cursor"]) {
+    for (const type of ["claude-code", "pi", "codex", "cursor"]) {
       const adapter = getAdapter(type);
       expect(typeof adapter.buildCommand).toBe("function");
       expect(typeof adapter.parseLine).toBe("function");

@@ -26,7 +26,6 @@ import { parseGenericCsv } from "../../worker/importers/csv";
 const AGENT_TYPES = [
   { value: "claude-code", label: "Claude Code" },
   { value: "codex", label: "Codex CLI" },
-  { value: "gemini", label: "Gemini CLI" },
   { value: "cursor", label: "Cursor Agent" },
   { value: "pi", label: "Pi (pi.dev)" },
 ] as const;

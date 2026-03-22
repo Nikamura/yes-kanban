@@ -8,7 +8,6 @@ const adapters: Record<string, IAgentAdapter> = {
   "claude-code": new ClaudeCodeAdapter(),
   pi: new PiAdapter(),
   codex: new CodexAdapter(),
-  gemini: new PlainTextAdapter("gemini"),
   cursor: new PlainTextAdapter("cursor"),
 };
 

@@ -2,7 +2,7 @@ import type { Doc } from "../../../convex/_generated/dataModel";
 import type { IAgentAdapter, AgentEvent, TokenUsage } from "../types";
 
 /**
- * Generic adapter for agents that output plain text (codex, gemini, cursor).
+ * Generic adapter for agents that output plain text (codex, cursor).
  */
 export class PlainTextAdapter implements IAgentAdapter {
   constructor(private agentType: string) {}
@@ -15,9 +15,7 @@ export class PlainTextAdapter implements IAgentAdapter {
   }): { command: string; args: string[]; env: Record<string, string> } {
     const cmdArgs: string[] = [];
 
-    if (this.agentType === "gemini") {
-      cmdArgs.push("-p", args.prompt);
-    } else if (this.agentType === "cursor") {
+    if (this.agentType === "cursor") {
       cmdArgs.push("-p", args.prompt);
     }
 

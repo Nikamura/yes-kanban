@@ -1146,7 +1146,6 @@ Required adapters:
 
 - **Claude Code** (`claude-code`) — Default. See Section 9.2.
 - **Codex CLI** (`codex`) — `bunx -y @openai/codex`. Prompt via flag. Plain text stdout.
-- **Gemini CLI** (`gemini`) — `bunx -y @google/gemini-cli`. Prompt via flag. Plain text stdout.
 - **Cursor Agent CLI** (`cursor`) — `cursor-agent`. Prompt via flag. Plain text stdout.
 
 Each adapter implements `IAgentAdapter` from Section 6.2. Non-Claude adapters output plain text, so the log viewer displays raw output without structured event parsing.
@@ -2386,7 +2385,6 @@ A conforming implementation must complete all items below.
 
 - Claude Code adapter with `stream-json` output parsing.
 - Codex CLI adapter.
-- Gemini CLI adapter.
 - Cursor Agent CLI adapter.
 - Agent log streaming to Convex and real-time display in UI.
 - Code diff viewer for workspace changes.
