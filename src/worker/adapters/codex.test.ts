@@ -1,4 +1,5 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { readFileSync, existsSync, rmSync } from "node:fs";
 import { CodexAdapter } from "./codex";
 
 describe("CodexAdapter", () => {
@@ -32,6 +33,16 @@ describe("CodexAdapter", () => {
       expect(result.args[result.args.length - 1]).toBe("Fix the bug");
     });
 
+    test("always includes --ephemeral and --skip-git-repo-check", () => {
+      const result = adapter.buildCommand({
+        config: makeConfig(),
+        prompt: "Task",
+        cwd: "/tmp",
+      });
+      expect(result.args).toContain("--ephemeral");
+      expect(result.args).toContain("--skip-git-repo-check");
+    });
+
     test("dangerously-skip-permissions maps to --yolo", () => {
       const result = adapter.buildCommand({
         config: makeConfig(),
@@ -41,6 +52,7 @@ describe("CodexAdapter", () => {
       });
       expect(result.args).toContain("--yolo");
       expect(result.args).not.toContain("--full-auto");
+      expect(result.args).not.toContain("--sandbox");
     });
 
     test("defaults to --yolo when no permission mode specified", () => {
@@ -61,16 +73,24 @@ describe("CodexAdapter", () => {
       });
       expect(result.args).toContain("--full-auto");
       expect(result.args).not.toContain("--yolo");
+      expect(result.args).not.toContain("--sandbox");
     });
 
-    test("plan maps to --full-auto", () => {
+    test("plan maps to --sandbox read-only with --ask-for-approval on-request", () => {
       const result = adapter.buildCommand({
         config: makeConfig(),
         prompt: "Task",
         cwd: "/tmp",
         permissionMode: "plan",
       });
-      expect(result.args).toContain("--full-auto");
+      expect(result.args).not.toContain("--full-auto");
+      expect(result.args).not.toContain("--yolo");
+      const sandboxIdx = result.args.indexOf("--sandbox");
+      expect(sandboxIdx).toBeGreaterThan(-1);
+      expect(result.args[sandboxIdx + 1]).toBe("read-only");
+      const approvalIdx = result.args.indexOf("--ask-for-approval");
+      expect(approvalIdx).toBeGreaterThan(-1);
+      expect(result.args[approvalIdx + 1]).toBe("on-request");
     });
 
     test("includes model with -m flag", () => {
@@ -121,6 +141,175 @@ describe("CodexAdapter", () => {
         cwd: "/tmp",
       });
       expect(result.command).toBe("npx codex");
+    });
+
+    test("adds --no-project-doc when settingsPath is provided", () => {
+      const result = adapter.buildCommand({
+        config: makeConfig(),
+        prompt: "Task",
+        cwd: "/tmp",
+        settingsPath: "/tmp/settings.json",
+      });
+      expect(result.args).toContain("--no-project-doc");
+    });
+
+    test("adds --no-project-doc when disableSlashCommands is true", () => {
+      const result = adapter.buildCommand({
+        config: makeConfig(),
+        prompt: "Task",
+        cwd: "/tmp",
+        disableSlashCommands: true,
+      });
+      expect(result.args).toContain("--no-project-doc");
+    });
+
+    test("does not add --no-project-doc without settingsPath or disableSlashCommands", () => {
+      const result = adapter.buildCommand({
+        config: makeConfig(),
+        prompt: "Task",
+        cwd: "/tmp",
+      });
+      expect(result.args).not.toContain("--no-project-doc");
+    });
+
+    test("uses resume subcommand when sessionId provided", () => {
+      const result = adapter.buildCommand({
+        config: makeConfig(),
+        prompt: "Continue the task",
+        cwd: "/tmp",
+        sessionId: "thread_abc123",
+      });
+      expect(result.args[0]).toBe("resume");
+      expect(result.args[1]).toBe("thread_abc123");
+      expect(result.args[2]).toBe("--json");
+      expect(result.args).not.toContain("exec");
+      // prompt is still last
+      expect(result.args[result.args.length - 1]).toBe("Continue the task");
+    });
+
+    describe("MCP config via CODEX_HOME", () => {
+      let tempConfigPath: string;
+      const testCwd = `/tmp/test-codex-mcp-${Date.now()}`;
+
+      beforeEach(() => {
+        tempConfigPath = `/tmp/test-codex-mcp-config-${Date.now()}.json`;
+      });
+
+      afterEach(() => {
+        try { rmSync(tempConfigPath); } catch { /* ignore */ }
+        // Clean up codex home directories
+        const result = adapter.buildCommand({
+          config: makeConfig(),
+          prompt: "Task",
+          cwd: testCwd,
+          mcpConfigPath: tempConfigPath,
+        });
+        const codexHome = result.env["CODEX_HOME"];
+        if (codexHome) {
+          try { rmSync(codexHome, { recursive: true }); } catch { /* ignore */ }
+        }
+      });
+
+      test("sets CODEX_HOME when mcpConfigPath provided", () => {
+        const mcpConfig = {
+          mcpServers: {
+            "yes-kanban": { command: "bun", args: ["run", "/tmp/bridge.ts"] },
+          },
+        };
+        require("node:fs").writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
+
+        const result = adapter.buildCommand({
+          config: makeConfig(),
+          prompt: "Task",
+          cwd: testCwd,
+          mcpConfigPath: tempConfigPath,
+        });
+
+        expect(result.env["CODEX_HOME"]).toBeDefined();
+        expect(result.env["CODEX_HOME"]).toContain("yes-kanban-codex-home");
+      });
+
+      test("generates valid TOML config", () => {
+        const mcpConfig = {
+          mcpServers: {
+            "yes-kanban": { command: "bun", args: ["run", "/tmp/bridge.ts"] },
+          },
+        };
+        require("node:fs").writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
+
+        const result = adapter.buildCommand({
+          config: makeConfig(),
+          prompt: "Task",
+          cwd: testCwd,
+          mcpConfigPath: tempConfigPath,
+        });
+
+        const tomlContent = readFileSync(`${result.env["CODEX_HOME"]}/config.toml`, "utf-8");
+        expect(tomlContent).toContain("[mcp_servers.yes-kanban]");
+        expect(tomlContent).toContain('command = "bun"');
+        expect(tomlContent).toContain('args = ["run", "/tmp/bridge.ts"]');
+      });
+
+      test("includes env vars in TOML config", () => {
+        const mcpConfig = {
+          mcpServers: {
+            github: { command: "npx", args: ["-y", "@mcp/server-github"], env: { GITHUB_TOKEN: "tok_123" } },
+          },
+        };
+        require("node:fs").writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
+
+        const result = adapter.buildCommand({
+          config: makeConfig(),
+          prompt: "Task",
+          cwd: testCwd,
+          mcpConfigPath: tempConfigPath,
+        });
+
+        const tomlContent = readFileSync(`${result.env["CODEX_HOME"]}/config.toml`, "utf-8");
+        expect(tomlContent).toContain('env = { GITHUB_TOKEN = "tok_123" }');
+      });
+
+      test("includes enabled_tools when allowedTools match MCP server", () => {
+        const mcpConfig = {
+          mcpServers: {
+            "yes-kanban": { command: "bun", args: ["run", "/tmp/bridge.ts"] },
+          },
+        };
+        require("node:fs").writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
+
+        const result = adapter.buildCommand({
+          config: makeConfig(),
+          prompt: "Task",
+          cwd: testCwd,
+          mcpConfigPath: tempConfigPath,
+          allowedTools: ["mcp__yes-kanban__get_feedback", "mcp__yes-kanban__get_current_issue"],
+        });
+
+        const tomlContent = readFileSync(`${result.env["CODEX_HOME"]}/config.toml`, "utf-8");
+        expect(tomlContent).toContain("enabled_tools");
+        expect(tomlContent).toContain('"get_feedback"');
+        expect(tomlContent).toContain('"get_current_issue"');
+      });
+
+      test("does not add enabled_tools for non-MCP allowed tools", () => {
+        const mcpConfig = {
+          mcpServers: {
+            "yes-kanban": { command: "bun", args: ["run", "/tmp/bridge.ts"] },
+          },
+        };
+        require("node:fs").writeFileSync(tempConfigPath, JSON.stringify(mcpConfig));
+
+        const result = adapter.buildCommand({
+          config: makeConfig(),
+          prompt: "Task",
+          cwd: testCwd,
+          mcpConfigPath: tempConfigPath,
+          allowedTools: ["Read", "Write", "Bash"],
+        });
+
+        const tomlContent = readFileSync(`${result.env["CODEX_HOME"]}/config.toml`, "utf-8");
+        expect(tomlContent).not.toContain("enabled_tools");
+      });
     });
   });
 
@@ -262,9 +451,31 @@ describe("CodexAdapter", () => {
   });
 
   describe("extractSessionId", () => {
-    test("always returns null", () => {
+    test("extracts thread_id from thread.started event", () => {
+      const sessionId = adapter.extractSessionId([
+        { type: "system", data: { type: "thread.started", thread_id: "thread_abc123" } },
+        { type: "completion", data: {} },
+      ]);
+      expect(sessionId).toBe("thread_abc123");
+    });
+
+    test("returns null when no thread.started event", () => {
+      const sessionId = adapter.extractSessionId([
+        { type: "system", data: { type: "turn.started" } },
+        { type: "completion", data: {} },
+      ]);
+      expect(sessionId).toBeNull();
+    });
+
+    test("returns null for empty events", () => {
       expect(adapter.extractSessionId([])).toBeNull();
-      expect(adapter.extractSessionId([{ type: "completion", data: { session_id: "abc" } }])).toBeNull();
+    });
+
+    test("returns null when thread.started has no thread_id", () => {
+      const sessionId = adapter.extractSessionId([
+        { type: "system", data: { type: "thread.started" } },
+      ]);
+      expect(sessionId).toBeNull();
     });
   });
 
