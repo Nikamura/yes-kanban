@@ -98,7 +98,7 @@ describe("Worker lifecycle integration", () => {
 
     // merge_failed should be in the retryable statuses list
     expect(workspacesSource).toContain('"merge_failed"');
-    // Retry from merge_failed should go to "merging", not "creating"
-    expect(workspacesSource).toContain('workspace.status === "merge_failed" ? "merging" : "creating"');
+    // Retry from merge_failed should set status to "merging"
+    expect(workspacesSource).toContain('retryStatus = "merging"');
   });
 });

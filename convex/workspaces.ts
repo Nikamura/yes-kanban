@@ -297,11 +297,26 @@ export const retry = mutation({
       throw new Error(`Cannot retry workspace with status "${workspace.status}"`);
     }
     // Merge failures only need to retry the merge step, not the whole lifecycle
-    const retryStatus = workspace.status === "merge_failed" ? "merging" : "creating";
+    let retryStatus: string = "creating";
+    let reviewRequested: boolean | undefined;
+    if (workspace.status === "merge_failed") {
+      retryStatus = "merging";
+    } else if (workspace.status === "failed") {
+      // Check if the last run attempt was a review — if so, skip coding and go straight to review
+      const attempts = await ctx.db
+        .query("runAttempts")
+        .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
+        .collect();
+      const lastAttempt = attempts[attempts.length - 1];
+      if (lastAttempt?.type === "review") {
+        reviewRequested = true;
+      }
+    }
     await ctx.db.patch(args.id, {
       status: retryStatus,
       cancelRequested: undefined,
       completedAt: undefined,
+      reviewRequested,
     });
   },
 });
