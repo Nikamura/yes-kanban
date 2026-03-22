@@ -11,7 +11,7 @@ The application solves four problems:
 
 - It provides a kanban board for planning and tracking coding tasks with priorities, tags, and blockers.
 - It creates isolated git worktree workspaces per task so agents operate on clean branches without interfering with each other or the developer's working copy.
-- It supports both manual dispatch (pick an issue, configure the agent, kick it off) and automatic dispatch (issues entering a configured column get queued for agents).
+- It supports both manual dispatch (pick an issue, configure the agent, kick it off) and automatic dispatch (issues entering **To Do** get queued for agents).
 - It gives the developer a web UI to review code diffs, stream agent logs, and manage the full lifecycle from issue creation through PR.
 
 Important boundary:
@@ -24,13 +24,13 @@ Important boundary:
 
 ### 2.1 Goals
 
-- Provide a kanban board with customizable columns, drag-and-drop, priorities, tags, and blockers.
+- Provide a kanban board with a fixed four-stage flow (Backlog → To Do → In Progress → Done), drag-and-drop, tags, and blockers.
 - Store all data in Convex (self-hosted) with real-time reactive subscriptions.
 - Create git worktree workspaces per issue for agent execution (one worktree per project repo).
 - Launch coding agents as CLI subprocesses with configurable concurrency.
 - Stream agent output in real-time to the web UI via Convex subscriptions.
 - Show code diffs from agent work for review before merging.
-- Support auto-dispatch from configured columns and manual dispatch from any issue.
+- Support auto-dispatch when an issue lands in **To Do** and manual dispatch from any issue.
 - Run as a monolith by default (Convex + worker), with support for running the worker on a separate machine.
 - Integrate with GitHub, GitLab, and Azure DevOps for PR creation via a pluggable forge adapter.
 - Require no authentication (single user, self-hosted, localhost by default).
@@ -150,24 +150,30 @@ Fields:
 - `reviewAgentConfigId` (Id<"agentConfigs"> or null) — Agent config for review runs. If null, uses the coding agent config.
 - `maxReviewCycles` (number) — Maximum code → review → fix iterations. Default: `3`.
 - `cleanupDelayMs` (number) — Delay before worktree cleanup after merge. Default: `3600000` (1 hour).
+- `mergePolicy` (string or null, optional) — One of: `auto_merge`, `manual_merge`, `local_merge`. Cleared in the UI stores `null` or removes the field (both allowed).
+- `skipReview` (boolean, optional) — Skip the independent review stage.
+- `skipTests` (boolean, optional) — Skip the testing stage.
+- `skipPlanning` (boolean, optional) — When `false`, the planning phase runs; when `true` or unset (legacy), planning is skipped by default in the worker.
+- `autoPlanReview` (boolean, optional) — Run an automated plan review when planning is enabled.
+- `maxConcurrent` (number or null, optional) — Max concurrent agent runs **for this project** (dispatch limit). Distinct from the worker-wide `maxConcurrentAgents` cap. Cleared in the UI stores `null` or removes the field.
 - `createdAt` (number)
 
 ### 4.3 Column
 
-A column represents a workflow stage on the kanban board.
+Columns are **fixed** for every project: **Backlog**, **To Do**, **In Progress**, **Done** (in that order). Users cannot add, remove, rename, hide, or reorder columns. Only **color** is editable (cosmetic).
+
+The `columns` table still stores legacy per-column fields for backward compatibility after migration; runtime workflow behavior uses **project** fields in §4.2.
 
 Fields:
 
 - `_id` (Id<"columns">)
 - `projectId` (Id<"projects">)
-- `name` (string) — Display name (e.g. "To Do", "In Progress", "Done").
-- `color` (string) — Hex color code.
-- `position` (number) — Sort order on the board.
-- `visible` (boolean) — Whether the column appears on the kanban board view.
-- `autoDispatch` (boolean) — Whether issues entering this column are automatically queued for agent dispatch.
-- `mergePolicy` (string or null) — One of: `auto_merge`, `manual_merge`, `local_merge`, or null. Controls post-review merge behavior.
-- `skipReview` (boolean) — Whether to skip the independent review stage. Default: `false`.
-- `skipTests` (boolean) — Whether to skip the testing stage. Default: `false`.
+- `name` (string) — One of the four fixed names above.
+- `color` (string) — Hex color code (user-editable).
+- `position` (number) — Sort order on the board (fixed).
+- `visible` (boolean) — Always `true` for all four columns.
+- `autoDispatch` (boolean) — Legacy; **To Do** is the only auto-dispatch column in the simplified flow.
+- `mergePolicy`, `skipReview`, `skipTests`, etc. — Legacy; use project-level fields instead.
 
 ### 4.4 Workspace
 
@@ -458,7 +464,7 @@ api.projects.list: () => Project[]
 // Mutation: create a project with default columns
 api.projects.create: (args: { name: string; slug: string; simpleIdPrefix: string }) => Id<"projects">
 
-// Mutation: update project settings
+// Mutation: update project settings (includes workflow: mergePolicy, skipReview, skipTests, skipPlanning, autoPlanReview, maxConcurrent, etc.)
 api.projects.update: (args: { id: Id<"projects">; name?: string; defaultAgentConfigId?: Id<"agentConfigs"> }) => void
 
 // Mutation: delete a project and all its data (cascade deletes columns, issues, workspaces, repos, agent configs, and all nested records)
@@ -466,17 +472,11 @@ api.projects.remove: (args: { id: Id<"projects"> }) => void
 
 // ─── COLUMN FUNCTIONS ────────────────────────────────────
 
-// Query: list columns for a project, sorted by position
+// Query: list columns for a project, sorted by position (always four fixed columns)
 api.columns.list: (args: { projectId: Id<"projects"> }) => Column[]
 
-// Mutation: add a column
-api.columns.create: (args: { projectId: Id<"projects">; name: string; color: string }) => Id<"columns">
-
-// Mutation: update column properties (name, color, position, visible, autoDispatch)
-api.columns.update: (args: { id: Id<"columns">; ...partial Column fields }) => void
-
-// Mutation: delete a column, moving its issues to targetColumnId
-api.columns.remove: (args: { id: Id<"columns">; targetColumnId: Id<"columns"> }) => void
+// Mutation: update column color only (cosmetic)
+api.columns.update: (args: { id: Id<"columns">; color?: string }) => void
 
 // ─── ISSUE FUNCTIONS ─────────────────────────────────────
 
@@ -493,7 +493,7 @@ api.issues.get: (args: { id: Id<"issues"> }) => Issue & {
   workspaceCount: number;
 }
 
-// Mutation: create an issue (auto-generates simpleId, triggers auto-dispatch check)
+// Mutation: create an issue (auto-generates simpleId; status must be Backlog or To Do; To Do triggers auto-dispatch when a default agent is set)
 api.issues.create: (args: {
   projectId: Id<"projects">;
   title: string;
@@ -505,7 +505,7 @@ api.issues.create: (args: {
 // Mutation: update issue fields
 api.issues.update: (args: { id: Id<"issues">; ...partial Issue fields }) => void
 
-// Mutation: move issue to a new status (triggers auto-dispatch if target column has autoDispatch)
+// Mutation: move issue to a new status (triggers auto-dispatch if target status is To Do)
 api.issues.move: (args: {
   id: Id<"issues">;
   status: string;
@@ -961,18 +961,18 @@ function useMoveIssue() {
 
 ## 7. Board and Column Management
 
-### 7.1 Default Columns
+### 7.1 Fixed columns
 
-New projects are created with these default columns:
+New projects are created with exactly these columns (all visible):
 
-| Position | Name        | Color   | Visible | Auto-dispatch |
-| -------- | ----------- | ------- | ------- | ------------- |
-| 0        | Backlog     | #6B7280 | false   | false         |
-| 1        | To Do       | #3B82F6 | true    | true          |
-| 2        | In Progress | #F59E0B | true    | false         |
-| 3        | In Review   | #8B5CF6 | true    | false         |
-| 4        | Done        | #10B981 | true    | false         |
-| 5        | Cancelled   | #EF4444 | false   | false         |
+| Position | Name          | Color   | Auto-dispatch |
+| -------- | ------------- | ------- | ------------- |
+| 0        | Backlog       | #6B7280 | no            |
+| 1        | To Do         | #3B82F6 | yes           |
+| 2        | In Progress   | #F59E0B | no            |
+| 3        | Done          | #10B981 | no            |
+
+New issues may be created only in **Backlog** or **To Do**. Workflow automation (merge policy, skip review/tests, planning toggles, per-project concurrency) is configured on the **project**, not per column.
 
 ### 7.2 Project Deletion
 
@@ -980,18 +980,20 @@ New projects are created with these default columns:
 - Active workspaces are terminated before deletion.
 - This operation is irreversible.
 
-### 7.3 Column Operations
+### 7.3 Column operations
 
-- Add, rename, reorder, change color, toggle visibility.
-- Deleting a column moves all its issues to a chosen target column.
-- At least one visible column must exist at all times.
+- Only **color** can be changed (`api.columns.update` with `color`).
+- Column add/remove/rename/reorder/visibility are not supported.
 
-### 7.4 Auto-Dispatch Columns
+### 7.4 Auto-dispatch
 
-- Any column can be marked as an auto-dispatch column.
-- When an issue enters an auto-dispatch column (via drag-and-drop or API), the `issues.move` mutation triggers auto-dispatch logic.
+- Only **To Do** auto-dispatches: creating or moving an issue into **To Do** queues a workspace when a default agent config is set.
 - The dispatcher creates a workspace and the worker picks it up for execution.
-- If no default agent config is set, auto-dispatch is a no-op and logs a warning.
+- If no default agent config is set, auto-dispatch is a no-op.
+
+### 7.5 Data migration
+
+- Existing deployments should run `api.migrations.simplifyFlow` once after upgrading to move legacy statuses (e.g. In Review → In Progress, Cancelled → Done), copy workflow settings from the old **In Progress** column onto the project document, and reset columns to the fixed four.
 
 ## 8. Workspace Management
 
@@ -1206,29 +1208,28 @@ promptTemplates:
 - `availableSlots = max(maxConcurrentAgents - runningCount, 0)`.
 - When all slots are full, the worker stops claiming new work.
 
-#### Per-Column Limit (Optional)
+#### Per-project limit (optional)
 
-- `maxConcurrentByColumn` is an optional map of column name to max concurrent agents for issues in that column.
-- Example: limit "In Progress" to 2 concurrent agents while "To Do" auto-dispatch can use all 3.
-- If not configured, the global limit applies to all columns.
-- The runtime counts issues by their current column in the running set.
+- `project.maxConcurrent` limits how many workspaces for that project can be in running agent states at once.
+- If unset, only the global worker limit applies.
+- The runtime counts running workspaces **per project** when this is set.
 
 #### Dispatch ordering
 
-Queued workspaces (same project/column concurrency permitting) are dispatched **FIFO** by workspace `createdAt` (oldest first).
+Queued workspaces (same global and per-project concurrency permitting) are dispatched **FIFO** by workspace `createdAt` (oldest first).
 
 #### Blocker-Aware Dispatch
 
 An issue is dispatch-eligible only if all of the following are true:
 
 - It has a title and status.
-- Its status corresponds to an auto-dispatch column (or it was manually dispatched).
+- Its status is **To Do** (auto-dispatch path) or it was manually dispatched.
 - It does not already have a running workspace.
 - Global concurrency slots are available.
-- Per-column concurrency slots are available (if configured).
-- **Blocker rule**: if the issue has `blockedBy` entries, none of those issues may be in a non-terminal column. An issue is considered "terminal" if it is in the Done or Cancelled column.
+- Per-project concurrency slots are available (if `project.maxConcurrent` is set).
+- **Blocker rule**: if the issue has `blockedBy` entries, none of those issues may be in a non-terminal column. An issue is considered "terminal" only if it is in **Done**.
 
-If a blocked issue enters an auto-dispatch column, it is queued but not dispatched until its blockers clear. The worker checks blocker status each time it polls for work.
+If a blocked issue enters **To Do**, it is queued but not dispatched until its blockers clear. The worker checks blocker status each time it polls for work.
 
 ## 10. Dispatch and Orchestration
 
@@ -1246,30 +1247,31 @@ The UI calls `api.workspaces.create`. The worker picks up the workspace via `api
 
 ### 10.2 Auto-Dispatch and Default Flow Automation
 
-When `api.issues.move` is called and the target column has `autoDispatch: true`:
+When `api.issues.move` is called and the target status is **To Do** (or `api.issues.create` targets **To Do**):
 
 1. The mutation creates a workspace record with status `creating` and the project's default agent config.
 2. The worker picks it up, claims the workspace, and starts the agent.
-3. The issue is automatically moved to the next visible column by position.
+3. On **claim**, if the project **skips** planning (`skipPlanning` is `true` or unset/legacy), **To Do** auto-moves to **In Progress**. If the project **runs** planning (`skipPlanning === false`), the issue **stays in To Do** until `approvePlan` moves it to **In Progress** (never into **Done**).
 
 **Default flow** (convention-over-configuration):
 
-- **Backlog** → user moves to **To Do** (autoDispatch: true) → workspace created
-- **To Do** → worker claims → issue auto-moves to **In Progress**
-- **In Progress** → workspace completes/merges → issue auto-moves to **In Review**
-- **In Review** → user confirms and manually moves to **Done**
+- **Backlog** or **To Do** → user creates issue (only these columns) or moves to **To Do** → workspace queued when a default agent is set
+- **To Do** → worker claims → either stay in **To Do** (planning) or auto-move to **In Progress** (no planning)
+- **In Progress** → agent finishes (merge, PR, etc.) → issue **stays in In Progress**; the user manually moves it to **Done** when appropriate
 
 Auto-move rules:
 
-- On workspace `claimed`: issue moves to the next visible column, but only if the issue's current column has `autoDispatch: true`.
-- On workspace `completed` or `merged`: issue moves to the next visible column unconditionally.
-- The target column is determined by position order (next visible column), not by name — works with renamed or reordered columns.
-- If there is no next visible column, the issue stays in its current column.
+- On workspace `claimed`: if the issue is in **To Do** and planning is skipped, move to **In Progress**; if planning is enabled, do not move on claim.
+- On `approvePlan`: move to the next non-terminal column (typically **To Do** → **In Progress**); never into **Done**.
+- On workspace `completed` or `merged`: do **not** auto-move into **Done** (terminal); the user moves the card to **Done** manually.
+- On dismiss review feedback (`completed` workspace): same — no automatic move into **Done**.
+- The target column is the next column by fixed position order.
+- If there is no next column, the issue stays put.
 - Position in the target column is calculated as max existing position + 1 (appended to end).
 
 Auto-dispatch rules:
 
-- An issue is only auto-dispatched once per entry into an auto-dispatch column.
+- An issue is only auto-dispatched once per entry into **To Do** (no duplicate workspaces while one is running).
 - If the issue already has a running workspace, it is not dispatched again.
 - If the project has no default agent configuration or no configured repositories, auto-dispatch is skipped with a warning.
 
@@ -1306,7 +1308,7 @@ Retry handling behavior:
 
 1. On agent failure, check if `attempt < maxRetries`.
 2. If retries remain, schedule a new run attempt after the computed backoff delay.
-3. Before dispatching the retry, re-check issue status — if the issue has been moved to a terminal column (Done, Cancelled), abandon the retry.
+3. Before dispatching the retry, re-check issue status — if the issue has been moved to **Done**, abandon the retry.
 4. If no concurrency slots are available when the retry fires, requeue with error `no available slots` and try again after another backoff period.
 5. If retries are exhausted, mark workspace as `failed` and leave for user review.
 
@@ -1352,7 +1354,7 @@ A workspace progresses through a defined lifecycle from branch creation to merge
 ```
 
 1. **Creating** — Git worktrees are being created for each project repo. Setup hooks run. If this is a new experiment (experimentNumber > 1), branches are reset to base.
-2. **Planning** (optional, per-column) — A planning agent runs in plan mode (read-only). It explores the codebase, asks clarifying questions via MCP (`ask_question`), and submits an implementation plan (`submit_plan`). The planning agent cannot modify files.
+2. **Planning** (optional, per-project via `skipPlanning`) — A planning agent runs in plan mode (read-only). It explores the codebase, asks clarifying questions via MCP (`ask_question`), and submits an implementation plan (`submit_plan`). The planning agent cannot modify files.
 3. **Awaiting Feedback** — The planning agent has finished. The user reviews the plan, answers any pending questions, edits the plan if needed, and either approves it or requests re-planning. Approval transitions the workspace back to `creating` with `planApproved=true`.
 4. **Coding** — The coding agent is executing with the approved plan included in its prompt. It works on the issue, makes changes, and commits. The agent can check for user feedback via MCP (`get_feedback`).
 5. **Testing** — After the coding agent exits successfully, the worker runs the project's configured test command in the worktree. If tests fail, the workspace can auto-retry or fail for user review.
@@ -1466,7 +1468,7 @@ The worker creates a pull request via the forge adapter:
 3. Store the PR URL on the workspace record.
 4. The workspace status is set to `pr_open`.
 
-What happens next depends on the column's `mergePolicy`:
+What happens next depends on the project's `mergePolicy`:
 
 - **`auto_merge`** — The worker monitors the PR status. Once CI passes and the PR is mergeable, it merges automatically (using `gh pr merge --auto` or equivalent). After merge, the workspace advances to `merged`.
 - **`manual_merge`** — The workspace stays in `pr_open`. The user reviews the PR and merges manually. The worker periodically checks PR status and advances to `merged` when it detects the PR was merged.
@@ -1476,26 +1478,27 @@ What happens next depends on the column's `mergePolicy`:
 
 After the PR is merged:
 
-1. The issue is automatically moved to the next visible column (typically "In Review" for user confirmation).
+1. The issue **stays in In Progress**; the user moves it to **Done** when appropriate (no auto-move into the terminal column on merge).
 2. The workspace status is set to `merged`.
 3. Cleanup is scheduled: worktrees are removed after a configurable delay (`cleanupDelayMs`, default: `3600000` / 1 hour) to allow the user to inspect the final state if needed.
 
-### 11.9 Column Lifecycle Configuration
+### 11.9 Project workflow configuration
 
-Each column can configure how workspaces that reach completion behave:
+Configure on the **project** (Settings → Workflow):
 
-- `autoDispatch` (boolean) — Whether issues entering this column trigger workspace creation.
 - `mergePolicy` (string or null) — One of: `auto_merge`, `manual_merge`, `local_merge`, or null. Controls merge behavior after review and tests.
-- `skipReview` (boolean) — Whether to skip the independent review stage. Default: `false`.
-- `skipTests` (boolean) — Whether to skip the testing stage. Default: `false`.
-- `skipPlanning` (boolean) — Whether to skip the planning stage. Default: `true` (opt-in). When `false`, a planning agent runs before coding to create an implementation plan that must be approved by the user.
+- `skipReview` (boolean) — Whether to skip the independent review stage.
+- `skipTests` (boolean) — Whether to skip the testing stage.
+- `skipPlanning` (boolean) — When `false`, a planning agent runs before coding to create an implementation plan that must be approved by the user.
+- `autoPlanReview` (boolean) — Optional automated plan review when planning is enabled.
+- `maxConcurrent` (number, optional) — Cap concurrent running workspaces for this project.
 
-Example configurations:
+Example combinations:
 
-- **"Auto" column**: `autoDispatch: true`, `mergePolicy: "auto_merge"` — Full automation. Issue goes from ticket to merged PR without user intervention.
-- **"In Review" column**: `autoDispatch: true`, `mergePolicy: "manual_merge"` — Agent does the work, but user decides when to merge.
-- **"Quick Fix" column**: `autoDispatch: true`, `skipReview: true`, `mergePolicy: "auto_merge"` — Skip review for trivial fixes, auto-merge after tests pass.
-- **"Offline" column**: `autoDispatch: true`, `mergePolicy: "local_merge"` — Full automation without any forge/PR tooling. Merges directly into the base branch locally.
+- **Full PR automation**: `mergePolicy: "auto_merge"` — Worker can merge the PR when mergeable.
+- **Manual merge**: `mergePolicy: "manual_merge"` — User merges the PR in the forge UI; worker detects merge completion.
+- **Local merge**: `mergePolicy: "local_merge"` — Squash-merge into the base branch in the worktree without forge PRs.
+- **Skip review for small changes**: `skipReview: true` with an appropriate merge policy.
 
 ### 11.10 Planning Agent Configuration
 

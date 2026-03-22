@@ -10,8 +10,8 @@ describe("isBlockedByUnresolved", () => {
     expect(isBlockedByUnresolved([{ status: "Done" }, { status: "Done" }])).toBe(false);
   });
 
-  test("blocker in Cancelled is not blocked (terminal status)", () => {
-    expect(isBlockedByUnresolved([{ status: "Cancelled" }, { status: "Done" }])).toBe(false);
+  test("legacy Cancelled status is still treated as non-terminal until migrated", () => {
+    expect(isBlockedByUnresolved([{ status: "Cancelled" }, { status: "Done" }])).toBe(true);
   });
 
   test("blocker in In Progress IS blocked", () => {

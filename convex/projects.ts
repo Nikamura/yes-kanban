@@ -1,13 +1,12 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
-const DEFAULT_COLUMNS = [
-  { name: "Backlog", color: "#6B7280", position: 0, visible: false, autoDispatch: false, skipReview: false, skipTests: false, skipPlanning: true },
+/** Default column rows for new projects and for `migrations.simplifyFlow` resets. */
+export const DEFAULT_COLUMNS = [
+  { name: "Backlog", color: "#6B7280", position: 0, visible: true, autoDispatch: false, skipReview: false, skipTests: false, skipPlanning: true },
   { name: "To Do", color: "#3B82F6", position: 1, visible: true, autoDispatch: true, skipReview: false, skipTests: false, skipPlanning: true },
   { name: "In Progress", color: "#F59E0B", position: 2, visible: true, autoDispatch: false, skipReview: false, skipTests: false, skipPlanning: false },
-  { name: "In Review", color: "#8B5CF6", position: 3, visible: true, autoDispatch: false, skipReview: false, skipTests: false, skipPlanning: true },
-  { name: "Done", color: "#10B981", position: 4, visible: true, autoDispatch: false, skipReview: false, skipTests: false, skipPlanning: true },
-  { name: "Cancelled", color: "#EF4444", position: 5, visible: false, autoDispatch: false, skipReview: false, skipTests: false, skipPlanning: true },
+  { name: "Done", color: "#10B981", position: 3, visible: true, autoDispatch: false, skipReview: false, skipTests: false, skipPlanning: true },
 ];
 
 export const list = query({
@@ -56,6 +55,10 @@ export const create = mutation({
       simpleIdCounter: 1,
       maxReviewCycles: 3,
       cleanupDelayMs: 3600000,
+      skipPlanning: false,
+      skipReview: false,
+      skipTests: false,
+      autoPlanReview: false,
       createdAt: Date.now(),
     });
 
@@ -83,6 +86,12 @@ export const update = mutation({
     cleanupDelayMs: v.optional(v.number()),
     disableBuiltInMcp: v.optional(v.boolean()),
     autoArchiveDelayMs: v.optional(v.number()),
+    mergePolicy: v.optional(v.union(v.string(), v.null())),
+    skipReview: v.optional(v.boolean()),
+    skipTests: v.optional(v.boolean()),
+    skipPlanning: v.optional(v.boolean()),
+    autoPlanReview: v.optional(v.boolean()),
+    maxConcurrent: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;

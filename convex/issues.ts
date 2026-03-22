@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { recordHistory } from "./issueHistory";
 import { validateIssueTitle, validateIssueDescription } from "./lib/issueValidation";
+import { AUTO_DISPATCH_COLUMNS, CREATABLE_COLUMNS } from "./lib/boardConstants";
 import { unarchiveIssue } from "./lib/archiveHelpers";
 import { WORKSPACE_TERMINAL_STATUSES } from "./workspaces";
 export const list = query({
@@ -128,6 +129,10 @@ export const create = mutation({
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Project not found");
 
+    if (!(CREATABLE_COLUMNS as readonly string[]).includes(args.status)) {
+      throw new Error(`Issues can only be created in: ${CREATABLE_COLUMNS.join(", ")}`);
+    }
+
     const simpleId = `${project.simpleIdPrefix}-${project.simpleIdCounter}`;
     await ctx.db.patch(args.projectId, {
       simpleIdCounter: project.simpleIdCounter + 1,
@@ -165,13 +170,10 @@ export const create = mutation({
       actor: args.actor ?? "user",
     });
 
-    // Check if target column has autoDispatch
-    const columns = await ctx.db
-      .query("columns")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-    const targetColumn = columns.find((c) => c.name === args.status);
-    if (targetColumn?.autoDispatch && project.defaultAgentConfigId) {
+    if (
+      (AUTO_DISPATCH_COLUMNS as readonly string[]).includes(args.status) &&
+      project.defaultAgentConfigId
+    ) {
       await ctx.db.insert("workspaces", {
         issueId,
         projectId: args.projectId,
@@ -272,14 +274,7 @@ export const move = mutation({
       updatedAt: Date.now(),
     });
 
-    // Check auto-dispatch
-    const columns = await ctx.db
-      .query("columns")
-      .withIndex("by_project", (q) => q.eq("projectId", issue.projectId))
-      .collect();
-    const targetColumn = columns.find((c) => c.name === args.status);
-
-    if (targetColumn?.autoDispatch) {
+    if ((AUTO_DISPATCH_COLUMNS as readonly string[]).includes(args.status)) {
       const project = await ctx.db.get(issue.projectId);
       if (project?.defaultAgentConfigId) {
         const existingWorkspaces = await ctx.db

@@ -1,4 +1,8 @@
-export { TERMINAL_COLUMN_NAMES } from "../../../convex/lib/boardConstants";
+export {
+  TERMINAL_COLUMN_NAMES,
+  CREATABLE_COLUMNS,
+  FIXED_COLUMNS,
+} from "../../../convex/lib/boardConstants";
 
 export const TERMINAL_STATUSES = ["completed", "failed", "cancelled", "merged", "merge_failed", "conflict", "test_failed", "changes_requested"];
 

@@ -3,7 +3,7 @@ import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getNextVisibleColumn } from "./lib/columnHelpers";
 import { recordHistory } from "./issueHistory";
-import { TERMINAL_COLUMN_NAMES } from "./lib/boardConstants";
+import { AUTO_DISPATCH_COLUMNS, TERMINAL_COLUMN_NAMES } from "./lib/boardConstants";
 export { TERMINAL_COLUMN_NAMES } from "./lib/boardConstants";
 
 /** Workspace statuses where the agent is no longer running and a new workspace can be created. */
@@ -17,7 +17,7 @@ export async function autoMoveIssueToNextColumn(
   ctx: MutationCtx,
   issueId: Id<"issues">,
   projectId: Id<"projects">,
-  opts?: { onlyIfAutoDispatch?: boolean; skipTerminal?: boolean },
+  opts?: { onlyIfAutoDispatchColumn?: boolean; skipTerminal?: boolean },
 ) {
   const issue = await ctx.db.get(issueId);
   if (!issue) return;
@@ -27,16 +27,15 @@ export async function autoMoveIssueToNextColumn(
     .withIndex("by_project", (q) => q.eq("projectId", projectId))
     .collect();
 
-  if (opts?.onlyIfAutoDispatch) {
-    const currentColumn = columns.find((c) => c.name === issue.status);
-    if (!currentColumn?.autoDispatch) return;
+  if (opts?.onlyIfAutoDispatchColumn) {
+    if (!(AUTO_DISPATCH_COLUMNS as readonly string[]).includes(issue.status)) return;
   }
 
   const nextColumn = getNextVisibleColumn(columns, issue.status);
   if (!nextColumn || nextColumn.name === issue.status) return;
 
-  // Don't auto-move into terminal columns (Done/Cancelled) — user must do that explicitly
-  if (opts?.skipTerminal && TERMINAL_COLUMN_NAMES.includes(nextColumn.name)) return;
+  // Don't auto-move into terminal columns (Done) — user must do that explicitly
+  if (opts?.skipTerminal && (TERMINAL_COLUMN_NAMES as readonly string[]).includes(nextColumn.name)) return;
 
   const issuesInTarget = await ctx.db
     .query("issues")
@@ -278,8 +277,8 @@ export const updateStatus = mutation({
 
     const moveOpts =
       args.status === "claimed"
-        ? { onlyIfAutoDispatch: true }
-        : args.status === "completed"
+        ? { onlyIfAutoDispatchColumn: true }
+        : args.status === "completed" || args.status === "merged"
           ? { skipTerminal: true }
           : undefined;
     await autoMoveIssueToNextColumn(
@@ -368,7 +367,9 @@ export const dismissReviewFeedback = mutation({
       completedAt: Date.now(),
     });
     if (workspace.issueId) {
-      await autoMoveIssueToNextColumn(ctx, workspace.issueId, workspace.projectId);
+      await autoMoveIssueToNextColumn(ctx, workspace.issueId, workspace.projectId, {
+        skipTerminal: true,
+      });
     }
   },
 });
@@ -545,9 +546,11 @@ export const approvePlan = mutation({
       experimentNumber: workspace.experimentNumber ?? 1,
     });
 
-    // Auto-move issue to next column on plan approval
+    // Move issue toward coding (e.g. To Do → In Progress). Never auto-move into Done — user closes the loop.
     if (workspace.issueId) {
-      await autoMoveIssueToNextColumn(ctx, workspace.issueId, workspace.projectId);
+      await autoMoveIssueToNextColumn(ctx, workspace.issueId, workspace.projectId, {
+        skipTerminal: true,
+      });
     }
   },
 });

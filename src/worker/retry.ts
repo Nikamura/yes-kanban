@@ -24,10 +24,10 @@ export interface RetryContext {
 export type RetryType = "failure" | "continuation";
 
 /** Issue statuses that indicate the issue is finished and retries should be abandoned. */
-export const TERMINAL_STATUSES = ["Done", "Cancelled"] as const;
+export const TERMINAL_STATUSES = ["Done"] as const;
 
 /**
- * Check if an issue status is terminal (Done or Cancelled).
+ * Check if an issue status is terminal (Done).
  */
 export function isTerminalStatus(status: string): boolean {
   return (TERMINAL_STATUSES as readonly string[]).includes(status);

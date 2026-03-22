@@ -14,6 +14,12 @@ export default defineSchema({
     cleanupDelayMs: v.number(),
     disableBuiltInMcp: v.optional(v.boolean()),
     autoArchiveDelayMs: v.optional(v.number()),
+    mergePolicy: v.optional(v.union(v.string(), v.null())),
+    skipReview: v.optional(v.boolean()),
+    skipTests: v.optional(v.boolean()),
+    skipPlanning: v.optional(v.boolean()),
+    autoPlanReview: v.optional(v.boolean()),
+    maxConcurrent: v.optional(v.union(v.number(), v.null())),
     createdAt: v.number(),
   }).index("by_slug", ["slug"]),
 

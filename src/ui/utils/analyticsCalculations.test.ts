@@ -12,10 +12,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const COLUMNS: ColumnDef[] = [
   { name: "Backlog", color: "#888", position: 0 },
-  { name: "In Progress", color: "#3b82f6", position: 1 },
-  { name: "Review", color: "#f59e0b", position: 2 },
+  { name: "To Do", color: "#6366f1", position: 1 },
+  { name: "In Progress", color: "#3b82f6", position: 2 },
   { name: "Done", color: "#10b981", position: 3 },
-  { name: "Cancelled", color: "#ef4444", position: 4 },
 ];
 
 // Monday 2026-01-05 00:00 UTC
@@ -128,7 +127,7 @@ describe("isStatusChange", () => {
 });
 
 describe("getCompletionColumnName", () => {
-  it("returns second-to-last column for standard 5-column setup", () => {
+  it("returns last column for standard four-column setup", () => {
     expect(getCompletionColumnName(COLUMNS)).toBe("Done");
   });
 
@@ -148,23 +147,22 @@ describe("getCompletionColumnName", () => {
     expect(getCompletionColumnName(twoColumns)).toBe("Done");
   });
 
-  it("works with custom column names (3+ columns)", () => {
+  it("uses the final column as completion for custom boards", () => {
     const customColumns: ColumnDef[] = [
       { name: "Backlog", color: "#888", position: 0 },
       { name: "Working", color: "#3b82f6", position: 1 },
       { name: "Shipped", color: "#10b981", position: 2 },
       { name: "Archived", color: "#ef4444", position: 3 },
     ];
-    expect(getCompletionColumnName(customColumns)).toBe("Shipped");
+    expect(getCompletionColumnName(customColumns)).toBe("Archived");
   });
 });
 
 describe("getTerminalColumnNames", () => {
-  it("returns last two columns for 3+ column setup", () => {
+  it("returns only the final column as terminal", () => {
     const terminal = getTerminalColumnNames(COLUMNS);
     expect(terminal.has("Done")).toBe(true);
-    expect(terminal.has("Cancelled")).toBe(true);
-    expect(terminal.size).toBe(2);
+    expect(terminal.size).toBe(1);
   });
 
   it("returns only last column for 2-column board", () => {
@@ -201,8 +199,7 @@ describe("computeCycleTime", () => {
     const history: HistoryEntry[] = [
       makeCreated("issue1", 0),
       makeStatusChange("issue1", "In Progress", 1, "Backlog"),
-      makeStatusChange("issue1", "Review", 3, "In Progress"),
-      makeStatusChange("issue1", "Done", 5, "Review"),
+      makeStatusChange("issue1", "Done", 5, "In Progress"),
     ];
     const result = computeCycleTime(history, COLUMNS);
     // 5 days - 1 day = 4 days from In Progress to Done
@@ -238,7 +235,6 @@ describe("computeCycleTime", () => {
       { name: "Backlog", color: "#888", position: 0 },
       { name: "Working", color: "#3b82f6", position: 1 },
       { name: "Shipped", color: "#10b981", position: 2 },
-      { name: "Archived", color: "#ef4444", position: 3 },
     ];
     const history: HistoryEntry[] = [
       makeCreated("issue1", 0),
@@ -263,7 +259,7 @@ describe("computeCycleTime", () => {
     const history: HistoryEntry[] = [
       makeCreated("issue1", 0),
       makeMove("issue1", "In Progress", 1),          // moved via drag
-      makeStatusChange("issue1", "Review", 3),        // updated via inline edit
+      makeStatusChange("issue1", "To Do", 3),        // updated via inline edit
       makeMove("issue1", "Done", 5),                  // moved via drag
     ];
     const result = computeCycleTime(history, COLUMNS);
@@ -339,8 +335,8 @@ describe("computeThroughput", () => {
   it("ignores non-completion status changes", () => {
     const history: HistoryEntry[] = [
       makeStatusChange("issue1", "In Progress", 0),
-      makeStatusChange("issue1", "Review", 2),
-      makeStatusChange("issue2", "Cancelled", 3),
+      makeStatusChange("issue1", "To Do", 2),
+      makeStatusChange("issue2", "Backlog", 3),
     ];
     const result = computeThroughput(history, COLUMNS);
     expect(result.weekly).toEqual([]);
@@ -552,19 +548,19 @@ describe("computeAvgTimePerColumn", () => {
     const history: HistoryEntry[] = [
       makeCreated("issue1", 0),
       makeStatusChange("issue1", "In Progress", 2),
-      makeStatusChange("issue1", "Review", 5),
+      makeStatusChange("issue1", "To Do", 5),
       makeStatusChange("issue1", "Done", 7),
     ];
     const endTime = BASE_TS + 10 * DAY_MS;
     const result = computeAvgTimePerColumn(history, COLUMNS, endTime);
     const backlog = result.find((r) => r.column === "Backlog");
     const inProgress = result.find((r) => r.column === "In Progress");
-    const review = result.find((r) => r.column === "Review");
+    const toDo = result.find((r) => r.column === "To Do");
     const done = result.find((r) => r.column === "Done");
-    // Backlog: 2 days, In Progress: 3 days, Review: 2 days
+    // Backlog: 2 days, In Progress: 3 days, To Do: 2 days
     expect(backlog?.avgDays).toBe(2);
     expect(inProgress?.avgDays).toBe(3);
-    expect(review?.avgDays).toBe(2);
+    expect(toDo?.avgDays).toBe(2);
     // Terminal columns should be 0
     expect(done?.avgDays).toBe(0);
   });

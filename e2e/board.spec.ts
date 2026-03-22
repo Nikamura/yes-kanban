@@ -26,9 +26,9 @@ test.describe("Board", () => {
     await nameField.fill(`E2E Project ${Date.now()}`);
     await page.getByRole("button", { name: "Create", exact: true }).click();
 
-    await expect(page.locator(".column-name").filter({ hasText: "To Do" })).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".column-name").filter({ hasText: "Backlog" })).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".column-name").filter({ hasText: "To Do" })).toBeVisible();
     await expect(page.locator(".column-name").filter({ hasText: "In Progress" })).toBeVisible();
-    await expect(page.locator(".column-name").filter({ hasText: "In Review" })).toBeVisible();
     await expect(page.locator(".column-name").filter({ hasText: "Done" })).toBeVisible();
   });
 
@@ -110,20 +110,10 @@ test.describe("Board", () => {
 
     await page.getByRole("button", { name: "Settings" }).click();
 
-    await expect(page.getByText("Columns")).toBeVisible();
+    await expect(page.getByText("Workflow")).toBeVisible();
     await expect(page.getByText("Repositories")).toBeVisible();
     await expect(page.getByText("Agent Configurations")).toBeVisible();
     await expect(page.getByText("Recurrence Rules")).not.toBeVisible();
-  });
-
-  test("can toggle column visibility in settings", async ({ page }) => {
-    await ensureBoardWithIssue(page);
-
-    await page.getByRole("button", { name: "Settings" }).click();
-    await expect(page.getByText("Columns")).toBeVisible();
-
-    const visibleCheckboxes = page.locator(".toggle-label").filter({ hasText: "Visible" });
-    await expect(visibleCheckboxes.first()).toBeVisible();
   });
 
   test("can add a comment on issue detail", async ({ page }) => {
@@ -177,7 +167,7 @@ test.describe("Board", () => {
 
     // Navigate away from board to settings
     await page.getByRole("button", { name: "Settings" }).click();
-    await expect(page.getByText("Columns")).toBeVisible();
+    await expect(page.getByText("Workflow")).toBeVisible();
 
     // Click the Yes Kanban title
     await page.getByRole("heading", { name: "Yes Kanban" }).click();

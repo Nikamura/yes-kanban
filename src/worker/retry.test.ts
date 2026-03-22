@@ -35,12 +35,14 @@ describe("shouldRetry", () => {
     maxRetryBackoffMs: 300000,
   };
 
+  const terminal = ["Done"] as const;
+
   it("returns true when retries remain", () => {
     const ctx: RetryContext = {
       attemptNumber: 1,
       agentConfig: baseConfig,
       issueStatus: "In Progress",
-      terminalStatuses: ["Done", "Cancelled"],
+      terminalStatuses: [...terminal],
     };
     expect(shouldRetry(ctx)).toBe(true);
   });
@@ -50,7 +52,7 @@ describe("shouldRetry", () => {
       attemptNumber: 1,
       agentConfig: { ...baseConfig, maxRetries: 0 },
       issueStatus: "In Progress",
-      terminalStatuses: ["Done", "Cancelled"],
+      terminalStatuses: [...terminal],
     };
     expect(shouldRetry(ctx)).toBe(false);
   });
@@ -60,7 +62,7 @@ describe("shouldRetry", () => {
       attemptNumber: 3,
       agentConfig: baseConfig,
       issueStatus: "In Progress",
-      terminalStatuses: ["Done", "Cancelled"],
+      terminalStatuses: [...terminal],
     };
     expect(shouldRetry(ctx)).toBe(false);
   });
@@ -70,26 +72,26 @@ describe("shouldRetry", () => {
       attemptNumber: 1,
       agentConfig: baseConfig,
       issueStatus: "Done",
-      terminalStatuses: ["Done", "Cancelled"],
+      terminalStatuses: [...terminal],
     };
     expect(shouldRetry(ctx)).toBe(false);
   });
 
-  it("returns false when issue is cancelled", () => {
+  it("returns true when legacy Cancelled status is passed with Done-only terminal list", () => {
     const ctx: RetryContext = {
       attemptNumber: 1,
       agentConfig: baseConfig,
       issueStatus: "Cancelled",
-      terminalStatuses: ["Done", "Cancelled"],
+      terminalStatuses: [...terminal],
     };
-    expect(shouldRetry(ctx)).toBe(false);
+    expect(shouldRetry(ctx)).toBe(true);
   });
 
   it("returns true when no issueStatus is provided (standalone workspace)", () => {
     const ctx: RetryContext = {
       attemptNumber: 1,
       agentConfig: baseConfig,
-      terminalStatuses: ["Done", "Cancelled"],
+      terminalStatuses: [...terminal],
     };
     expect(shouldRetry(ctx)).toBe(true);
   });
@@ -100,8 +102,8 @@ describe("isTerminalStatus", () => {
     expect(isTerminalStatus("Done")).toBe(true);
   });
 
-  it("returns true for Cancelled", () => {
-    expect(isTerminalStatus("Cancelled")).toBe(true);
+  it("returns false for legacy Cancelled column name", () => {
+    expect(isTerminalStatus("Cancelled")).toBe(false);
   });
 
   it("returns false for In Progress", () => {

@@ -49,25 +49,13 @@ function round1(n: number): number {
 
 export function getCompletionColumnName(columns: ColumnDef[]): string {
   if (columns.length === 0) return "";
-  // For boards with ≤2 columns, last column is completion (no separate cancelled column)
-  if (columns.length <= 2) return columns[columns.length - 1]?.name ?? "";
-  // For 3+ columns, second-to-last is completion (last is cancelled/archived)
-  return columns[columns.length - 2]?.name ?? "";
+  return columns[columns.length - 1]?.name ?? "";
 }
 
 export function getTerminalColumnNames(columns: ColumnDef[]): Set<string> {
   if (columns.length === 0) return new Set();
-  // For boards with ≤2 columns, only the last column is terminal
-  if (columns.length <= 2) {
-    return new Set([columns[columns.length - 1]?.name ?? ""]);
-  }
-  // For 3+ columns, last two are terminal (Done + Cancelled)
-  const names = new Set<string>();
   const last = columns[columns.length - 1];
-  const secondLast = columns[columns.length - 2];
-  if (last) names.add(last.name);
-  if (secondLast) names.add(secondLast.name);
-  return names;
+  return new Set(last ? [last.name] : []);
 }
 
 export function getLastCompletionMap(

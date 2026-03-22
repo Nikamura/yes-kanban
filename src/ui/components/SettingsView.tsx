@@ -127,8 +127,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
   const skills = useQuery(api.skills.list, { projectId });
 
   const updateColumn = useMutation(api.columns.update);
-  const createColumn = useMutation(api.columns.create);
-  const removeColumn = useMutation(api.columns.remove);
   const createRepo = useMutation(api.repos.create);
   const updateRepo = useMutation(api.repos.update);
   const removeRepo = useMutation(api.repos.remove);
@@ -191,14 +189,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
   const [updateSkillError, setUpdateSkillError] = useState<{ id: Id<"skills">; message: string } | null>(null);
   const [editingSkillId, setEditingSkillId] = useState<Id<"skills"> | null>(null);
   const [editSkillForm, setEditSkillForm] = useState({ name: "", description: "", content: "" });
-
-  // Column management state
-  const [showAddColumn, setShowAddColumn] = useState(false);
-  const [columnForm, setColumnForm] = useState({ name: "", color: "#6366f1" });
-  const [editingColumnId, setEditingColumnId] = useState<Id<"columns"> | null>(null);
-  const [editColumnName, setEditColumnName] = useState("");
-  const [deletingColumnId, setDeletingColumnId] = useState<Id<"columns"> | null>(null);
-  const [deleteTargetId, setDeleteTargetId] = useState<Id<"columns"> | null>(null);
 
   // Project settings local state (buffered to avoid mutation on every keystroke)
   const [localName, setLocalName] = useState<string>("");
@@ -374,7 +364,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
             </select>
           </div>
           <div className="setting-item">
-            <label>Auto-Archive (Done/Cancelled)</label>
+            <label>Auto-Archive (Done)</label>
             <select
               value={project.autoArchiveDelayMs ?? 0}
               onChange={(e) => {
@@ -451,7 +441,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
               <span>{dispatchStatus.queuedCount}</span>
             </div>
             <div className="setting-item">
-              <label>Max Concurrent</label>
+              <label>Max concurrent agents (worker)</label>
               <input
                 type="number"
                 min={1}
@@ -470,261 +460,117 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
       <NotificationPrefsSection />
 
       <section className="settings-section">
-        <h2>
-          Columns
-          <button className="btn btn-sm" onClick={() => setShowAddColumn(!showAddColumn)}>
-            + Add
-          </button>
-        </h2>
-        {showAddColumn && (
-          <form
-            className="inline-form"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              await createColumn({
-                projectId,
-                name: columnForm.name,
-                color: columnForm.color,
-              });
-              setColumnForm({ name: "", color: "#6366f1" });
-              setShowAddColumn(false);
-            }}
-          >
+        <h2>Workflow</h2>
+        <p style={{ fontSize: "0.85rem", opacity: 0.85, marginBottom: "0.75rem" }}>
+          Board columns are fixed (Backlog → To Do → In Progress → Done). Configure automation behavior per project.
+        </p>
+        <div className="settings-grid">
+          <div className="setting-item">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={project.skipPlanning === false}
+                onChange={(e) =>
+                  void updateProject({
+                    id: projectId,
+                    skipPlanning: e.target.checked ? false : true,
+                  })
+                }
+              />
+              Planning phase
+            </label>
+          </div>
+          {project.skipPlanning === false && (
+            <div className="setting-item">
+              <label className="toggle-label">
+                <input
+                  type="checkbox"
+                  checked={project.autoPlanReview ?? false}
+                  onChange={(e) =>
+                    void updateProject({ id: projectId, autoPlanReview: e.target.checked })
+                  }
+                />
+                Auto plan review
+              </label>
+            </div>
+          )}
+          <div className="setting-item">
+            <label>Max concurrent agents (this project)</label>
             <input
-              placeholder="Column name"
-              value={columnForm.name}
-              onChange={(e) => setColumnForm({ ...columnForm, name: e.target.value })}
-              autoComplete="off"
+              type="number"
+              min={1}
+              placeholder="Unlimited"
+              value={project.maxConcurrent ?? ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                void updateProject({
+                  id: projectId,
+                  maxConcurrent: val === "" ? null : Math.max(1, Math.floor(Number(val))),
+                });
+              }}
+              style={{ width: "6em" }}
             />
-            <input
-              type="color"
-              value={columnForm.color}
-              onChange={(e) => setColumnForm({ ...columnForm, color: e.target.value })}
-            />
-            <button type="submit" className="btn btn-primary btn-sm" disabled={!columnForm.name.trim()}>
-              Add
-            </button>
-          </form>
-        )}
+          </div>
+          <div className="setting-item">
+            <label>Merge policy</label>
+            <select
+              value={project.mergePolicy ?? ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                void updateProject({
+                  id: projectId,
+                  mergePolicy: val ? val : null,
+                });
+              }}
+            >
+              <option value="">None</option>
+              <option value="local_merge">Local merge</option>
+              <option value="auto_merge">Auto merge</option>
+              <option value="manual_merge">Manual merge</option>
+            </select>
+          </div>
+          <div className="setting-item">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={project.skipReview ?? false}
+                onChange={(e) =>
+                  void updateProject({ id: projectId, skipReview: e.target.checked })
+                }
+              />
+              Skip review
+            </label>
+          </div>
+          <div className="setting-item">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={project.skipTests ?? false}
+                onChange={(e) =>
+                  void updateProject({ id: projectId, skipTests: e.target.checked })
+                }
+              />
+              Skip tests
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section className="settings-section">
+        <h2>Board column colors</h2>
+        <p style={{ fontSize: "0.85rem", opacity: 0.85, marginBottom: "0.75rem" }}>
+          Column names and order cannot be changed. Adjust colors only.
+        </p>
         <div className="settings-table">
-          {columns.map((col, index: number) => (
+          {columns.map((col) => (
             <div key={col._id} className="settings-row">
               <input
                 type="color"
                 value={col.color}
-                onChange={(e) => updateColumn({ id: col._id, color: e.target.value })}
+                onChange={(e) => void updateColumn({ id: col._id, color: e.target.value })}
                 className="color-input"
               />
-              {editingColumnId === col._id ? (
-                <input
-                  className="col-name-input"
-                  value={editColumnName}
-                  autoFocus
-                  autoComplete="off"
-                  onChange={(e) => setEditColumnName(e.target.value)}
-                  onBlur={() => {
-                    if (editColumnName.trim() && editColumnName !== col.name) {
-                      void updateColumn({ id: col._id, name: editColumnName.trim() });
-                    }
-                    setEditingColumnId(null);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      (e.target as HTMLInputElement).blur();
-                    } else if (e.key === "Escape") {
-                      setEditingColumnId(null);
-                    }
-                  }}
-                />
-              ) : (
-                <span
-                  className="col-name col-name-editable"
-                  onClick={() => {
-                    setEditingColumnId(col._id);
-                    setEditColumnName(col.name);
-                  }}
-                >
-                  {col.name}
-                </span>
-              )}
-              <div className="col-reorder-btns">
-                <button
-                  className="btn btn-sm"
-                  disabled={index === 0}
-                  onClick={() => {
-                    const prev = columns[index - 1];
-                    if (!prev) return;
-                    void updateColumn({ id: col._id, position: prev.position });
-                    void updateColumn({ id: prev._id, position: col.position });
-                  }}
-                >
-                  ↑
-                </button>
-                <button
-                  className="btn btn-sm"
-                  disabled={index === columns.length - 1}
-                  onClick={() => {
-                    const next = columns[index + 1];
-                    if (!next) return;
-                    void updateColumn({ id: col._id, position: next.position });
-                    void updateColumn({ id: next._id, position: col.position });
-                  }}
-                >
-                  ↓
-                </button>
-              </div>
-              <label className="toggle-label">
-                <input
-                  type="checkbox"
-                  checked={col.visible}
-                  onChange={(e) =>
-                    updateColumn({ id: col._id, visible: e.target.checked })
-                  }
-                />
-                Visible
-              </label>
-              <label className="toggle-label">
-                <input
-                  type="checkbox"
-                  checked={col.autoDispatch}
-                  onChange={(e) =>
-                    updateColumn({ id: col._id, autoDispatch: e.target.checked })
-                  }
-                />
-                Auto-dispatch
-              </label>
-              <label className="toggle-label">
-                <input
-                  type="checkbox"
-                  checked={!col.skipPlanning}
-                  onChange={(e) =>
-                    updateColumn({ id: col._id, skipPlanning: !e.target.checked })
-                  }
-                />
-                Planning phase
-              </label>
-              {!col.skipPlanning && (
-                <label className="toggle-label">
-                  <input
-                    type="checkbox"
-                    checked={col.autoPlanReview ?? false}
-                    onChange={(e) =>
-                      updateColumn({ id: col._id, autoPlanReview: e.target.checked })
-                    }
-                  />
-                  Auto plan review
-                </label>
-              )}
-              {col.autoDispatch && (
-                <label className="toggle-label">
-                  Max Concurrent
-                  <input
-                    type="number"
-                    min={1}
-                    placeholder="Unlimited"
-                    value={col.maxConcurrent ?? ""}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const args: Parameters<typeof updateColumn>[0] = {
-                        id: col._id,
-                      };
-                      if (val) args.maxConcurrent = Number(val);
-                      void updateColumn(args);
-                    }}
-                    style={{ width: "5em", marginLeft: "0.5em" }}
-                  />
-                </label>
-              )}
-              <label className="toggle-label">
-                Merge Policy
-                <select
-                  value={col.mergePolicy ?? ""}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    void updateColumn({
-                      id: col._id,
-                      mergePolicy: val || null,
-                    });
-                  }}
-                  style={{ marginLeft: "0.5em" }}
-                >
-                  <option value="">None</option>
-                  <option value="local_merge">Local merge</option>
-                  <option value="auto_merge">Auto merge</option>
-                  <option value="manual_merge">Manual merge</option>
-                </select>
-              </label>
-              <label className="toggle-label">
-                <input
-                  type="checkbox"
-                  checked={col.skipReview}
-                  onChange={(e) =>
-                    updateColumn({ id: col._id, skipReview: e.target.checked })
-                  }
-                />
-                Skip review
-              </label>
-              <label className="toggle-label">
-                <input
-                  type="checkbox"
-                  checked={col.skipTests}
-                  onChange={(e) =>
-                    updateColumn({ id: col._id, skipTests: e.target.checked })
-                  }
-                />
-                Skip tests
-              </label>
-              {deletingColumnId === col._id ? (
-                <span className="delete-confirm">
-                  <span>Move issues to:</span>
-                  <select
-                    value={deleteTargetId ?? ""}
-                    onChange={(e) => setDeleteTargetId(e.target.value as Id<"columns">)}
-                  >
-                    <option value="">Select column</option>
-                    {columns
-                      .filter((c) => c._id !== col._id)
-                      .map((c) => (
-                        <option key={c._id} value={c._id}>
-                          {c.name}
-                        </option>
-                      ))}
-                  </select>
-                  <button
-                    className="btn btn-sm btn-danger"
-                    disabled={!deleteTargetId}
-                    onClick={async () => {
-                      if (deleteTargetId) {
-                        await removeColumn({ id: col._id, targetColumnId: deleteTargetId });
-                        setDeletingColumnId(null);
-                        setDeleteTargetId(null);
-                      }
-                    }}
-                  >
-                    Confirm
-                  </button>
-                  <button
-                    className="btn btn-sm"
-                    onClick={() => {
-                      setDeletingColumnId(null);
-                      setDeleteTargetId(null);
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </span>
-              ) : (
-                <button
-                  className="btn btn-sm btn-danger"
-                  disabled={columns.length <= 1}
-                  onClick={() => {
-                    setDeletingColumnId(col._id);
-                    setDeleteTargetId(null);
-                  }}
-                >
-                  ×
-                </button>
-              )}
+              <span className="col-name">{col.name}</span>
             </div>
           ))}
         </div>

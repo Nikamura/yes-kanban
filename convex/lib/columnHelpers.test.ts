@@ -2,12 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { getNextVisibleColumn } from "./columnHelpers";
 
 const DEFAULT_COLUMNS = [
-  { name: "Backlog", position: 0, visible: false, autoDispatch: false },
+  { name: "Backlog", position: 0, visible: true, autoDispatch: false },
   { name: "To Do", position: 1, visible: true, autoDispatch: true },
   { name: "In Progress", position: 2, visible: true, autoDispatch: false },
-  { name: "In Review", position: 3, visible: true, autoDispatch: false },
-  { name: "Done", position: 4, visible: true, autoDispatch: false },
-  { name: "Cancelled", position: 5, visible: false, autoDispatch: false },
+  { name: "Done", position: 3, visible: true, autoDispatch: false },
 ];
 
 describe("getNextVisibleColumn", () => {
@@ -36,13 +34,8 @@ describe("getNextVisibleColumn", () => {
     expect(result).toBeNull();
   });
 
-  test("In Progress -> In Review", () => {
+  test("In Progress -> Done", () => {
     const result = getNextVisibleColumn(DEFAULT_COLUMNS, "In Progress");
-    expect(result?.name).toBe("In Review");
-  });
-
-  test("In Review -> Done", () => {
-    const result = getNextVisibleColumn(DEFAULT_COLUMNS, "In Review");
     expect(result?.name).toBe("Done");
   });
 

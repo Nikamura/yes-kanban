@@ -235,13 +235,13 @@ export function isAgentAttribution(line: string): boolean {
 
 /**
  * Determine whether completed work should be locally merged (vs PR creation).
- * Triggers when the column has mergePolicy "local_merge" or the issue has autoMerge enabled.
+ * Triggers when the project has mergePolicy "local_merge" or the issue has autoMerge enabled.
  */
 export function shouldLocalMerge(
-  column: { mergePolicy?: string } | null | undefined,
+  project: { mergePolicy?: string | null } | null | undefined,
   issue: { autoMerge?: boolean } | null | undefined,
 ): boolean {
-  return column?.mergePolicy === "local_merge" || issue?.autoMerge === true;
+  return project?.mergePolicy === "local_merge" || issue?.autoMerge === true;
 }
 
 /**
@@ -384,17 +384,9 @@ export async function runLifecycle(
   const worktreeManager = new GitWorktreeManager(config.worktreeRoot);
   const executor = new AgentExecutor();
 
-  // Get column config for lifecycle options.
-  // sourceColumn is set by claim() before the lifecycle starts so we always
-  // resolve the original column's config even after the issue has moved.
-  let column: Doc<"columns"> | null = null;
   if (issue) {
-    const columns = await convex.query(api.columns.list, { projectId: task.projectId });
     const currentWorkspaceForCol = await convex.query(api.workspaces.get, { id: workspaceId });
-    const columnName = currentWorkspaceForCol?.sourceColumn ?? issue.status;
-    column = columns.find((c) => c.name === columnName) ?? null;
-    // Backward compat: persist sourceColumn for workspaces created before
-    // claim() started setting it
+    // Persist sourceColumn when missing (older workspaces); workflow uses project settings, not column lookup.
     if (!currentWorkspaceForCol?.sourceColumn) {
       await convex.mutation(api.workspaces.setSourceColumn, {
         id: workspaceId,
@@ -502,7 +494,7 @@ export async function runLifecycle(
 
   // 1b. Fetch project-level MCP server configs and skills for isolation
   let externalMcpConfigs: ExternalMcpConfig[] = [];
-  let settingsPath = `/tmp/yes-kanban-settings-${workspaceId}.json`;
+  const settingsPath = `/tmp/yes-kanban-settings-${workspaceId}.json`;
   let disableSlashCommands = true;
   let disableBuiltInMcp = false;
   try {
@@ -651,8 +643,7 @@ export async function runLifecycle(
   }
 
   // 1c. Planning stage (if not skipped and no approved plan yet)
-  // Default to skipping planning for backward compatibility — columns must opt-in
-  const skipPlanning = column?.skipPlanning ?? true;
+  const skipPlanning = project?.skipPlanning ?? true;
   const planningTools = issue?.deepResearch ? PLANNING_RESEARCH_TOOLS : PLANNING_TOOLS;
   const planApproved = currentWorkspace?.planApproved ?? false;
 
@@ -776,7 +767,7 @@ export async function runLifecycle(
     }
 
     // After planning agent finishes, either run AI plan review or wait for user
-    if (column?.autoPlanReview && project) {
+    if (project?.autoPlanReview) {
       const planReviewTemplate = await convex.query(api.promptTemplates.resolve, {
         projectId: task.projectId,
         type: "plan_review" as const,
@@ -1048,10 +1039,10 @@ export async function runLifecycle(
     }
 
     // 3. Testing stage (if configured)
-    if (column?.skipTests) {
-      console.log(`[lifecycle] workspace=${workspaceId} skipping tests (column config)`);
+    if (project?.skipTests) {
+      console.log(`[lifecycle] workspace=${workspaceId} skipping tests (project settings)`);
     }
-    if (!column?.skipTests) {
+    if (!project?.skipTests) {
       console.log(`[lifecycle] workspace=${workspaceId} running tests`);
       const testResult = await runTests(convex, workspaceId, repos, worktrees, abortSignal);
       if (abortSignal.aborted) return;
@@ -1066,10 +1057,10 @@ export async function runLifecycle(
   }
 
   // 4. Review stage (if configured)
-  if (column?.skipReview || !project) {
-    console.log(`[lifecycle] workspace=${workspaceId} skipping review (${column?.skipReview ? "column config" : "no project"})`);
+  if (project?.skipReview || !project) {
+    console.log(`[lifecycle] workspace=${workspaceId} skipping review (${project?.skipReview ? "project settings" : "no project"})`);
   }
-  if (!column?.skipReview && project) {
+  if (!project?.skipReview && project) {
     const reviewConfigId = project.reviewAgentConfigId ?? agentConfig._id;
     const reviewConfig = await convex.query(api.agentConfigs.get, { id: reviewConfigId });
 
@@ -1187,7 +1178,7 @@ export async function runLifecycle(
         }
 
         // Re-run tests
-        if (!column?.skipTests) {
+        if (!project.skipTests) {
           const retestResult = await runTests(convex, workspaceId, repos, worktrees, abortSignal);
           if (abortSignal.aborted) return;
           if (retestResult && !retestResult.passed) {
@@ -1233,8 +1224,8 @@ export async function runLifecycle(
     } catch { /* best-effort */ }
   }
 
-  // 5. Local merge (if configured on column or issue) — rebase first, then squash merge
-  if (shouldLocalMerge(column, issue)) {
+  // 5. Local merge (if configured on project or issue) — rebase first, then squash merge
+  if (shouldLocalMerge(project, issue)) {
     // Rebase onto base branch, using agent for conflict resolution if needed
     console.log(`[lifecycle] workspace=${workspaceId} rebasing before local merge`);
     await convex.mutation(api.workspaces.updateStatus, {

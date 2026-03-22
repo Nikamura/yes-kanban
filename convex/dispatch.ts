@@ -2,12 +2,12 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { autoMoveIssueToNextColumn, TERMINAL_COLUMN_NAMES } from "./workspaces";
 
-const TERMINAL_STATUSES = TERMINAL_COLUMN_NAMES;
+const TERMINAL_STATUSES = TERMINAL_COLUMN_NAMES as readonly string[];
 const RUNNING_STATUSES = ["claimed", "planning", "coding", "testing", "reviewing", "rebasing"] as const;
 
 /**
  * Check if any blocker issue is unresolved.
- * Returns true if any blocker is NOT in a terminal status (Done/Cancelled).
+ * Returns true if any blocker is NOT in a terminal status (Done).
  * Deleted blockers (null) are treated as resolved.
  */
 export function isBlockedByUnresolved(
@@ -62,51 +62,31 @@ export const next = query({
     // Sort: oldest workspace first (FIFO)
     unblocked.sort((a, b) => a.workspace.createdAt - b.workspace.createdAt);
 
-    // Per-column concurrency limits: fetch running workspaces and column limits in parallel
     const projectIds = [...new Set(unblocked.map((w) => w.workspace.projectId))];
-    const [allRunning, ...columnSets] = await Promise.all([
+    const [allRunning, ...projectDocs] = await Promise.all([
       Promise.all(
         RUNNING_STATUSES.map((s) =>
           ctx.db.query("workspaces").withIndex("by_status", (q) => q.eq("status", s)).collect()
         )
       ).then((results) => results.flat()),
-      ...projectIds.map((pid) =>
-        ctx.db.query("columns").withIndex("by_project", (q) => q.eq("projectId", pid)).collect()
-      ),
+      ...projectIds.map((pid) => ctx.db.get(pid)),
     ]);
 
-    // Build column name → maxConcurrent lookup (only columns with limits)
-    const columnsWithLimits: Record<string, number> = {};
-    for (const cols of columnSets) {
-      for (const col of cols) {
-        if (col.maxConcurrent !== undefined) {
-          columnsWithLimits[col.name] = col.maxConcurrent;
-        }
-      }
+    const projectsById = new Map(projectIds.map((id, i) => [id, projectDocs[i]]));
+
+    const runningPerProject: Record<string, number> = {};
+    for (const ws of allRunning) {
+      if (!ws.issueId) continue;
+      const pid = ws.projectId;
+      runningPerProject[pid] = (runningPerProject[pid] ?? 0) + 1;
     }
 
-    // Count running workspaces per column (by issue status)
-    const runningPerColumn: Record<string, number> = {};
-    if (Object.keys(columnsWithLimits).length > 0) {
-      const runningIssues = await Promise.all(
-        allRunning
-          .filter((ws): ws is typeof ws & { issueId: NonNullable<typeof ws.issueId> } => !!ws.issueId)
-          .map((ws) => ctx.db.get(ws.issueId))
-      );
-      for (const issue of runningIssues) {
-        if (issue) {
-          runningPerColumn[issue.status] = (runningPerColumn[issue.status] ?? 0) + 1;
-        }
-      }
-    }
-
-    // Find first candidate that passes per-column concurrency check
     const first = unblocked.find((candidate) => {
-      const status = candidate.issue?.status;
-      if (status && status in columnsWithLimits) {
-        return (runningPerColumn[status] ?? 0) < (columnsWithLimits[status] ?? Infinity);
-      }
-      return true; // no limit on this column
+      const pid = candidate.workspace.projectId;
+      const proj = projectsById.get(pid);
+      const limit = proj?.maxConcurrent;
+      if (limit === undefined || limit === null) return true;
+      return (runningPerProject[pid] ?? 0) < limit;
     });
 
     if (!first?.agentConfig) return null;
@@ -138,23 +118,16 @@ export const claim = mutation({
     if (workspace.issueId && workspace.projectId) {
       const issue = await ctx.db.get(workspace.issueId);
       if (issue) {
-        // Persist sourceColumn so the lifecycle resolves the original column's
-        // config even after the issue has been auto-moved
+        // Persist where the issue was when this workspace was claimed (debugging / history).
         if (!workspace.sourceColumn) {
           await ctx.db.patch(args.workspaceId, { sourceColumn: issue.status });
         }
 
-        // Auto-move issue to next column (e.g. To Do → In Progress),
-        // but skip for planning columns — the issue should stay in place
-        // until planning completes; approvePlan handles the move afterward.
-        const columns = await ctx.db
-          .query("columns")
-          .withIndex("by_project", (q) => q.eq("projectId", workspace.projectId))
-          .collect();
-        const currentColumn = columns.find((c) => c.name === issue.status);
-        if (currentColumn?.skipPlanning !== false) {
+        const project = await ctx.db.get(workspace.projectId);
+        // When planning runs (skipPlanning === false), keep the issue in To Do until approvePlan moves it to In Progress.
+        if (project?.skipPlanning !== false) {
           await autoMoveIssueToNextColumn(ctx, workspace.issueId, workspace.projectId, {
-            onlyIfAutoDispatch: true,
+            onlyIfAutoDispatchColumn: true,
           });
         }
       }

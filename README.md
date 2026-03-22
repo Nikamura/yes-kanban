@@ -10,13 +10,13 @@ Built for solo developers. Mobile-first. Convention over configuration.
 
 1. Create a project linked to a git repo.
 2. Add issues to the board.
-3. Dispatch an issue -- manually, or automatically when it enters a column.
+3. Dispatch an issue -- manually, or automatically when it lands in **To Do** (or create it there).
 4. The worker creates a worktree, spawns an agent, and streams logs back to the UI in real time.
-5. Review the diff. Merge via the UI, or let auto-merge handle it.
+5. Review the diff. Merge via the UI, or let auto-merge handle it. Move the card to **Done** when you are finished (the board uses a fixed Backlog → To Do → In Progress → Done flow).
 
 ## Features
 
-**Board** -- Drag-and-drop columns, priorities, tags, blockers, checklists, comments, issue templates. Hash-based routing so every view is a bookmarkable URL.
+**Board** -- Fixed four-column flow with drag-and-drop; tags, blockers, checklists, comments, issue templates. Hash-based routing so every view is a bookmarkable URL.
 
 **Agent dispatch** -- Supports Claude Code, Codex, and Cursor via pluggable adapters. Configurable concurrency limits, timeouts, and retry with exponential backoff. Plan mode and dangerously-skip mode. On startup the worker runs a one-time Convex migration that rewrites legacy `pi` agent configs to a supported adapter so old projects keep working.
 

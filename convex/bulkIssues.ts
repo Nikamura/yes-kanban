@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation } from "./_generated/server";
 import { recordHistory } from "./issueHistory";
 import { unarchiveIssue } from "./lib/archiveHelpers";
+import { AUTO_DISPATCH_COLUMNS } from "./lib/boardConstants";
 import { WORKSPACE_TERMINAL_STATUSES } from "./workspaces";
 
 export const bulkMove = mutation({
@@ -26,12 +27,6 @@ export const bulkMove = mutation({
       .collect();
     let maxPos = existingInColumn.reduce((max, i) => Math.max(max, i.position), -1);
 
-    // Check auto-dispatch
-    const columns = await ctx.db
-      .query("columns")
-      .withIndex("by_project", (q) => q.eq("projectId", firstIssue.projectId))
-      .collect();
-    const targetColumn = columns.find((c) => c.name === args.status);
     const project = await ctx.db.get(firstIssue.projectId);
 
     const now = Date.now();
@@ -58,8 +53,10 @@ export const bulkMove = mutation({
         updatedAt: now,
       });
 
-      // Auto-dispatch check
-      if (targetColumn?.autoDispatch && project?.defaultAgentConfigId) {
+      if (
+        (AUTO_DISPATCH_COLUMNS as readonly string[]).includes(args.status) &&
+        project?.defaultAgentConfigId
+      ) {
         const existingWorkspaces = await ctx.db
           .query("workspaces")
           .withIndex("by_issue", (q) => q.eq("issueId", id))
@@ -167,7 +164,7 @@ export const bulkUnarchive = mutation({
   handler: async (ctx, args) => {
     for (const id of args.ids) {
       const issue = await ctx.db.get(id);
-      if (!issue || issue.archivedAt === undefined) continue;
+      if (issue?.archivedAt === undefined) continue;
       await unarchiveIssue(ctx, issue);
     }
   },

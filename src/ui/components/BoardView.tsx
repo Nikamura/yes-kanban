@@ -7,7 +7,7 @@ import { CreateIssueDialog } from "./CreateIssueDialog";
 import { IssueDetailPanel } from "./IssueDetailPanel";
 import { BulkActionBar } from "./BulkActionBar";
 import { filterIssues, sortIssues, type SortKey } from "../boardFilters";
-import { TERMINAL_COLUMN_NAMES } from "../utils/constants";
+import { CREATABLE_COLUMNS, TERMINAL_COLUMN_NAMES } from "../utils/constants";
 import { WorkspaceStatusFilters } from "./WorkspaceStatusFilters";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { ShortcutsHelpModal } from "./ShortcutsHelpModal";
@@ -112,7 +112,11 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
     onNewIssue: () => {
       if (activeIssueSimpleId || showCreateIssue) return;
       const col = visibleColumns[activeColumnIdx] ?? visibleColumns[0];
-      if (col) setCreateInColumn(col.name);
+      if (col) {
+        setCreateInColumn(
+          (CREATABLE_COLUMNS as readonly string[]).includes(col.name) ? col.name : "Backlog",
+        );
+      }
       setShowCreateIssue(true);
     },
     onNavigateDown: () => {
@@ -369,7 +373,7 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
                     All
                   </button>
                 )}
-                {TERMINAL_COLUMN_NAMES.includes(col.name) && colIssues.length > 0 && (
+                {(TERMINAL_COLUMN_NAMES as readonly string[]).includes(col.name) && colIssues.length > 0 && (
                   <button
                     className="column-add-btn"
                     onClick={() => bulkArchive({ ids: colIssues.map((i) => i._id) })}
@@ -379,6 +383,7 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
                     Archive
                   </button>
                 )}
+                {(CREATABLE_COLUMNS as readonly string[]).includes(col.name) && (
                 <button
                   className="column-add-btn"
                   onClick={() => {
@@ -389,6 +394,7 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
                 >
                   +
                 </button>
+                )}
               </div>
               <div
                 className="column-issues"
@@ -443,7 +449,13 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
         <button
           className="fab"
           onClick={() => {
-            if (activeColumn) setCreateInColumn(activeColumn.name);
+            if (activeColumn) {
+              setCreateInColumn(
+                (CREATABLE_COLUMNS as readonly string[]).includes(activeColumn.name)
+                  ? activeColumn.name
+                  : "Backlog",
+              );
+            }
             setShowCreateIssue(true);
           }}
           title="Add issue"
