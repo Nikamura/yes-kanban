@@ -328,7 +328,10 @@ function isNoisyJson(line: string): boolean {
   if (!line.startsWith("{")) return false;
   try {
     const parsed = JSON.parse(line);
-    return SKIP_JSON_TYPES.has(parsed.type);
+    if (SKIP_JSON_TYPES.has(parsed.type)) return true;
+    // Cursor echoes "user" messages as raw JSON — suppress them
+    if (parsed.type === "user") return true;
+    return false;
   } catch {
     return false;
   }

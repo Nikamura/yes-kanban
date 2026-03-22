@@ -57,6 +57,13 @@ const TOOL_NAME_ALIASES: Record<string, string> = {
   execute_command: "Bash",
   file_search: "Grep",
   codebase_search: "Grep",
+  // Cursor lowercase variants (from pre-fix stored events)
+  edit: "Edit",
+  grep: "Grep",
+  glob: "Glob",
+  read: "Read",
+  write: "Write",
+  bash: "Bash",
 };
 
 // --- Tool Use (dispatcher) ---

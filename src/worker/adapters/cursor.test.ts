@@ -328,6 +328,155 @@ describe("CursorAdapter", () => {
       expect(events).toHaveLength(1);
       expect(events[0]!.type).toBe("unknown");
     });
+
+    // --- Actual Cursor stream-json format tests ---
+
+    test("parses grepToolCall (actual Cursor format)", () => {
+      const events = adapter.parseLine(JSON.stringify({
+        type: "tool_call",
+        subtype: "started",
+        call_id: "tool_abc",
+        tool_call: {
+          grepToolCall: {
+            args: {
+              pattern: "recurrence|cronParser",
+              path: "/workspace",
+              caseInsensitive: true,
+              offset: 0,
+            },
+          },
+        },
+      }));
+      expect(events).toHaveLength(1);
+      expect(events[0]!.type).toBe("tool_use");
+      const data = events[0]!.data as any;
+      expect(data.name).toBe("Grep");
+      expect(data.input.pattern).toBe("recurrence|cronParser");
+      expect(data.input.path).toBe("/workspace");
+      expect(data.tool_use_id).toBe("tool_abc");
+    });
+
+    test("parses editToolCall (actual Cursor format with args.path)", () => {
+      const events = adapter.parseLine(JSON.stringify({
+        type: "tool_call",
+        subtype: "started",
+        call_id: "tool_edit",
+        tool_call: {
+          editToolCall: {
+            args: {
+              path: "/workspace/file.ts",
+              streamContent: "const x = 2",
+            },
+          },
+        },
+      }));
+      expect(events).toHaveLength(1);
+      const data = events[0]!.data as any;
+      expect(data.name).toBe("Edit");
+      expect(data.input.file_path).toBe("/workspace/file.ts");
+    });
+
+    test("parses globToolCall (actual Cursor format)", () => {
+      const events = adapter.parseLine(JSON.stringify({
+        type: "tool_call",
+        subtype: "started",
+        call_id: "tool_glob",
+        tool_call: {
+          globToolCall: {
+            args: {
+              targetDirectory: "/workspace/convex",
+              globPattern: "**/*",
+            },
+          },
+        },
+      }));
+      expect(events).toHaveLength(1);
+      const data = events[0]!.data as any;
+      expect(data.name).toBe("Glob");
+      expect(data.input.pattern).toBe("**/*");
+      expect(data.input.path).toBe("/workspace/convex");
+    });
+
+    test("parses readToolCall with args.path (actual Cursor format)", () => {
+      const events = adapter.parseLine(JSON.stringify({
+        type: "tool_call",
+        subtype: "started",
+        call_id: "tool_read",
+        tool_call: {
+          readToolCall: {
+            args: {
+              path: "/workspace/convex/crons.ts",
+              offset: 1,
+              limit: 30,
+            },
+          },
+        },
+      }));
+      expect(events).toHaveLength(1);
+      const data = events[0]!.data as any;
+      expect(data.name).toBe("Read");
+      expect(data.input.file_path).toBe("/workspace/convex/crons.ts");
+      expect(data.input.offset).toBe(1);
+      expect(data.input.limit).toBe(30);
+    });
+
+    test("parses tool_call completed with nested result.success.content", () => {
+      const events = adapter.parseLine(JSON.stringify({
+        type: "tool_call",
+        subtype: "completed",
+        call_id: "tool_read",
+        tool_call: {
+          readToolCall: {
+            args: { path: "/workspace/file.ts" },
+            result: {
+              success: {
+                content: "import { v } from 'convex';\nconst x = 1;",
+              },
+            },
+          },
+        },
+      }));
+      expect(events).toHaveLength(1);
+      expect(events[0]!.type).toBe("tool_result");
+      const data = events[0]!.data as any;
+      expect(data.name).toBe("Read");
+      expect(data.content).toBe("import { v } from 'convex';\nconst x = 1;");
+      expect(data.input.file_path).toBe("/workspace/file.ts");
+    });
+
+    test("parses tool_call completed with grep result.success.workspaceResults", () => {
+      const events = adapter.parseLine(JSON.stringify({
+        type: "tool_call",
+        subtype: "completed",
+        call_id: "tool_grep",
+        tool_call: {
+          grepToolCall: {
+            args: { pattern: "foo", path: "/workspace" },
+            result: {
+              success: {
+                workspaceResults: { "/workspace/a.ts": ["line1", "line2"] },
+              },
+            },
+          },
+        },
+      }));
+      expect(events).toHaveLength(1);
+      expect(events[0]!.type).toBe("tool_result");
+      const data = events[0]!.data as any;
+      expect(data.content).toContain("/workspace/a.ts");
+    });
+
+    test("user message with only text blocks returns unknown (suppresses raw line)", () => {
+      const events = adapter.parseLine(JSON.stringify({
+        type: "user",
+        message: {
+          role: "user",
+          content: [{ type: "text", text: "# Task: do something\n\nDescription..." }],
+        },
+      }));
+      expect(events).toHaveLength(1);
+      expect(events[0]!.type).toBe("unknown");
+    });
   });
 
   describe("extractTokenUsage", () => {

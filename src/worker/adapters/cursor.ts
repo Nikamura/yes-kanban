@@ -85,8 +85,7 @@ export class CursorAdapter implements IAgentAdapter {
         }
         if (parsed.subtype === "completed") {
           const normalized = this.normalizeToolData(parsed);
-          const result = parsed.result as Record<string, unknown> | undefined;
-          const output = (result?.["stdout"] as string | undefined) ?? (result?.["interleavedOutput"] as string | undefined) ?? "";
+          const output = this.extractToolResultContent(parsed);
           return [{ type: "tool_result", data: { ...normalized, content: output, tool_use_id: normalized["tool_use_id"] } }];
         }
         return [{ type: "unknown", data: parsed }];
@@ -112,7 +111,8 @@ export class CursorAdapter implements IAgentAdapter {
 
   /**
    * Normalize Cursor tool_call data to the shape ToolRenderers expect: { name, input, tool_use_id }.
-   * Cursor nests tool info under tool_call.shellToolCall / tool_call.fileEditToolCall etc.
+   * Cursor nests tool info under tool_call.shellToolCall / tool_call.grepToolCall etc.
+   * Args are nested under toolCall[key].args with different field names than Claude Code.
    */
   private normalizeToolData(parsed: Record<string, unknown>): Record<string, unknown> {
     const callId = parsed["call_id"] as string | undefined;
@@ -135,14 +135,16 @@ export class CursorAdapter implements IAgentAdapter {
       return { name: "Bash", input: { command, description: description ?? "" }, tool_use_id: callId };
     }
 
-    if (toolCall["fileEditToolCall"]) {
-      const edit = toolCall["fileEditToolCall"] as Record<string, unknown>;
+    // Cursor uses editToolCall (not fileEditToolCall) with args.path and args.streamContent
+    if (toolCall["editToolCall"] || toolCall["fileEditToolCall"]) {
+      const edit = (toolCall["editToolCall"] ?? toolCall["fileEditToolCall"]) as Record<string, unknown>;
+      const args = edit["args"] as Record<string, unknown> | undefined;
       return {
         name: "Edit",
         input: {
-          file_path: edit["filePath"] ?? edit["file_path"] ?? "unknown",
-          old_string: edit["oldString"] ?? edit["old_string"] ?? "",
-          new_string: edit["newString"] ?? edit["new_string"] ?? "",
+          file_path: args?.["path"] ?? edit["filePath"] ?? edit["file_path"] ?? "unknown",
+          old_string: args?.["oldString"] ?? edit["oldString"] ?? edit["old_string"] ?? "",
+          new_string: args?.["newString"] ?? edit["newString"] ?? edit["new_string"] ?? "",
         },
         tool_use_id: callId,
       };
@@ -150,39 +152,55 @@ export class CursorAdapter implements IAgentAdapter {
 
     if (toolCall["readToolCall"]) {
       const read = toolCall["readToolCall"] as Record<string, unknown>;
+      const args = read["args"] as Record<string, unknown> | undefined;
       return {
         name: "Read",
-        input: { file_path: read["filePath"] ?? read["file_path"] ?? "unknown" },
+        input: {
+          file_path: args?.["path"] ?? read["filePath"] ?? read["file_path"] ?? "unknown",
+          offset: args?.["offset"] ?? read["offset"],
+          limit: args?.["limit"] ?? read["limit"],
+        },
         tool_use_id: callId,
       };
     }
 
     if (toolCall["writeToolCall"]) {
       const write = toolCall["writeToolCall"] as Record<string, unknown>;
+      const args = write["args"] as Record<string, unknown> | undefined;
       return {
         name: "Write",
         input: {
-          file_path: write["filePath"] ?? write["file_path"] ?? "unknown",
-          content: write["content"] ?? "",
+          file_path: args?.["path"] ?? write["filePath"] ?? write["file_path"] ?? "unknown",
+          content: args?.["content"] ?? write["content"] ?? "",
         },
         tool_use_id: callId,
       };
     }
 
-    if (toolCall["searchToolCall"]) {
-      const search = toolCall["searchToolCall"] as Record<string, unknown>;
+    // Cursor uses grepToolCall (not searchToolCall)
+    if (toolCall["grepToolCall"] || toolCall["searchToolCall"]) {
+      const grep = (toolCall["grepToolCall"] ?? toolCall["searchToolCall"]) as Record<string, unknown>;
+      const args = grep["args"] as Record<string, unknown> | undefined;
       return {
         name: "Grep",
-        input: { pattern: search["query"] ?? search["pattern"] ?? "", path: search["path"] },
+        input: {
+          pattern: args?.["pattern"] ?? grep["query"] ?? grep["pattern"] ?? "",
+          path: args?.["path"] ?? grep["path"],
+        },
         tool_use_id: callId,
       };
     }
 
-    if (toolCall["listToolCall"]) {
-      const list = toolCall["listToolCall"] as Record<string, unknown>;
+    // Cursor uses globToolCall (not listToolCall)
+    if (toolCall["globToolCall"] || toolCall["listToolCall"]) {
+      const glob = (toolCall["globToolCall"] ?? toolCall["listToolCall"]) as Record<string, unknown>;
+      const args = glob["args"] as Record<string, unknown> | undefined;
       return {
         name: "Glob",
-        input: { pattern: list["pattern"] ?? "*", path: list["path"] },
+        input: {
+          pattern: args?.["globPattern"] ?? glob["pattern"] ?? "*",
+          path: args?.["targetDirectory"] ?? glob["path"],
+        },
         tool_use_id: callId,
       };
     }
@@ -236,7 +254,52 @@ export class CursorAdapter implements IAgentAdapter {
         events.push({ type: "tool_result", data: block });
       }
     }
+    // Text-only user messages (prompt echo) should not render as raw lines
+    // Return a system event to suppress them instead of empty array (which falls through to raw line)
+    if (events.length === 0) {
+      return [{ type: "unknown", data: parsed }];
+    }
     return events;
+  }
+
+  /**
+   * Extract tool result content from a completed tool_call event.
+   * Cursor nests results inside `tool_call[key].result.success.content` or at `parsed.result.stdout`.
+   */
+  private extractToolResultContent(parsed: Record<string, unknown>): string {
+    // Check top-level result (older format)
+    const topResult = parsed["result"] as Record<string, unknown> | undefined;
+    if (topResult) {
+      const stdout = topResult["stdout"] as string | undefined;
+      if (stdout) return stdout;
+      const interleaved = topResult["interleavedOutput"] as string | undefined;
+      if (interleaved) return interleaved;
+    }
+
+    // Walk the tool_call object to find .result.success.content
+    const toolCall = parsed["tool_call"] as Record<string, unknown> | undefined;
+    if (toolCall) {
+      for (const key of Object.keys(toolCall)) {
+        const call = toolCall[key] as Record<string, unknown> | undefined;
+        if (!call) continue;
+        const result = call["result"] as Record<string, unknown> | undefined;
+        if (!result) continue;
+        const success = result["success"] as Record<string, unknown> | undefined;
+        if (success) {
+          // Read tool: success.content is the file contents
+          if (typeof success["content"] === "string") return success["content"];
+          // Grep tool: success.workspaceResults has matches
+          if (success["workspaceResults"]) return JSON.stringify(success["workspaceResults"]);
+          // Other tools: stringify success
+          return JSON.stringify(success);
+        }
+        // Check for error result
+        const error = result["error"] as string | undefined;
+        if (error) return `Error: ${error}`;
+      }
+    }
+
+    return "";
   }
 
   extractTokenUsage(events: AgentEvent[]): TokenUsage | null {
