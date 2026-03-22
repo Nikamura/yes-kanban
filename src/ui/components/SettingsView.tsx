@@ -229,15 +229,54 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
   const [deleteTargetId, setDeleteTargetId] = useState<Id<"columns"> | null>(null);
 
   // Project settings local state (buffered to avoid mutation on every keystroke)
+  const [localName, setLocalName] = useState<string>("");
+  const [localSlug, setLocalSlug] = useState<string>("");
+  const [localPrefix, setLocalPrefix] = useState<string>("");
   const [localMaxReviewCycles, setLocalMaxReviewCycles] = useState<string>("");
   const [localCleanupDelayMin, setLocalCleanupDelayMin] = useState<string>("");
 
   useEffect(() => {
     if (project) {
+      setLocalName(project.name);
+      setLocalSlug(project.slug);
+      setLocalPrefix(project.simpleIdPrefix);
       setLocalMaxReviewCycles(String(project.maxReviewCycles));
       setLocalCleanupDelayMin(String(Math.round(project.cleanupDelayMs / 60000)));
     }
-  }, [project?.maxReviewCycles, project?.cleanupDelayMs]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- sync individual fields, not the whole object
+  }, [project?.name, project?.slug, project?.simpleIdPrefix, project?.maxReviewCycles, project?.cleanupDelayMs]);
+
+  const commitName = useCallback(() => {
+    const trimmed = localName.trim();
+    if (trimmed && project && trimmed !== project.name) {
+      void updateProject({ id: projectId, name: trimmed });
+    } else if (project) {
+      setLocalName(project.name);
+    }
+  }, [localName, project, projectId, updateProject]);
+
+  const commitSlug = useCallback(() => {
+    const normalized = localSlug
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    if (normalized && project && normalized !== project.slug) {
+      void updateProject({ id: projectId, slug: normalized }).catch(() => {
+        setLocalSlug(project.slug);
+      });
+    } else if (project) {
+      setLocalSlug(project.slug);
+    }
+  }, [localSlug, project, projectId, updateProject]);
+
+  const commitPrefix = useCallback(() => {
+    const normalized = localPrefix.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "");
+    if (normalized && project && normalized !== project.simpleIdPrefix) {
+      void updateProject({ id: projectId, simpleIdPrefix: normalized });
+    } else if (project) {
+      setLocalPrefix(project.simpleIdPrefix);
+    }
+  }, [localPrefix, project, projectId, updateProject]);
 
   const commitMaxReviewCycles = useCallback(() => {
     const val = Math.floor(Number(localMaxReviewCycles));
@@ -284,8 +323,36 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
   return (
     <div className="settings">
       <section className="settings-section">
-        <h2>Project: {project.name}</h2>
+        <h2>Project</h2>
         <div className="settings-grid">
+          <div className="setting-item">
+            <label>Name</label>
+            <input
+              value={localName}
+              onChange={(e) => setLocalName(e.target.value)}
+              onBlur={commitName}
+              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+            />
+          </div>
+          <div className="setting-item">
+            <label>Slug</label>
+            <input
+              value={localSlug}
+              onChange={(e) => setLocalSlug(e.target.value)}
+              onBlur={commitSlug}
+              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+            />
+          </div>
+          <div className="setting-item">
+            <label>Issue ID Prefix</label>
+            <input
+              value={localPrefix}
+              onChange={(e) => setLocalPrefix(e.target.value)}
+              onBlur={commitPrefix}
+              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+              style={{ width: "8em" }}
+            />
+          </div>
           <div className="setting-item">
             <label>Max Review Cycles</label>
             <input
@@ -821,9 +888,9 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                       beforeRunScript: repo.beforeRunScript ?? "",
                       afterRunScript: repo.afterRunScript ?? "",
                       cleanupScript: repo.cleanupScript ?? "",
-                      scriptTimeoutMs: repo.scriptTimeoutMs != null ? String(repo.scriptTimeoutMs) : "",
+                      scriptTimeoutMs: String(repo.scriptTimeoutMs),
                       testCommand: repo.testCommand ?? "",
-                      testTimeoutMs: repo.testTimeoutMs != null ? String(repo.testTimeoutMs) : "",
+                      testTimeoutMs: String(repo.testTimeoutMs),
                     });
                   }}
                 >
@@ -1028,7 +1095,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                 {(ac.allowedToolPatterns ?? []).length > 0 && (
                   <div className="allowed-tools-list">
                     <span className="allowed-tools-label">Auto-approved:</span>
-                    {ac.allowedToolPatterns!.map((pattern) => (
+                    {(ac.allowedToolPatterns ?? []).map((pattern) => (
                       <span key={pattern} className="allowed-tool-chip">
                         {pattern}
                         <button

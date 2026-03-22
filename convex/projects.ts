@@ -74,6 +74,8 @@ export const update = mutation({
   args: {
     id: v.id("projects"),
     name: v.optional(v.string()),
+    slug: v.optional(v.string()),
+    simpleIdPrefix: v.optional(v.string()),
     defaultAgentConfigId: v.optional(v.id("agentConfigs")),
     planningAgentConfigId: v.optional(v.union(v.id("agentConfigs"), v.null())),
     reviewAgentConfigId: v.optional(v.union(v.id("agentConfigs"), v.null())),
@@ -87,12 +89,25 @@ export const update = mutation({
     const project = await ctx.db.get(id);
     if (!project) throw new Error("Project not found");
 
+    // Validate slug uniqueness when changing it
+    if (updates.slug && updates.slug !== project.slug) {
+      const newSlug = updates.slug;
+      const existing = await ctx.db
+        .query("projects")
+        .withIndex("by_slug", (q) => q.eq("slug", newSlug))
+        .first();
+      if (existing) {
+        throw new Error(`Project with slug "${newSlug}" already exists`);
+      }
+    }
+
     // Separate null values (field deletions) from normal updates
     const patch: Record<string, unknown> = {};
     const fieldsToDelete: string[] = [];
-    for (const [key, value] of Object.entries(updates)) {
-      if (value === undefined) continue;
-      if (value === null) {
+    for (const [key, value] of Object.entries(updates) as [string, unknown][]) {
+      if (value === undefined) {
+        continue;
+      } else if (value === null) {
         fieldsToDelete.push(key);
       } else {
         patch[key] = value;
@@ -106,10 +121,12 @@ export const update = mutation({
 
     // Use db.replace only when fields need to be deleted (e.g. clearing reviewAgentConfigId)
     if (fieldsToDelete.length > 0) {
-      const current = (await ctx.db.get(id))!;
+      const current = await ctx.db.get(id);
+      if (!current) throw new Error("Project not found");
       const { _id, _creationTime, ...fields } = current;
+      const mutable = fields as Record<string, unknown>;
       for (const key of fieldsToDelete) {
-        delete (fields as Record<string, unknown>)[key];
+        mutable[key] = undefined;
       }
       await ctx.db.replace(id, fields);
     }
