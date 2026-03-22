@@ -1945,7 +1945,9 @@ export function performLocalMerge(worktrees: WorktreeEntry[], ffOnly = true): { 
       if (merge.exitCode !== 0) {
         // Abort any in-progress merge
         Bun.spawnSync(["git", "-C", wt.repoPath, "merge", "--abort"], { timeout: 10000, env });
-        const err = merge.stderr.toString().trim();
+        const stderr = merge.stderr.toString().trim();
+        const stdout = merge.stdout.toString().trim();
+        const err = stderr || stdout || "(no output)";
         return { success: false, error: `merge failed (${ahead} ahead, ${behind} behind): ${err}` };
       }
     }

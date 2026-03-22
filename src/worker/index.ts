@@ -170,7 +170,9 @@ async function main() {
             if (abortController.signal.aborted) return; // cancelled
             if (result === "success") {
               // Restore previous status after rebase (e.g. pr_open stays pr_open)
-              const restoreStatus = (ws as any).previousStatus ?? "completed";
+              // merge_failed should restore to completed — the rebase fixed the issue
+              const prev = (ws as any).previousStatus;
+              const restoreStatus = (!prev || prev === "merge_failed") ? "completed" : prev;
               await convex.mutation(api.workspaces.updateStatus, {
                 id: ws._id,
                 status: restoreStatus,
