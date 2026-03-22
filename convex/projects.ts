@@ -154,6 +154,11 @@ export const remove = mutation({
         for (const log of logs) {
           await ctx.db.delete(log._id);
         }
+        const promptDocs = await ctx.db
+          .query("runAttemptPrompts")
+          .withIndex("by_runAttempt", (q) => q.eq("runAttemptId", ra._id))
+          .collect();
+        for (const p of promptDocs) await ctx.db.delete(p._id);
         await ctx.db.delete(ra._id);
       }
       await ctx.db.delete(ws._id);

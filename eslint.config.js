@@ -13,6 +13,7 @@ export default tseslint.config(
       "scripts/",
       "eslint.config.js",
       "vite.config.ts",
+      "vitest.config.ts",
       "playwright.config.ts",
       "playwright.test.config.ts",
     ],
@@ -92,7 +93,7 @@ export default tseslint.config(
   },
   // Tests
   {
-    files: ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts"],
+    files: ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.vitest.ts"],
     rules: {
       "no-console": "off",
       "@typescript-eslint/no-floating-promises": "off",

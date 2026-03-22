@@ -24,15 +24,16 @@ export const create = mutation({
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
       .collect();
 
-    return await ctx.db.insert("runAttempts", {
+    const id = await ctx.db.insert("runAttempts", {
       workspaceId: args.workspaceId,
       agentConfigId: args.agentConfigId,
       type: args.type ?? "coding",
       attemptNumber: existing.length + 1,
-      prompt: args.prompt,
       status: "running",
       startedAt: Date.now(),
     });
+    await ctx.db.insert("runAttemptPrompts", { runAttemptId: id, prompt: args.prompt });
+    return id;
   },
 });
 

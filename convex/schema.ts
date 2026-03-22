@@ -173,7 +173,7 @@ export default defineSchema({
     agentConfigId: v.optional(v.id("agentConfigs")),
     type: v.string(),
     attemptNumber: v.number(),
-    prompt: v.string(),
+    prompt: v.optional(v.string()),
     status: v.string(),
     exitCode: v.optional(v.number()),
     startedAt: v.number(),
@@ -190,6 +190,11 @@ export default defineSchema({
     ),
     sessionId: v.optional(v.string()),
   }).index("by_workspace", ["workspaceId"]),
+
+  runAttemptPrompts: defineTable({
+    runAttemptId: v.id("runAttempts"),
+    prompt: v.string(),
+  }).index("by_runAttempt", ["runAttemptId"]),
 
   agentLogs: defineTable({
     runAttemptId: v.id("runAttempts"),

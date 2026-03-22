@@ -189,6 +189,11 @@ export const get = query({
     const configCache = new Map<string, { agentType: string; model?: string; name: string } | null>();
     const runAttempts = await Promise.all(
       rawRunAttempts.map(async (ra) => {
+        const promptDoc = await ctx.db
+          .query("runAttemptPrompts")
+          .withIndex("by_runAttempt", (q) => q.eq("runAttemptId", ra._id))
+          .first();
+        const prompt = promptDoc?.prompt ?? ra.prompt ?? "";
         let attemptAgent: { agentType: string; model?: string; name: string } | null = null;
         if (ra.agentConfigId) {
           const key = ra.agentConfigId;
@@ -200,7 +205,7 @@ export const get = query({
             configCache.set(key, attemptAgent);
           }
         }
-        return { ...ra, agentConfig: attemptAgent };
+        return { ...ra, prompt, agentConfig: attemptAgent };
       }),
     );
 
@@ -649,6 +654,11 @@ export const remove = mutation({
       for (const log of logs) {
         await ctx.db.delete(log._id);
       }
+      const promptDocs = await ctx.db
+        .query("runAttemptPrompts")
+        .withIndex("by_runAttempt", (q) => q.eq("runAttemptId", ra._id))
+        .collect();
+      for (const p of promptDocs) await ctx.db.delete(p._id);
       await ctx.db.delete(ra._id);
     }
 

@@ -226,13 +226,15 @@ Fields:
 - `workspaceId` (Id<"workspaces">)
 - `type` (string) — One of: `coding`, `review`, `conflict_resolution`. Indicates the purpose of this run.
 - `attemptNumber` (number) — 1-based.
-- `prompt` (string) — The prompt sent to the agent.
+- `prompt` (optional string) — Legacy inline field. New attempts store the full prompt in the `runAttemptPrompts` table so bulk queries (e.g. token stats) do not read large strings. `api.workspaces.get` resolves the effective prompt for the UI.
 - `status` (string) — One of: `running`, `succeeded`, `failed`, `timed_out`, `cancelled`.
 - `exitCode` (number or null)
 - `startedAt` (number)
 - `finishedAt` (number or null)
 - `error` (string or null)
 - `tokenUsage` (object or null) — `{ inputTokens, outputTokens, totalTokens }`.
+
+**Run attempt prompt (table `runAttemptPrompts`):** one row per attempt with `runAttemptId` and `prompt` (string), indexed by `runAttemptId`. Written by `runAttempts.create`; deleted when the parent workspace or project is removed.
 
 ### 4.7 Agent Log Entry
 
@@ -387,7 +389,7 @@ export default defineSchema({
     workspaceId: v.id("workspaces"),
     type: v.string(),
     attemptNumber: v.number(),
-    prompt: v.string(),
+    prompt: v.optional(v.string()),
     status: v.string(),
     exitCode: v.optional(v.number()),
     startedAt: v.number(),
@@ -401,6 +403,11 @@ export default defineSchema({
       })
     ),
   }).index("by_workspace", ["workspaceId"]),
+
+  runAttemptPrompts: defineTable({
+    runAttemptId: v.id("runAttempts"),
+    prompt: v.string(),
+  }).index("by_runAttempt", ["runAttemptId"]),
 
   agentLogs: defineTable({
     runAttemptId: v.id("runAttempts"),
