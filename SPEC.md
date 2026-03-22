@@ -36,7 +36,6 @@ Important boundary:
 - Require no authentication (single user, self-hosted, localhost by default).
 - Support auto-retry with exponential backoff on agent failure.
 - Track token usage and API costs across all agent runs.
-- Import/export issues from Linear, GitHub Issues, and Jira.
 - Send webhook notifications on dispatch, completion, and failure events.
 
 ### 2.2 Non-Goals
@@ -2461,7 +2460,3 @@ A conforming implementation must complete all items below.
 - Tool call logging as agent log entries.
 - Claude Code MCP config generation.
 
-### 23.11 Data Portability
-
-- Issue import from Linear, GitHub Issues, Jira.
-- Issue export to standard formats.
