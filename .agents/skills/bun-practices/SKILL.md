@@ -26,7 +26,7 @@ If the URL is unavailable, fall back to your training knowledge or web search.
 
 ## Testing
 
-We use `bun test` (Jest-compatible). Tests import from `bun:test`:
+We use `bun run test` (runs unit + E2E tests via `scripts/test-e2e.sh`). Tests import from `bun:test`:
 
 ```ts
 import { expect, test, describe, beforeEach, afterEach, mock } from "bun:test";
@@ -35,10 +35,11 @@ import { expect, test, describe, beforeEach, afterEach, mock } from "bun:test";
 ### Key patterns
 
 - **File naming**: `*.test.ts` or `*.spec.ts` -- bun discovers these automatically
-- **Run a single file**: `bun test ./path/to/file.test.ts` (prefix with `./` or `/`)
-- **Filter by name**: `bun test --test-name-pattern "pattern"`
+- **Run all tests**: `bun run test` (unit + E2E, same as pre-commit hook)
+- **Run a single file**: `bun run test --file ./path/to/file.test.ts`
+- **Filter by name**: `bun test --test-name-pattern "pattern" src/`
 - **Timeout**: default is 5000ms, override with `--timeout <ms>`
-- **Watch mode**: `bun test --watch`
+- **Watch mode**: `bun test --watch src/`
 
 ### Mocking
 
@@ -73,7 +74,7 @@ expect(value).toMatchSnapshot();      // file-based
 expect(value).toMatchInlineSnapshot(); // inline
 ```
 
-Update snapshots: `bun test --update-snapshots`
+Update snapshots: `bun test --update-snapshots src/`
 
 ## Bun APIs commonly used in this project
 
