@@ -1,5 +1,82 @@
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "../convex/_generated/api";
+
+/**
+ * Convex HTTP URL for E2E seeding (must match the UI’s `VITE_CONVEX_URL`).
+ * `scripts/test-e2e.sh` sets this to the isolated backend port.
+ */
+export function getE2eConvexUrl(): string {
+  return process.env["E2E_CONVEX_URL"] ?? "http://127.0.0.1:3210";
+}
+
+/**
+ * Create a project, issue, workspace in `awaiting_feedback`, and one pending
+ * agent question with exactly three suggested answers (Convex validation).
+ */
+export async function seedWorkspaceWithPendingQuestion(): Promise<{
+  slug: string;
+  issueSimpleId: string;
+  workspaceId: string;
+  suggestions: [string, string, string];
+}> {
+  const client = new ConvexHttpClient(getE2eConvexUrl(), {
+    skipConvexDeploymentUrlCheck: true,
+  });
+  const suffix = Date.now();
+  const slug = `e2e-wq-${suffix}`;
+
+  const projectId = await client.mutation(api.projects.create, {
+    name: `E2E Workspace Questions ${suffix}`,
+    slug,
+    simpleIdPrefix: "E2E",
+  });
+
+  const agentConfigId = await client.mutation(api.agentConfigs.create, {
+    projectId,
+    name: "E2E Agent",
+    agentType: "claude",
+    command: "echo",
+  });
+
+  const issueId = await client.mutation(api.issues.create, {
+    projectId,
+    title: "E2E workspace question flow",
+    description: "Seeded for workspace question UI test",
+    status: "To Do",
+  });
+
+  const workspaceId = await client.mutation(api.workspaces.create, {
+    issueId,
+    projectId,
+    agentConfigId,
+  });
+
+  await client.mutation(api.workspaces.updateStatus, {
+    id: workspaceId,
+    status: "awaiting_feedback",
+  });
+
+  const suggestions: [string, string, string] = [
+    "First suggested answer",
+    "Second suggested answer",
+    "Third suggested answer",
+  ];
+
+  await client.mutation(api.agentQuestions.create, {
+    workspaceId,
+    question: "Which approach should we take?",
+    suggestedAnswers: suggestions,
+  });
+
+  const issue = await client.query(api.issues.get, { id: issueId });
+  if (!issue) {
+    throw new Error("Expected issue after seeding");
+  }
+
+  return { slug, issueSimpleId: issue.simpleId, workspaceId, suggestions };
+}
 
 /**
  * Ensure a project exists on the board with at least one issue.

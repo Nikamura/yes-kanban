@@ -1520,7 +1520,7 @@ The review agent can be a different model than the coding agent (e.g. use a chea
 
 2. **Issue Detail Modal** — Opens as a centered modal (Jira-style) when an issue card is clicked. Full-screen on mobile, centered dialog on tablet/desktop. Shows full issue content, metadata, comments, linked workspaces with their status and lifecycle stage, and attachments. Supports editing all fields inline.
 
-3. **Workspace View** — Shows workspace details: agent configuration, lifecycle stage, run attempts, and real-time agent log output via Convex subscription. Includes a code diff viewer showing all changes made by the agent. Shows review results and test output. Has a Plan tab showing the implementation plan (editable), agent questions with answer forms, and a feedback message queue for bidirectional agent-user communication.
+3. **Workspace View** — Shows workspace details: agent configuration, lifecycle stage, run attempts, and real-time agent log output via Convex subscription. Includes a code diff viewer showing all changes made by the agent. Shows review results and test output. Has a Plan tab showing the implementation plan (editable), agent questions with answer forms, and a feedback message queue for bidirectional agent-user communication. When a question includes suggested answers, choosing a suggestion prefills the answer textarea so the user can edit or extend it before submitting with **Answer** (suggestions do not submit on their own).
 
 4. **List View** — Tabular view of all issues including hidden columns. Useful for bulk review.
 

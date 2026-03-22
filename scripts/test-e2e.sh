@@ -70,6 +70,7 @@ sleep 3
 
 # --- Run Playwright tests ---------------------------------------------
 echo "[test] Running Playwright tests..."
+E2E_CONVEX_URL="http://127.0.0.1:$TEST_CONVEX_PORT" \
 PLAYWRIGHT_BASE_URL="http://localhost:$TEST_VITE_PORT" \
   bunx playwright test --config=playwright.test.config.ts "$@"
 

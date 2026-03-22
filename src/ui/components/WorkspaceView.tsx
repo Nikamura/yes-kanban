@@ -422,7 +422,9 @@ export function WorkspaceView({
                                 <button
                                   key={i}
                                   className="btn btn-sm ws-question-suggestion"
-                                  onClick={() => void answerQuestion({ id: q._id, answer: suggestion })}
+                                  onClick={() =>
+                                    setAnswerDrafts((prev) => ({ ...prev, [q._id]: suggestion }))
+                                  }
                                 >
                                   {suggestion}
                                 </button>
