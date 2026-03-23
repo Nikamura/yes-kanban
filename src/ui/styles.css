@@ -3139,6 +3139,34 @@ button.log-expand-icon {
 .diff-file-deleted { color: var(--danger); }
 .diff-file-modified { color: var(--warning); }
 
+/* Virtualized unified diff — per-row file section borders */
+.diff-virt-row {
+  overflow: hidden;
+}
+
+.diff-virt-file-body {
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.diff-virt-file-first {
+  border-top: 1px solid var(--border);
+  border-top-left-radius: var(--radius-sm);
+  border-top-right-radius: var(--radius-sm);
+}
+
+.diff-virt-file-last {
+  border-bottom: 1px solid var(--border);
+  border-bottom-left-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+/* Padding (not margin) so height includes the gap for absolutely-positioned virtual rows. */
+.diff-virt-file-gap-after {
+  padding-bottom: 16px;
+}
+
 /* Token Usage Dashboard */
 .dashboard {
   padding: 24px;

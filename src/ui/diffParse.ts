@@ -102,3 +102,125 @@ export function buildUnifiedRows(header: string, lines: string[]): UnifiedRow[] 
 
   return rows;
 }
+
+/** One render row for virtualized unified diff (flattened from nested file/hunk structure). */
+export type FlatDiffItem =
+  | {
+      kind: "file-header";
+      fileIndex: number;
+      path: string;
+      status: DiffFileStatus;
+      isFirstInFile: boolean;
+      isLastInFile: boolean;
+    }
+  | {
+      kind: "binary-note";
+      fileIndex: number;
+      isFirstInFile: boolean;
+      isLastInFile: boolean;
+    }
+  | {
+      kind: "no-changes-note";
+      fileIndex: number;
+      isFirstInFile: boolean;
+      isLastInFile: boolean;
+    }
+  | {
+      kind: "hunk-header";
+      fileIndex: number;
+      text: string;
+      isFirstInFile: boolean;
+      isLastInFile: boolean;
+    }
+  | {
+      kind: "diff-line";
+      fileIndex: number;
+      row: UnifiedRow;
+      isFirstInFile: boolean;
+      isLastInFile: boolean;
+    };
+
+/** Row count for the flattened diff, without allocating flat items (matches `flattenDiffFiles(files).length`). */
+export function countFlatDiffRows(files: RawDiffFile[]): number {
+  let n = 0;
+  for (const file of files) {
+    n += 1;
+    if (file.isBinary) {
+      n += 1;
+    } else if (file.hunks.length === 0) {
+      n += 1;
+    } else {
+      for (const hunk of file.hunks) {
+        n += 1 + hunk.lines.length;
+      }
+    }
+  }
+  return n;
+}
+
+/** Flattens parsed files into a single list for windowed rendering. */
+export function flattenDiffFiles(files: RawDiffFile[]): FlatDiffItem[] {
+  const out: FlatDiffItem[] = [];
+
+  for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
+    const file = files[fileIndex];
+    if (file === undefined) continue;
+    const chunk: FlatDiffItem[] = [];
+
+    chunk.push({
+      kind: "file-header",
+      fileIndex,
+      path: file.path,
+      status: file.status,
+      isFirstInFile: true,
+      isLastInFile: false,
+    });
+
+    if (file.isBinary) {
+      chunk.push({
+        kind: "binary-note",
+        fileIndex,
+        isFirstInFile: false,
+        isLastInFile: false,
+      });
+    } else if (file.hunks.length === 0) {
+      chunk.push({
+        kind: "no-changes-note",
+        fileIndex,
+        isFirstInFile: false,
+        isLastInFile: false,
+      });
+    } else {
+      for (const hunk of file.hunks) {
+        const rows = buildUnifiedRows(hunk.header, hunk.lines);
+        for (const row of rows) {
+          if (row.kind === "hunk-header") {
+            chunk.push({
+              kind: "hunk-header",
+              fileIndex,
+              text: row.text,
+              isFirstInFile: false,
+              isLastInFile: false,
+            });
+          } else {
+            chunk.push({
+              kind: "diff-line",
+              fileIndex,
+              row,
+              isFirstInFile: false,
+              isLastInFile: false,
+            });
+          }
+        }
+      }
+    }
+
+    if (chunk.length > 0) {
+      const last = chunk[chunk.length - 1];
+      if (last !== undefined) last.isLastInFile = true;
+    }
+    out.push(...chunk);
+  }
+
+  return out;
+}

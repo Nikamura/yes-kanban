@@ -1561,6 +1561,7 @@ The workspace view includes a live unified diff viewer (plain HTML/CSS, no edito
 
 - **Live updates:** During the coding stage, the worker polls `git diff` every 5 seconds and writes `diffOutput` on the workspace document. The UI receives changes in real-time via Convex subscriptions — no manual refresh needed. (There is no separate file-tree snapshot or on-demand file read path; the diff string is the source of truth for changed content.)
 - **Unified diff:** Renders the full `git diff` output in one scrollable view. Each file is a section with path and status badge (A = added, M = modified, D = deleted). Hunk headers (`@@`) separate change blocks; added lines use a green tint, removed lines a red tint, with old/new line numbers in gutters.
+- **Large diffs:** The UI counts flat rows (same rules as the flattened list: file headers, hunk headers, and lines) without building the full list; only above 500 rows does it allocate the flat list and use `@tanstack/react-virtual` for the visible window. Smaller diffs render normally with no virtualization overhead. Scroll resets to the top only when a fingerprint of the diff changes (`length` plus the first 100 characters), not on every substring edit.
 - **Binary files:** When the diff indicates a binary change, a short note is shown instead of line-by-line content.
 
 ### 12.5 Agent Log Stream

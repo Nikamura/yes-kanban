@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildUnifiedRows, splitDiffByFile } from "./diffParse";
+import { buildUnifiedRows, countFlatDiffRows, flattenDiffFiles, splitDiffByFile } from "./diffParse";
 
 describe("splitDiffByFile", () => {
   test("returns empty array for empty diff", () => {
@@ -107,5 +107,125 @@ describe("buildUnifiedRows", () => {
     const rows = buildUnifiedRows("@@ -1,1 +1,1 @@", [" line", "\\ No newline at end of file"]);
     const meta = rows.find((r) => r.kind === "meta");
     expect(meta?.text).toBe("No newline at end of file");
+  });
+});
+
+describe("countFlatDiffRows", () => {
+  test("matches flattenDiffFiles length for sample diffs", () => {
+    expect(countFlatDiffRows([])).toBe(0);
+    const multi = splitDiffByFile(`diff --git a/a.txt b/a.txt
+@@ -0,0 +1,1 @@
++a
+diff --git a/b.txt b/b.txt
+@@ -0,0 +1,1 @@
++b
+`);
+    expect(countFlatDiffRows(multi)).toBe(flattenDiffFiles(multi).length);
+    const binary = splitDiffByFile(`diff --git a/img.png b/img.png
+Binary files a/img.png and b/img.png differ
+`);
+    expect(countFlatDiffRows(binary)).toBe(flattenDiffFiles(binary).length);
+  });
+});
+
+describe("flattenDiffFiles", () => {
+  test("returns empty array for empty files list", () => {
+    expect(flattenDiffFiles([])).toEqual([]);
+  });
+
+  test("single file with one hunk produces correct sequence and boundary flags", () => {
+    const files = splitDiffByFile(`diff --git a/src/foo.ts b/src/foo.ts
+index 111..222 100644
+--- a/src/foo.ts
++++ b/src/foo.ts
+@@ -1,2 +1,3 @@
+ a
+-b
++c
+ d
+`);
+    const flat = flattenDiffFiles(files);
+    expect(flat.length).toBeGreaterThanOrEqual(3);
+    expect(flat[0]).toMatchObject({
+      kind: "file-header",
+      fileIndex: 0,
+      path: "src/foo.ts",
+      status: "modified",
+      isFirstInFile: true,
+      isLastInFile: false,
+    });
+    expect(flat[flat.length - 1]?.isLastInFile).toBe(true);
+    const kinds = flat.map((i) => i.kind);
+    expect(kinds[0]).toBe("file-header");
+    expect(kinds).toContain("hunk-header");
+    expect(kinds).toContain("diff-line");
+  });
+
+  test("binary file yields file-header then binary-note", () => {
+    const files = splitDiffByFile(`diff --git a/img.png b/img.png
+Binary files a/img.png and b/img.png differ
+`);
+    const flat = flattenDiffFiles(files);
+    expect(flat).toEqual([
+      {
+        kind: "file-header",
+        fileIndex: 0,
+        path: "img.png",
+        status: "modified",
+        isFirstInFile: true,
+        isLastInFile: false,
+      },
+      {
+        kind: "binary-note",
+        fileIndex: 0,
+        isFirstInFile: false,
+        isLastInFile: true,
+      },
+    ]);
+  });
+
+  test("multiple files interleave with correct fileIndex", () => {
+    const files = splitDiffByFile(`diff --git a/a.txt b/a.txt
+@@ -0,0 +1,1 @@
++a
+diff --git a/b.txt b/b.txt
+@@ -0,0 +1,1 @@
++b
+`);
+    const flat = flattenDiffFiles(files);
+    const headers = flat.filter((i) => i.kind === "file-header");
+    expect(headers).toHaveLength(2);
+    expect(headers[0]).toMatchObject({ fileIndex: 0, path: "a.txt" });
+    expect(headers[1]).toMatchObject({ fileIndex: 1, path: "b.txt" });
+    const byFile = (fi: number) => flat.filter((i) => i.fileIndex === fi);
+    expect(byFile(0)[0]?.kind).toBe("file-header");
+    expect(byFile(0).at(-1)?.isLastInFile).toBe(true);
+    expect(byFile(1)[0]?.kind).toBe("file-header");
+    expect(byFile(1).at(-1)?.isLastInFile).toBe(true);
+  });
+
+  test("file with no hunks and not binary yields header and no-changes-note", () => {
+    const files = splitDiffByFile(`diff --git a/empty.txt b/empty.txt
+index 111..222 100644
+--- a/empty.txt
++++ b/empty.txt
+`);
+    const flat = flattenDiffFiles(files);
+    expect(flat).toEqual([
+      {
+        kind: "file-header",
+        fileIndex: 0,
+        path: "empty.txt",
+        status: "modified",
+        isFirstInFile: true,
+        isLastInFile: false,
+      },
+      {
+        kind: "no-changes-note",
+        fileIndex: 0,
+        isFirstInFile: false,
+        isLastInFile: true,
+      },
+    ]);
   });
 });
