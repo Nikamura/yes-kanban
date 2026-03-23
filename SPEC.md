@@ -156,6 +156,7 @@ Fields:
 - `skipPlanning` (boolean, optional) — When `false`, the planning phase runs; when `true` or unset (legacy), planning is skipped by default in the worker.
 - `autoPlanReview` (boolean, optional) — Run an automated plan review when planning is enabled.
 - `maxConcurrent` (number or null, optional) — Max concurrent agent runs **for this project** (dispatch limit). Distinct from the worker-wide `maxConcurrentAgents` cap. Cleared in the UI stores `null` or removes the field.
+- `maxConcurrentPlanning`, `maxConcurrentCoding`, `maxConcurrentTesting`, `maxConcurrentReviewing` (number or null, optional each) — Optional per-phase caps **for this project** (planning / coding / testing / reviewing workspace statuses). Unset or `null` means no per-phase limit for that phase. These apply in addition to `maxConcurrent` and the worker-wide limits.
 - `createdAt` (number)
 
 ### 4.3 Column
@@ -658,11 +659,24 @@ api.dispatch.next: () => {
 // Mutation: worker claims a workspace for execution
 api.dispatch.claim: (args: { workspaceId: Id<"workspaces"> }) => boolean
 
+// Query: whether this workspace may transition into the given phase (global + per-project per-phase limits)
+api.dispatch.canEnterPhase: (args: {
+  workspaceId: Id<"workspaces">;
+  phase: "planning" | "coding" | "testing" | "reviewing";
+}) => boolean
+
 // Query: system status for dashboard
 api.dispatch.status: () => {
   runningCount: number;
   queuedCount: number;
   maxConcurrent: number;
+  maxConcurrentPlanning?: number;
+  maxConcurrentCoding?: number;
+  maxConcurrentTesting?: number;
+  maxConcurrentReviewing?: number;
+  phaseCounts: { planning: number; coding: number; testing: number; reviewing: number };
+  lastPollAt: number | null;
+  workerConnected: boolean;
   recentCompletions: Array<{ workspaceId: Id<"workspaces">; status: string; finishedAt: number }>;
 }
 ```
@@ -1221,6 +1235,16 @@ promptTemplates:
 - `project.maxConcurrent` limits how many workspaces for that project can be in running agent states at once.
 - If unset, only the global worker limit applies.
 - The runtime counts running workspaces **per project** when this is set.
+
+#### Per-phase limits (optional; YES-214)
+
+- **Worker state** (`workerState`): optional `maxConcurrentPlanning`, `maxConcurrentCoding`, `maxConcurrentTesting`, `maxConcurrentReviewing` cap how many workspaces may be in those statuses **globally** (across all projects).
+- **Project**: the same four optional fields cap per-phase concurrency **within that project**.
+- Unset or cleared means **no** per-phase constraint for that phase. These apply **in addition** to `maxConcurrentAgents` and `project.maxConcurrent` (overall caps).
+- **Validation**: `projects.update` and `dispatch.updateMaxConcurrent` reject numeric limits below `1` (server-side, not only the UI).
+- `claimed` and `rebasing` do **not** count toward per-phase limits.
+- Before entering a phase (including dispatch into the first phase: planning or coding), the worker checks capacity; if full, the lifecycle **polls every** ~3s until a slot is available or the run is cancelled. The agent slot from the overall worker semaphore is **not** released while waiting.
+- **Optimistic checks**: `canEnterPhase` is a query, not a lock. Two workspaces can both observe free capacity and enter the same phase within one poll interval, temporarily exceeding the configured limit by at most a small number (typically one per cycle). The next check self-corrects; this is acceptable for solo-scale use.
 
 #### Dispatch ordering
 

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { PromptTemplatesSection } from "./PromptTemplatesSection";
 import { IssueTemplatesSection } from "./IssueTemplatesSection";
@@ -26,6 +26,74 @@ const DEFAULT_COMMANDS: Record<string, string> = {
   codex: "codex",
   cursor: "agent",
 };
+
+const SETTINGS_CONCURRENCY_DEBOUNCE_MS = 400;
+
+/** Debounces rapid typing in numeric concurrency fields so we do not run a mutation per keystroke. */
+function useDebouncedCallback<A extends unknown[]>(
+  fn: (...args: A) => void,
+  delayMs: number,
+): (...args: A) => void {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fnRef = useRef(fn);
+  useEffect(() => {
+    fnRef.current = fn;
+  }, [fn]);
+  return useCallback(
+    (...args: A) => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        fnRef.current(...args);
+      }, delayMs);
+    },
+    [delayMs],
+  );
+}
+
+function formatPhaseLimitDraft(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  return String(value);
+}
+
+function PhaseLimitInput({
+  label,
+  value,
+  onCommit,
+  inputWidth = "6em",
+}: {
+  label: string;
+  value: number | null | undefined;
+  onCommit: (next: number | null) => void;
+  inputWidth?: string;
+}) {
+  const [focused, setFocused] = useState(false);
+  const [draft, setDraft] = useState("");
+  const displayValue = focused ? draft : formatPhaseLimitDraft(value);
+
+  return (
+    <div className="setting-item">
+      <label>{label}</label>
+      <input
+        type="number"
+        min={1}
+        placeholder="Unlimited"
+        value={displayValue}
+        onChange={(e) => {
+          const val = e.target.value;
+          if (focused) setDraft(val);
+          onCommit(val === "" ? null : Math.max(1, Math.floor(Number(val))));
+        }}
+        onFocus={() => {
+          setFocused(true);
+          setDraft(formatPhaseLimitDraft(value));
+        }}
+        onBlur={() => setFocused(false)}
+        style={{ width: inputWidth }}
+      />
+    </div>
+  );
+}
 
 function AgentAdvancedFields({ form, setForm }: {
   form: AgentAdvancedForm;
@@ -136,6 +204,18 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
   const updateProject = useMutation(api.projects.update);
   const removeProject = useMutation(api.projects.remove);
   const updateMaxConcurrent = useMutation(api.dispatch.updateMaxConcurrent);
+  const debouncedUpdateMaxConcurrent = useDebouncedCallback(
+    (args: Parameters<typeof updateMaxConcurrent>[0]) => {
+      void updateMaxConcurrent(args);
+    },
+    SETTINGS_CONCURRENCY_DEBOUNCE_MS,
+  );
+  const debouncedUpdateProject = useDebouncedCallback(
+    (args: Parameters<typeof updateProject>[0]) => {
+      void updateProject(args);
+    },
+    SETTINGS_CONCURRENCY_DEBOUNCE_MS,
+  );
   const syncMcpFromJson = useMutation(api.mcpServerConfigs.syncFromJson);
   const updateSkill = useMutation(api.skills.update);
   const removeSkill = useMutation(api.skills.remove);
@@ -447,11 +527,38 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                 value={dispatchStatus.maxConcurrent}
                 onChange={(e) => {
                   const val = Number(e.target.value);
-                  if (val >= 1) void updateMaxConcurrent({ maxConcurrentAgents: val });
+                  if (val >= 1) debouncedUpdateMaxConcurrent({ maxConcurrentAgents: val });
                 }}
                 style={{ width: "5em" }}
               />
             </div>
+            <div className="setting-item" style={{ gridColumn: "1 / -1" }}>
+              <label>Active workspaces by phase</label>
+              <span style={{ fontSize: "0.9rem" }}>
+                {dispatchStatus.phaseCounts.planning} planning, {dispatchStatus.phaseCounts.coding} coding,{" "}
+                {dispatchStatus.phaseCounts.testing} testing, {dispatchStatus.phaseCounts.reviewing} reviewing
+              </span>
+            </div>
+            <PhaseLimitInput
+              label="Max concurrent — planning (global)"
+              value={dispatchStatus.maxConcurrentPlanning}
+              onCommit={(v) => debouncedUpdateMaxConcurrent({ maxConcurrentPlanning: v })}
+            />
+            <PhaseLimitInput
+              label="Max concurrent — coding (global)"
+              value={dispatchStatus.maxConcurrentCoding}
+              onCommit={(v) => debouncedUpdateMaxConcurrent({ maxConcurrentCoding: v })}
+            />
+            <PhaseLimitInput
+              label="Max concurrent — testing (global)"
+              value={dispatchStatus.maxConcurrentTesting}
+              onCommit={(v) => debouncedUpdateMaxConcurrent({ maxConcurrentTesting: v })}
+            />
+            <PhaseLimitInput
+              label="Max concurrent — reviewing (global)"
+              value={dispatchStatus.maxConcurrentReviewing}
+              onCommit={(v) => debouncedUpdateMaxConcurrent({ maxConcurrentReviewing: v })}
+            />
           </div>
         )}
       </section>
@@ -493,23 +600,56 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
               </label>
             </div>
           )}
-          <div className="setting-item">
-            <label>Max concurrent agents (this project)</label>
-            <input
-              type="number"
-              min={1}
-              placeholder="Unlimited"
-              value={project.maxConcurrent ?? ""}
-              onChange={(e) => {
-                const val = e.target.value;
-                void updateProject({
-                  id: projectId,
-                  maxConcurrent: val === "" ? null : Math.max(1, Math.floor(Number(val))),
-                });
-              }}
-              style={{ width: "6em" }}
-            />
-          </div>
+          <PhaseLimitInput
+            label="Max concurrent agents (this project)"
+            value={project.maxConcurrent}
+            onCommit={(v) =>
+              debouncedUpdateProject({
+                id: projectId,
+                maxConcurrent: v,
+              })
+            }
+          />
+          <PhaseLimitInput
+            label="Max concurrent — planning (this project)"
+            value={project.maxConcurrentPlanning}
+            onCommit={(v) =>
+              debouncedUpdateProject({
+                id: projectId,
+                maxConcurrentPlanning: v,
+              })
+            }
+          />
+          <PhaseLimitInput
+            label="Max concurrent — coding (this project)"
+            value={project.maxConcurrentCoding}
+            onCommit={(v) =>
+              debouncedUpdateProject({
+                id: projectId,
+                maxConcurrentCoding: v,
+              })
+            }
+          />
+          <PhaseLimitInput
+            label="Max concurrent — testing (this project)"
+            value={project.maxConcurrentTesting}
+            onCommit={(v) =>
+              debouncedUpdateProject({
+                id: projectId,
+                maxConcurrentTesting: v,
+              })
+            }
+          />
+          <PhaseLimitInput
+            label="Max concurrent — reviewing (this project)"
+            value={project.maxConcurrentReviewing}
+            onCommit={(v) =>
+              debouncedUpdateProject({
+                id: projectId,
+                maxConcurrentReviewing: v,
+              })
+            }
+          />
           <div className="setting-item">
             <label>Merge policy</label>
             <select

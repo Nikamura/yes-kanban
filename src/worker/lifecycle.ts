@@ -411,6 +411,45 @@ function startDiffPolling(
   return () => clearInterval(timer);
 }
 
+const PHASE_CAPACITY_POLL_MS = 3000;
+
+function sleepAbortable(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const t = setTimeout(resolve, ms);
+    signal.addEventListener("abort", () => {
+      clearTimeout(t);
+      reject(new DOMException("Aborted", "AbortError"));
+    }, { once: true });
+  });
+}
+
+/**
+ * Polls `canEnterPhase` until capacity or abort (see SPEC §9.5 for optimistic concurrency).
+ * Returns false when aborted before capacity is available.
+ */
+async function waitForPhaseCapacity(
+  convex: ConvexClient,
+  workspaceId: Id<"workspaces">,
+  phase: "planning" | "coding" | "testing" | "reviewing",
+  abortSignal: AbortSignal,
+): Promise<boolean> {
+  while (!abortSignal.aborted) {
+    const ok = await convex.query(api.dispatch.canEnterPhase, { workspaceId, phase });
+    if (ok) return true;
+    console.log(`[lifecycle] workspace=${workspaceId} waiting for ${phase} slot (phase concurrency)`);
+    try {
+      await sleepAbortable(PHASE_CAPACITY_POLL_MS, abortSignal);
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
 /**
  * Full development lifecycle for a workspace:
  * creating → coding → testing → reviewing → completed
@@ -735,6 +774,7 @@ export async function runLifecycle(
   const planApproved = currentWorkspace?.planApproved ?? false;
 
   if (!skipPlanning && !planApproved) {
+    if (!(await waitForPhaseCapacity(convex, workspaceId, "planning", abortSignal))) return;
     await convex.mutation(api.workspaces.updateStatus, {
       id: workspaceId,
       status: "planning",
@@ -920,6 +960,7 @@ export async function runLifecycle(
             }
 
             // Re-run planning agent with review feedback
+            if (!(await waitForPhaseCapacity(convex, workspaceId, "planning", abortSignal))) return;
             await convex.mutation(api.workspaces.updateStatus, {
               id: workspaceId,
               status: "planning",
@@ -1010,6 +1051,7 @@ export async function runLifecycle(
     console.log(`[lifecycle] workspace=${workspaceId} rebase complete, proceeding to coding`);
   }
 
+  if (!(await waitForPhaseCapacity(convex, workspaceId, "coding", abortSignal))) return;
   await convex.mutation(api.workspaces.updateStatus, {
     id: workspaceId,
     status: "coding",
@@ -1029,6 +1071,7 @@ export async function runLifecycle(
   const reviewRequested = currentWorkspace?.reviewRequested;
   if (reviewRequested) {
     console.log(`[lifecycle] workspace=${workspaceId} review requested — skipping coding and testing`);
+    if (!(await waitForPhaseCapacity(convex, workspaceId, "reviewing", abortSignal))) return;
     await convex.mutation(api.workspaces.updateStatus, {
       id: workspaceId, status: "reviewing",
     });
@@ -1132,6 +1175,7 @@ export async function runLifecycle(
     }
     if (!project?.skipTests) {
       console.log(`[lifecycle] workspace=${workspaceId} running tests`);
+      if (!(await waitForPhaseCapacity(convex, workspaceId, "testing", abortSignal))) return;
       const testResult = await runTests(convex, workspaceId, repos, worktrees, abortSignal);
       if (abortSignal.aborted) return;
       if (testResult && !testResult.passed) {
@@ -1157,6 +1201,7 @@ export async function runLifecycle(
       const maxCycles = project.maxReviewCycles;
 
       while (reviewCycles < maxCycles) {
+        if (!(await waitForPhaseCapacity(convex, workspaceId, "reviewing", abortSignal))) return;
         await convex.mutation(api.workspaces.updateStatus, {
           id: workspaceId, status: "reviewing",
         });
@@ -1239,6 +1284,7 @@ export async function runLifecycle(
         }
 
         // Re-run coding with feedback, resuming the coding session
+        if (!(await waitForPhaseCapacity(convex, workspaceId, "coding", abortSignal))) return;
         await convex.mutation(api.workspaces.updateStatus, {
           id: workspaceId, status: "coding",
         });
@@ -1267,6 +1313,7 @@ export async function runLifecycle(
 
         // Re-run tests
         if (!project.skipTests) {
+          if (!(await waitForPhaseCapacity(convex, workspaceId, "testing", abortSignal))) return;
           const retestResult = await runTests(convex, workspaceId, repos, worktrees, abortSignal);
           if (abortSignal.aborted) return;
           if (retestResult && !retestResult.passed) {

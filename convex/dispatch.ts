@@ -1,9 +1,85 @@
 import { v } from "convex/values";
+import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
+import { assertAtLeastOneWhenNumber } from "./lib/concurrencyLimits";
 import { autoMoveIssueToNextColumn, TERMINAL_COLUMN_NAMES } from "./workspaces";
 
 const TERMINAL_STATUSES = TERMINAL_COLUMN_NAMES as readonly string[];
 const RUNNING_STATUSES = ["claimed", "planning", "coding", "testing", "reviewing", "rebasing"] as const;
+
+/** Indices into `RUNNING_STATUSES` query batches (same order as `Promise.all` in `status`). */
+const RUNNING_INDEX = Object.fromEntries(
+  RUNNING_STATUSES.map((s, i) => [s, i]),
+) as { [K in (typeof RUNNING_STATUSES)[number]]: number };
+
+export type DispatchPhase = "planning" | "coding" | "testing" | "reviewing";
+
+/** Convex validator for dispatch phase literals — reuse when adding args that name a lifecycle phase. */
+export const dispatchPhaseArg = v.union(
+  v.literal("planning"),
+  v.literal("coding"),
+  v.literal("testing"),
+  v.literal("reviewing"),
+);
+
+/**
+ * Returns whether global and per-project phase limits allow another workspace in the phase.
+ * Unset limits mean no constraint for that dimension.
+ */
+export function phaseLimitsAllowEntry(
+  countGlobal: number,
+  countInProject: number,
+  globalLimit: number | undefined,
+  projectLimit: number | null | undefined,
+): boolean {
+  if (globalLimit !== undefined && countGlobal >= globalLimit) return false;
+  if (projectLimit !== null && projectLimit !== undefined && countInProject >= projectLimit) {
+    return false;
+  }
+  return true;
+}
+
+function globalPhaseLimit(
+  workerState: Doc<"workerState"> | null | undefined,
+  phase: DispatchPhase,
+): number | undefined {
+  if (!workerState) return undefined;
+  switch (phase) {
+    case "planning":
+      return workerState.maxConcurrentPlanning;
+    case "coding":
+      return workerState.maxConcurrentCoding;
+    case "testing":
+      return workerState.maxConcurrentTesting;
+    case "reviewing":
+      return workerState.maxConcurrentReviewing;
+    default: {
+      const _exhaustive: never = phase;
+      return _exhaustive;
+    }
+  }
+}
+
+function projectPhaseLimit(
+  project: Doc<"projects"> | null | undefined,
+  phase: DispatchPhase,
+): number | null | undefined {
+  if (!project) return undefined;
+  switch (phase) {
+    case "planning":
+      return project.maxConcurrentPlanning;
+    case "coding":
+      return project.maxConcurrentCoding;
+    case "testing":
+      return project.maxConcurrentTesting;
+    case "reviewing":
+      return project.maxConcurrentReviewing;
+    default: {
+      const _exhaustive: never = phase;
+      return _exhaustive;
+    }
+  }
+}
 
 /**
  * Check if any blocker issue is unresolved.
@@ -17,6 +93,47 @@ export function isBlockedByUnresolved(
     (issue) => issue !== null && !TERMINAL_STATUSES.includes(issue.status),
   );
 }
+
+/**
+ * Whether this workspace may transition into `phase` given global + per-project limits.
+ * Counts workspaces already in that status; **excludes** `workspaceId` so callers re-entering
+ * the same phase (e.g. replanning) are not counted against themselves.
+ * See SPEC §9.5 — concurrent waiters may briefly overshoot by one until the next check.
+ */
+export const canEnterPhase = query({
+  args: {
+    workspaceId: v.id("workspaces"),
+    phase: dispatchPhaseArg,
+  },
+  handler: async (ctx, args) => {
+    const workspace = await ctx.db.get(args.workspaceId);
+    if (!workspace) return false;
+
+    const inPhase = await ctx.db
+      .query("workspaces")
+      .withIndex("by_status", (q) => q.eq("status", args.phase))
+      .collect();
+
+    const countGlobal = inPhase.filter((w) => w._id !== args.workspaceId).length;
+    const countInProject = inPhase.filter(
+      (w) => w._id !== args.workspaceId && w.projectId === workspace.projectId,
+    ).length;
+
+    const workerState = await ctx.db
+      .query("workerState")
+      .withIndex("by_workerId", (q) => q.eq("workerId", "default"))
+      .unique();
+
+    const project = await ctx.db.get(workspace.projectId);
+
+    return phaseLimitsAllowEntry(
+      countGlobal,
+      countInProject,
+      globalPhaseLimit(workerState, args.phase),
+      projectPhaseLimit(project, args.phase),
+    );
+  },
+});
 
 export const next = query({
   args: {},
@@ -63,12 +180,16 @@ export const next = query({
     unblocked.sort((a, b) => a.workspace.createdAt - b.workspace.createdAt);
 
     const projectIds = [...new Set(unblocked.map((w) => w.workspace.projectId))];
-    const [allRunning, ...projectDocs] = await Promise.all([
+    const [allRunning, workerState, ...projectDocs] = await Promise.all([
       Promise.all(
         RUNNING_STATUSES.map((s) =>
           ctx.db.query("workspaces").withIndex("by_status", (q) => q.eq("status", s)).collect()
         )
       ).then((results) => results.flat()),
+      ctx.db
+        .query("workerState")
+        .withIndex("by_workerId", (q) => q.eq("workerId", "default"))
+        .unique(),
       ...projectIds.map((pid) => ctx.db.get(pid)),
     ]);
 
@@ -81,12 +202,36 @@ export const next = query({
       runningPerProject[pid] = (runningPerProject[pid] ?? 0) + 1;
     }
 
+    // Dispatch candidates are always `status === "creating"`, so they are not in `allRunning` and
+    // must not be subtracted here (unlike `canEnterPhase`, which excludes the current workspace row).
+    const countInPhase = (phase: DispatchPhase) =>
+      allRunning.filter((w) => w.status === phase).length;
+    const countInPhaseForProject = (phase: DispatchPhase, projectId: Id<"projects">) =>
+      allRunning.filter((w) => w.status === phase && w.projectId === projectId).length;
+
     const first = unblocked.find((candidate) => {
       const pid = candidate.workspace.projectId;
       const proj = projectsById.get(pid);
       const limit = proj?.maxConcurrent;
-      if (limit === undefined || limit === null) return true;
-      return (runningPerProject[pid] ?? 0) < limit;
+      if (limit !== undefined && limit !== null && (runningPerProject[pid] ?? 0) >= limit) {
+        return false;
+      }
+
+      const initialPhase: DispatchPhase = proj?.skipPlanning === false ? "planning" : "coding";
+      const cg = countInPhase(initialPhase);
+      const cp = countInPhaseForProject(initialPhase, pid);
+      if (
+        !phaseLimitsAllowEntry(
+          cg,
+          cp,
+          globalPhaseLimit(workerState, initialPhase),
+          projectPhaseLimit(proj, initialPhase),
+        )
+      ) {
+        return false;
+      }
+
+      return true;
     });
 
     if (!first?.agentConfig) return null;
@@ -198,6 +343,16 @@ export const status = query({
       runningCount: running.length,
       queuedCount: queued.length,
       maxConcurrent: workerState?.maxConcurrentAgents ?? 3,
+      maxConcurrentPlanning: workerState?.maxConcurrentPlanning,
+      maxConcurrentCoding: workerState?.maxConcurrentCoding,
+      maxConcurrentTesting: workerState?.maxConcurrentTesting,
+      maxConcurrentReviewing: workerState?.maxConcurrentReviewing,
+      phaseCounts: {
+        planning: runningResults[RUNNING_INDEX.planning]?.length ?? 0,
+        coding: runningResults[RUNNING_INDEX.coding]?.length ?? 0,
+        testing: runningResults[RUNNING_INDEX.testing]?.length ?? 0,
+        reviewing: runningResults[RUNNING_INDEX.reviewing]?.length ?? 0,
+      },
       lastPollAt,
       workerConnected,
       recentCompletions: recent.map((w) => ({
@@ -209,27 +364,98 @@ export const status = query({
   },
 });
 
+const PHASE_LIMIT_FIELDS = [
+  "maxConcurrentPlanning",
+  "maxConcurrentCoding",
+  "maxConcurrentTesting",
+  "maxConcurrentReviewing",
+] as const;
+
+/**
+ * Updates concurrency settings with `db.patch` when possible so heartbeat (`lastPollAt` /
+ * `activeCount`) is not overwritten. Clearing a phase limit (`null`) uses the same
+ * get-and-replace pattern as `projects.update` for optional field deletion.
+ */
 export const updateMaxConcurrent = mutation({
-  args: { maxConcurrentAgents: v.number() },
+  args: {
+    maxConcurrentAgents: v.optional(v.number()),
+    maxConcurrentPlanning: v.optional(v.union(v.number(), v.null())),
+    maxConcurrentCoding: v.optional(v.union(v.number(), v.null())),
+    maxConcurrentTesting: v.optional(v.union(v.number(), v.null())),
+    maxConcurrentReviewing: v.optional(v.union(v.number(), v.null())),
+  },
   handler: async (ctx, args) => {
-    if (args.maxConcurrentAgents < 1) throw new Error("maxConcurrentAgents must be >= 1");
+    const hasUpdate =
+      args.maxConcurrentAgents !== undefined ||
+      PHASE_LIMIT_FIELDS.some((f) => args[f] !== undefined);
+    if (!hasUpdate) throw new Error("At least one field is required");
+
+    if (args.maxConcurrentAgents !== undefined && args.maxConcurrentAgents < 1) {
+      throw new Error("maxConcurrentAgents must be >= 1");
+    }
+
+    for (const field of PHASE_LIMIT_FIELDS) {
+      const val = args[field];
+      if (typeof val === "number") assertAtLeastOneWhenNumber(field, val);
+    }
 
     const existing = await ctx.db
       .query("workerState")
       .withIndex("by_workerId", (q) => q.eq("workerId", "default"))
       .unique();
 
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        maxConcurrentAgents: args.maxConcurrentAgents,
-      });
-    } else {
+    if (!existing) {
       await ctx.db.insert("workerState", {
         workerId: "default",
         lastPollAt: 0,
         activeCount: 0,
-        maxConcurrentAgents: args.maxConcurrentAgents,
+        maxConcurrentAgents: args.maxConcurrentAgents ?? 3,
+        ...(args.maxConcurrentPlanning !== undefined && args.maxConcurrentPlanning !== null
+          ? { maxConcurrentPlanning: args.maxConcurrentPlanning }
+          : {}),
+        ...(args.maxConcurrentCoding !== undefined && args.maxConcurrentCoding !== null
+          ? { maxConcurrentCoding: args.maxConcurrentCoding }
+          : {}),
+        ...(args.maxConcurrentTesting !== undefined && args.maxConcurrentTesting !== null
+          ? { maxConcurrentTesting: args.maxConcurrentTesting }
+          : {}),
+        ...(args.maxConcurrentReviewing !== undefined && args.maxConcurrentReviewing !== null
+          ? { maxConcurrentReviewing: args.maxConcurrentReviewing }
+          : {}),
       });
+      return;
+    }
+
+    const patch: Record<string, unknown> = {};
+    const fieldsToDelete: string[] = [];
+
+    if (args.maxConcurrentAgents !== undefined) {
+      patch["maxConcurrentAgents"] = args.maxConcurrentAgents;
+    }
+
+    for (const field of PHASE_LIMIT_FIELDS) {
+      const val = args[field];
+      if (val === undefined) continue;
+      if (val === null) {
+        fieldsToDelete.push(field);
+      } else {
+        patch[field] = val;
+      }
+    }
+
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(existing._id, patch);
+    }
+
+    if (fieldsToDelete.length > 0) {
+      const current = await ctx.db.get(existing._id);
+      if (!current) return;
+      const { _id, _creationTime, ...fields } = current;
+      const mutable = fields as Record<string, unknown>;
+      for (const key of fieldsToDelete) {
+        mutable[key] = undefined;
+      }
+      await ctx.db.replace(existing._id, fields);
     }
   },
 });

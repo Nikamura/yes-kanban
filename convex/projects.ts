@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { assertProjectConcurrencyPatch } from "./lib/concurrencyLimits";
 
 /** Default column rows for new projects. */
 export const DEFAULT_COLUMNS = [
@@ -92,6 +93,10 @@ export const update = mutation({
     skipPlanning: v.optional(v.boolean()),
     autoPlanReview: v.optional(v.boolean()),
     maxConcurrent: v.optional(v.union(v.number(), v.null())),
+    maxConcurrentPlanning: v.optional(v.union(v.number(), v.null())),
+    maxConcurrentCoding: v.optional(v.union(v.number(), v.null())),
+    maxConcurrentTesting: v.optional(v.union(v.number(), v.null())),
+    maxConcurrentReviewing: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
@@ -122,6 +127,8 @@ export const update = mutation({
         patch[key] = value;
       }
     }
+
+    assertProjectConcurrencyPatch(patch);
 
     // Use db.patch for normal updates (safe with concurrent mutations)
     if (Object.keys(patch).length > 0) {

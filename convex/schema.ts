@@ -20,6 +20,10 @@ export default defineSchema({
     skipPlanning: v.optional(v.boolean()),
     autoPlanReview: v.optional(v.boolean()),
     maxConcurrent: v.optional(v.union(v.number(), v.null())),
+    maxConcurrentPlanning: v.optional(v.union(v.number(), v.null())),
+    maxConcurrentCoding: v.optional(v.union(v.number(), v.null())),
+    maxConcurrentTesting: v.optional(v.union(v.number(), v.null())),
+    maxConcurrentReviewing: v.optional(v.union(v.number(), v.null())),
     createdAt: v.number(),
   }).index("by_slug", ["slug"]),
 
@@ -236,6 +240,10 @@ export default defineSchema({
     lastPollAt: v.number(),
     activeCount: v.number(),
     maxConcurrentAgents: v.optional(v.number()),
+    maxConcurrentPlanning: v.optional(v.number()),
+    maxConcurrentCoding: v.optional(v.number()),
+    maxConcurrentTesting: v.optional(v.number()),
+    maxConcurrentReviewing: v.optional(v.number()),
   }).index("by_workerId", ["workerId"]),
 
   promptTemplates: defineTable({
