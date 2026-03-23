@@ -1,5 +1,10 @@
 import { useState } from "react";
 import { getNotificationPrefs, setNotificationPrefs } from "../hooks/useNotifications";
+import {
+  isNotificationSoundId,
+  notificationSoundSelectOptions,
+  playNotificationSound,
+} from "../lib/notificationSounds";
 
 export function NotificationPrefsSection() {
   const [prefs, setPrefs] = useState(getNotificationPrefs);
@@ -37,6 +42,39 @@ export function NotificationPrefsSection() {
               </button>
             )}
           </span>
+        </div>
+        <div className="setting-item">
+          <label>Notification sound</label>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+            <select
+              value={prefs.sound ?? ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "") {
+                  save({ ...prefs, sound: null });
+                } else if (isNotificationSoundId(v)) {
+                  save({ ...prefs, sound: v });
+                }
+              }}
+            >
+              <option value="">Off</option>
+              {notificationSoundSelectOptions().map(({ id, label }) => (
+                <option key={id} value={id}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary"
+              disabled={prefs.sound === null}
+              onClick={() => {
+                if (prefs.sound !== null) void playNotificationSound(prefs.sound);
+              }}
+            >
+              Preview
+            </button>
+          </div>
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "0.5rem" }}>
