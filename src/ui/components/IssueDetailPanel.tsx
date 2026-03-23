@@ -4,13 +4,20 @@ import { useState, useMemo, useEffect } from "react";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { WorkspaceView } from "./WorkspaceView";
 import { AttachmentsSection } from "./AttachmentsSection";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useEscapeClose } from "../hooks/useEscapeClose";
 import { ChecklistSection } from "./ChecklistSection";
 import { formatHistoryEntry } from "../formatHistoryEntry";
 import { TERMINAL_STATUSES } from "../utils/constants";
 import { isSupportedAgentAdapterType } from "@/lib/agentTypes";
+
+/** Markdown links in the description must not bubble to the click-to-edit wrapper. */
+const issueDescriptionMarkdownComponents: Partial<Components> = {
+  a: ({ node: _node, ...props }) => (
+    <a {...props} onClick={(e) => e.stopPropagation()} />
+  ),
+};
 
 export function IssueDetailPanel({
   issueId,
@@ -468,10 +475,19 @@ export function IssueDetailPanel({
               />
             ) : (
               <div
-                className="description-content"
+                className="description-content markdown-content"
                 onClick={() => startEdit("description", issue.description)}
               >
-                {issue.description || "No description. Click to add one."}
+                {issue.description ? (
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={issueDescriptionMarkdownComponents}
+                  >
+                    {issue.description}
+                  </ReactMarkdown>
+                ) : (
+                  "No description. Click to add one."
+                )}
               </div>
             )}
           </div>
