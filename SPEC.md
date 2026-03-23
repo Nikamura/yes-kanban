@@ -1572,10 +1572,6 @@ The workspace view includes a log panel:
 - For other agents, displays raw output.
 - Completed runs show the full log history from Convex.
 
-### 12.6 Browser notifications
-
-The Settings view includes browser notification preferences (permission, which events trigger a notification). Optional **notification sound** uses the Web Audio API to play short synthesized tones (no bundled audio files). The UI reuses a single `AudioContext` per page and awaits `resume()` before scheduling playback so tones still play when the context was suspended. The user selects **Off**, **Chime**, **Bell**, or **Ding**; a Preview control plays the selected tone. The choice is stored in `localStorage` under `yk-notification-prefs` as `sound: null` (off) or a string id (`chime` | `bell` | `ding`). Legacy stored values `sound: true` / `sound: false` migrate to `chime` / `null`.
-
 ## 13. Forge Integration
 
 ### 13.1 GitHub Adapter (Default)

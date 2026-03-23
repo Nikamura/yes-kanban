@@ -1,13 +1,8 @@
 import { useEffect, useRef } from "react";
-import {
-  normalizeStoredNotificationSound,
-  playNotificationSound,
-  type NotificationSoundId,
-} from "../lib/notificationSounds";
 
 interface NotificationPrefs {
   enabled: boolean;
-  sound: NotificationSoundId | null;
+  sound: boolean;
   events: {
     question: boolean;
     planSubmitted: boolean;
@@ -19,7 +14,7 @@ interface NotificationPrefs {
 
 const DEFAULT_PREFS: NotificationPrefs = {
   enabled: true,
-  sound: null,
+  sound: false,
   events: {
     question: true,
     planSubmitted: true,
@@ -35,13 +30,8 @@ export function getNotificationPrefs(): NotificationPrefs {
   try {
     const raw = localStorage.getItem(PREFS_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as Partial<NotificationPrefs> & { sound?: unknown };
-      return {
-        ...DEFAULT_PREFS,
-        ...parsed,
-        events: { ...DEFAULT_PREFS.events, ...parsed.events },
-        sound: normalizeStoredNotificationSound(parsed.sound),
-      };
+      const parsed = JSON.parse(raw);
+      return { ...DEFAULT_PREFS, ...parsed, events: { ...DEFAULT_PREFS.events, ...parsed.events } };
     }
   } catch { /* ignore */ }
   return DEFAULT_PREFS;
@@ -132,9 +122,6 @@ export function useNotifications(
         const body = issue ? `${issue.simpleId}: ${issue.title}` : "Issue update";
 
         const notification = new Notification(title, { body, tag: `yk-${issueId}-${ws.status}` });
-        if (prefs.sound !== null) {
-          void playNotificationSound(prefs.sound);
-        }
         notification.onclick = () => {
           window.focus();
           if (issue) {
