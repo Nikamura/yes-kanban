@@ -18,7 +18,7 @@ Built for solo developers. Mobile-first. Convention over configuration.
 
 **Board** -- Fixed four-column flow with drag-and-drop; tags, blockers, checklists, comments, issue templates. Hash-based routing so every view is a bookmarkable URL.
 
-**Agent dispatch** -- Supports Claude Code, Codex, and Cursor via pluggable adapters. Configurable concurrency limits, timeouts, and retry with exponential backoff. Plan mode and dangerously-skip mode. On startup the worker runs a one-time Convex migration that rewrites legacy `pi` agent configs to a supported adapter so old projects keep working.
+**Agent dispatch** -- Supports Claude Code, Codex, and Cursor via pluggable adapters. Configurable concurrency limits, timeouts, and retry with exponential backoff. Plan mode and dangerously-skip mode.
 
 **MCP integration** -- Built-in MCP server gives agents tools for file operations, search, git status, test execution, and board interaction (create/move issues, ask questions, request permissions).
 
