@@ -36,6 +36,60 @@ const ATTACHMENTS_DIR = ".yes-kanban-attachments";
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10 MB
 /** Truncate stored script prompts for runAttempts (Convex document size). */
 const MAX_SCRIPT_PROMPT_LEN = 50_000;
+
+/** True if `worktreePath` is a valid git working tree (linked worktree or main checkout). */
+export function isValidGitWorktreePath(worktreePath: string): boolean {
+  const r = Bun.spawnSync(
+    ["git", "-C", worktreePath, "rev-parse", "--git-dir"],
+    { timeout: 5000, env: cleanGitEnv() },
+  );
+  return r.exitCode === 0;
+}
+
+/** True if stored worktrees match the current repo list (same repos, same order). */
+export function canReuseStoredWorktreesForRepos(
+  repos: Doc<"repos">[],
+  stored: WorktreeEntry[],
+): boolean {
+  if (stored.length !== repos.length) return false;
+  for (let i = 0; i < repos.length; i++) {
+    const repo = repos[i];
+    const entry = stored[i];
+    if (!repo || repo._id !== entry?.repoId) return false;
+  }
+  return true;
+}
+
+/**
+ * True if any run attempt has type `"coding"`.
+ * Only meaningful when `attempts` are listed **before** the current lifecycle creates a coding
+ * `runAttempts` row (see `runLifecycle`: we query immediately after worktrees, before planning/coding agents).
+ */
+export function hasPriorCodingRunAttempts(attempts: { type: string }[]): boolean {
+  return attempts.some((a) => a.type === "coding");
+}
+
+/**
+ * True if persisted workspace worktrees can be reused without `createWorktrees` (same logic as
+ * `canReuseWorktreesOnDisk` in `runLifecycle`). `workspace` is the Convex document or nullish if missing.
+ */
+export function canReuseWorktreesOnDiskFromState(
+  workspace: Doc<"workspaces"> | null | undefined,
+  repos: Doc<"repos">[],
+  isValidGitWorktree: (path: string) => boolean = isValidGitWorktreePath,
+): boolean {
+  // Loose `== null` covers both `null` and `undefined` from Convex/client queries.
+  // eslint-disable-next-line eqeqeq -- intentional nullish guard
+  if (workspace == null) return false;
+  const storedWts = workspace.worktrees;
+  return (
+    storedWts.length > 0 &&
+    workspace.agentCwd.length > 0 &&
+    canReuseStoredWorktreesForRepos(repos, storedWts) &&
+    storedWts.every((wt) => isValidGitWorktree(wt.worktreePath))
+  );
+}
+
 /** Appended to commit messages created by Yes Kanban (git trailer convention). */
 const YES_KANBAN_GIT_TRAILER = "Generated-by: Yes Kanban";
 
@@ -406,13 +460,24 @@ export async function runLifecycle(
     projectId: task.projectId,
     type: "review",
   });
-  // 1. Create worktrees
-  console.log(`[lifecycle] creating worktrees for workspace=${workspaceId}`);
+  // 1. Create worktrees (or reuse existing on-disk worktrees from a prior dispatch)
+  const workspaceForReuse = await convex.query(api.workspaces.get, { id: workspaceId });
+  const storedWts = workspaceForReuse?.worktrees ?? [];
+  const canReuseWorktreesOnDisk = canReuseWorktreesOnDiskFromState(workspaceForReuse, repos);
+
+  if (canReuseWorktreesOnDisk) {
+    console.log(
+      `[lifecycle] reusing on-disk worktrees for workspace=${workspaceId} (skipping setup and worktree creation)`,
+    );
+  } else {
+    console.log(`[lifecycle] preparing worktrees for workspace=${workspaceId}`);
+  }
+
   const reposWithSetup = repos.filter((r) => r.setupScript);
   let setupRunAttemptId: Id<"runAttempts"> | undefined;
   let setupFlush: (() => Promise<void>) | undefined;
   let setupLogger: ScriptLogger | undefined;
-  if (reposWithSetup.length > 0) {
+  if (!canReuseWorktreesOnDisk && reposWithSetup.length > 0) {
     const promptLines = reposWithSetup.map((r) => `[${r.slug}]\n${r.setupScript}`);
     let storedPrompt = promptLines.join("\n\n");
     if (storedPrompt.length > MAX_SCRIPT_PROMPT_LEN) {
@@ -432,18 +497,25 @@ export async function runLifecycle(
   let setupError: unknown;
   let worktrees!: WorktreeEntry[];
   let agentCwd!: string;
-  let resumed!: boolean;
+  /** True when reusing an existing feature branch (on-disk paths or git "branch already exists"). Used for experiment reset — not the same as `effectiveResumed` (coding prompt / session resume). */
+  let branchExistedBeforeThisRun!: boolean;
   try {
-    const result = await worktreeManager.createWorktrees({
-      workspaceId,
-      simpleId: issue?.simpleId ?? workspaceId.slice(0, 8),
-      issueTitle: issue?.title,
-      repos,
-      logger: setupLogger,
-    });
-    worktrees = result.worktrees;
-    agentCwd = result.agentCwd;
-    resumed = result.resumed;
+    if (canReuseWorktreesOnDisk && workspaceForReuse) {
+      worktrees = storedWts;
+      agentCwd = workspaceForReuse.agentCwd;
+      branchExistedBeforeThisRun = true;
+    } else {
+      const result = await worktreeManager.createWorktrees({
+        workspaceId,
+        simpleId: issue?.simpleId ?? workspaceId.slice(0, 8),
+        issueTitle: issue?.title,
+        repos,
+        logger: setupLogger,
+      });
+      worktrees = result.worktrees;
+      agentCwd = result.agentCwd;
+      branchExistedBeforeThisRun = result.resumed;
+    }
   } catch (err) {
     setupError = err;
     throw err;
@@ -466,15 +538,46 @@ export async function runLifecycle(
       }
     }
   }
-  if (resumed) {
-    console.log(`[lifecycle] resumed existing worktree for workspace=${workspaceId}`);
+  if (branchExistedBeforeThisRun) {
+    console.log(
+      `[lifecycle] feature branch already existed or on-disk worktrees reused for workspace=${workspaceId}`,
+    );
+  }
+
+  // Before any planning/coding `runAgent` in this lifecycle — no coding runAttempt for this dispatch yet.
+  const runAttemptsForResume = await convex.query(api.runAttempts.list, { workspaceId });
+  const effectiveResumed = hasPriorCodingRunAttempts(runAttemptsForResume);
+
+  let previousPlanningSessionId: string | undefined;
+  try {
+    const lastPlanning = await convex.query(api.runAttempts.lastSession, {
+      workspaceId,
+      type: "planning",
+    });
+    previousPlanningSessionId = lastPlanning?.sessionId;
+  } catch { /* optional */ }
+
+  let previousCodingSessionId: string | undefined;
+  if (effectiveResumed) {
+    try {
+      const lastCoding = await convex.query(api.runAttempts.lastSession, {
+        workspaceId,
+        type: "coding",
+      });
+      previousCodingSessionId = lastCoding?.sessionId;
+      if (previousCodingSessionId) {
+        console.log(
+          `[lifecycle] prior coding session ${previousCodingSessionId} for workspace=${workspaceId}`,
+        );
+      }
+    } catch { /* optional */ }
   }
 
   // Fetch current workspace to check plan/experiment state
   const currentWorkspace = await convex.query(api.workspaces.get, { id: workspaceId });
 
   // 1a. Reset worktree branches for new experiments (discard previous code)
-  if ((currentWorkspace?.experimentNumber ?? 0) > 1 && resumed) {
+  if ((currentWorkspace?.experimentNumber ?? 0) > 1 && branchExistedBeforeThisRun) {
     for (const wt of worktrees) {
       console.log(`[lifecycle] workspace=${workspaceId} resetting branch for experiment #${currentWorkspace?.experimentNumber}`);
       const resetResult = Bun.spawnSync(
@@ -605,18 +708,6 @@ export async function runLifecycle(
     }
   }
 
-  // Check for a previous session ID to resume
-  let previousSessionId: string | undefined;
-  if (resumed) {
-    try {
-      const lastSession = await convex.query(api.runAttempts.lastSession, { workspaceId, type: "coding" });
-      if (lastSession?.sessionId) {
-        previousSessionId = lastSession.sessionId;
-        console.log(`[lifecycle] found previous session ${previousSessionId} for workspace=${workspaceId}`);
-      }
-    } catch { /* no previous session */ }
-  }
-
   // Fetch attachments for the issue (if any)
   let attachments: AttachmentInfo[] | undefined;
   if (task.issueId) {
@@ -666,7 +757,9 @@ export async function runLifecycle(
 
     // When resuming a planning session (questions answered or feedback given),
     // send a concise continuation prompt instead of repeating the full context.
-    const isResumingPlanning = previousSessionId && (answeredQuestions.length > 0 || pendingFeedback.length > 0);
+    const isResumingPlanning =
+      previousPlanningSessionId &&
+      (answeredQuestions.length > 0 || pendingFeedback.length > 0);
     let planningPrompt: string;
 
     if (isResumingPlanning) {
@@ -709,7 +802,7 @@ export async function runLifecycle(
       convex, config, executor, workspaceId, planningAgentConfig, agentCwd,
       planningPrompt, "planning", abortSignal,
       {
-        mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: previousSessionId,
+        mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: previousPlanningSessionId,
         settingsPath, disableSlashCommands,
         allowedTools: planningTools,
       },
@@ -850,7 +943,7 @@ export async function runLifecycle(
             const replanResult = await runAgent(
               convex, config, executor, workspaceId, planningAgentConfig, agentCwd,
               replanPrompt, "planning", abortSignal,
-              { mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: previousSessionId, settingsPath, disableSlashCommands, allowedTools: planningTools },
+              { mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: previousPlanningSessionId, settingsPath, disableSlashCommands, allowedTools: planningTools },
             );
 
             if (!replanResult.success) {
@@ -933,7 +1026,7 @@ export async function runLifecycle(
 
   try {
   // Track the latest coding session ID so review-fix cycles resume the correct session
-  let lastCodingSessionId: string | undefined = previousSessionId;
+  let lastCodingSessionId: string | undefined = previousCodingSessionId;
 
   // 2. Coding stage — or fix cycle if retrying from changes_requested
   // When reviewRequested is set, skip coding and testing — go straight to review
@@ -957,7 +1050,7 @@ export async function runLifecycle(
     const fixResult = await runAgent(
       convex, config, executor, workspaceId, agentConfig, agentCwd,
       fixPrompt, "coding", abortSignal,
-      { mcpConfigPath, mcpServer, sessionId: previousSessionId, settingsPath, disableSlashCommands, allowedTools: CODING_TOOLS,
+      { mcpConfigPath, mcpServer, sessionId: previousCodingSessionId, settingsPath, disableSlashCommands, allowedTools: CODING_TOOLS,
         permissionMode: agentConfig.permissionMode === "accept" ? "accept" : undefined,
         agentConfigId: agentConfig._id },
     );
@@ -979,10 +1072,10 @@ export async function runLifecycle(
     // Normal initial coding
     const codingResult = await runAgent(
       convex, config, executor, workspaceId, agentConfig, agentCwd,
-      buildPrompt(issue, task.additionalPrompt, worktrees, resumed, currentWorkspace?.lastError ?? undefined,
+      buildPrompt(issue, task.additionalPrompt, worktrees, effectiveResumed, currentWorkspace?.lastError ?? undefined,
         workflowTemplate?.content, attachments,
         currentWorkspace?.plan ?? undefined, currentWorkspace?.experimentNumber ?? undefined),
-      "coding", abortSignal, { mcpConfigPath, mcpServer, sessionId: previousSessionId, settingsPath, disableSlashCommands, allowedTools: CODING_TOOLS,
+      "coding", abortSignal, { mcpConfigPath, mcpServer, sessionId: previousCodingSessionId, settingsPath, disableSlashCommands, allowedTools: CODING_TOOLS,
         permissionMode: agentConfig.permissionMode === "accept" ? "accept" : undefined,
         agentConfigId: agentConfig._id },
     );

@@ -1,5 +1,18 @@
 import { describe, test, expect, mock } from "bun:test";
-import { handleFailure, runTests, hasFileChanges, shouldLocalMerge } from "./lifecycle";
+import { mkdtemp, rm } from "fs/promises";
+import { tmpdir } from "os";
+import { join } from "path";
+import { cleanGitEnv } from "./worktree-manager";
+import {
+  handleFailure,
+  runTests,
+  hasFileChanges,
+  shouldLocalMerge,
+  canReuseStoredWorktreesForRepos,
+  hasPriorCodingRunAttempts,
+  isValidGitWorktreePath,
+  canReuseWorktreesOnDiskFromState,
+} from "./lifecycle";
 
 describe("handleFailure", () => {
   const makeMockConvex = (attemptCount: number) => ({
@@ -225,6 +238,126 @@ describe("shouldLocalMerge", () => {
 
   test("returns false when autoMerge is undefined", () => {
     expect(shouldLocalMerge(null, {})).toBe(false);
+  });
+});
+
+describe("canReuseStoredWorktreesForRepos", () => {
+  test("returns true when repos and stored entries match in order", () => {
+    const repos = [{ _id: "r1" }, { _id: "r2" }] as any[];
+    const stored = [
+      { repoId: "r1", worktreePath: "/a" },
+      { repoId: "r2", worktreePath: "/b" },
+    ] as any[];
+    expect(canReuseStoredWorktreesForRepos(repos, stored)).toBe(true);
+  });
+
+  test("returns false when lengths differ", () => {
+    const repos = [{ _id: "r1" }] as any[];
+    const stored = [
+      { repoId: "r1", worktreePath: "/a" },
+      { repoId: "r2", worktreePath: "/b" },
+    ] as any[];
+    expect(canReuseStoredWorktreesForRepos(repos, stored)).toBe(false);
+  });
+
+  test("returns false when repo order or ids mismatch", () => {
+    const repos = [{ _id: "r1" }, { _id: "r2" }] as any[];
+    const stored = [
+      { repoId: "r2", worktreePath: "/a" },
+      { repoId: "r1", worktreePath: "/b" },
+    ] as any[];
+    expect(canReuseStoredWorktreesForRepos(repos, stored)).toBe(false);
+  });
+});
+
+describe("hasPriorCodingRunAttempts", () => {
+  test("returns true when any attempt has type coding", () => {
+    expect(
+      hasPriorCodingRunAttempts([{ type: "setup" }, { type: "coding" }]),
+    ).toBe(true);
+  });
+
+  test("returns false when no coding attempts", () => {
+    expect(hasPriorCodingRunAttempts([{ type: "setup" }, { type: "planning" }])).toBe(
+      false,
+    );
+  });
+});
+
+describe("canReuseWorktreesOnDiskFromState", () => {
+  const repo = (id: string) => ({ _id: id }) as any;
+  const wt = (repoId: string, path: string) => ({
+    repoId,
+    repoPath: "/repo",
+    baseBranch: "main",
+    branchName: "feat",
+    worktreePath: path,
+  });
+
+  test("returns false when workspace is null or undefined", () => {
+    expect(canReuseWorktreesOnDiskFromState(null, [repo("r1")], () => true)).toBe(false);
+    expect(canReuseWorktreesOnDiskFromState(undefined, [repo("r1")], () => true)).toBe(false);
+  });
+
+  test("returns false when worktrees empty or agentCwd empty", () => {
+    expect(
+      canReuseWorktreesOnDiskFromState({ worktrees: [], agentCwd: "/cwd" } as any, [repo("r1")], () => true),
+    ).toBe(false);
+    expect(
+      canReuseWorktreesOnDiskFromState({ worktrees: [wt("r1", "/a")], agentCwd: "" } as any, [repo("r1")], () => true),
+    ).toBe(false);
+  });
+
+  test("returns false when repo count or order does not match stored worktrees", () => {
+    expect(
+      canReuseWorktreesOnDiskFromState(
+        { worktrees: [wt("r1", "/a")], agentCwd: "/cwd" } as any,
+        [repo("r1"), repo("r2")],
+        () => true,
+      ),
+    ).toBe(false);
+  });
+
+  test("returns false when git path validator fails for any worktree", () => {
+    expect(
+      canReuseWorktreesOnDiskFromState(
+        { worktrees: [wt("r1", "/a"), wt("r2", "/b")], agentCwd: "/cwd" } as any,
+        [repo("r1"), repo("r2")],
+        (p) => p === "/a",
+      ),
+    ).toBe(false);
+  });
+
+  test("returns true when all five conditions pass", () => {
+    expect(
+      canReuseWorktreesOnDiskFromState(
+        { worktrees: [wt("r1", "/a")], agentCwd: "/cwd" } as any,
+        [repo("r1")],
+        () => true,
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("isValidGitWorktreePath", () => {
+  test("returns true for a directory with git metadata", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "yk-git-"));
+    try {
+      const init = Bun.spawnSync(["git", "init"], { cwd: dir, env: cleanGitEnv() });
+      expect(init.exitCode).toBe(0);
+      expect(isValidGitWorktreePath(dir)).toBe(true);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("returns false for a plain directory without git", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "yk-nogit-"));
+    try {
+      expect(isValidGitWorktreePath(dir)).toBe(false);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });
 
