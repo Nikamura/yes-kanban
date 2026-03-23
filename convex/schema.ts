@@ -122,6 +122,7 @@ export default defineSchema({
     reviewRequested: v.optional(v.boolean()),
     lastError: v.optional(v.string()),
     sourceColumn: v.optional(v.string()),
+    fileTree: v.optional(v.string()),
     createdAt: v.number(),
     completedAt: v.optional(v.number()),
   })
