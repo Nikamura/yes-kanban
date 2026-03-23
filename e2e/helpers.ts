@@ -216,7 +216,6 @@ export async function ensureBoardWithIssue(page: Page) {
     await page.locator(".column-add-btn").first().click();
     await page.getByRole("textbox", { name: /needs to be done/i }).fill("Implement user authentication");
     await page.getByRole("textbox", { name: /description/i }).fill("Add login/logout flow");
-    await page.locator(".dialog select").selectOption("high");
     await page.getByRole("textbox", { name: /tag/i }).fill("backend, auth");
     await page.getByRole("button", { name: "Create", exact: true }).click();
     await expect(page.getByText("Implement user authentication")).toBeVisible();

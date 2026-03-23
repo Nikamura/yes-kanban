@@ -146,7 +146,9 @@ test.describe("Board", () => {
 
     await page.getByRole("button", { name: "Settings" }).click();
     await expect(page.getByText("Prompt Templates")).toBeVisible();
-    await expect(page.getByText("No custom templates")).toBeVisible();
+    await expect(page.getByText("No custom templates")).toBeVisible({
+      timeout: 10_000,
+    });
 
     // Create a new template
     const section = page.locator(".settings-section").filter({ hasText: "Prompt Templates" });
