@@ -117,6 +117,11 @@ export function formatHistoryEntry(entry: {
     if (newVal === false) return "Deep research disabled";
   }
 
+  if (entry.field === "grillMe") {
+    if (newVal === true) return "Grill me enabled";
+    if (newVal === false) return "Grill me disabled";
+  }
+
   if (entry.field === "autoMerge") {
     if (newVal === true) return "Auto merge enabled";
     if (newVal === false) return "Auto merge disabled";

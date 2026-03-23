@@ -106,6 +106,46 @@ describe("approvePlan auto-move", () => {
   });
 });
 
+describe("requestPlanning and restartExperiment reset grillingComplete", () => {
+  test("requestPlanning clears grillingComplete", async () => {
+    const t = convexTest(schema, modules);
+    const { workspaceId } = await t.run(async (ctx) => {
+      const { workspaceId } = await seedWithProject(ctx, {
+        skipPlanning: false,
+        issueStatus: "To Do",
+        workspaceStatus: "awaiting_feedback",
+        plan: "# Plan",
+      });
+      await ctx.db.patch(workspaceId, { grillingComplete: true });
+      return { workspaceId };
+    });
+
+    await t.mutation(api.workspaces.requestPlanning, { id: workspaceId });
+
+    const ws = await t.run((ctx) => ctx.db.get(workspaceId));
+    expect(ws?.grillingComplete).toBeUndefined();
+  });
+
+  test("restartExperiment clears grillingComplete", async () => {
+    const t = convexTest(schema, modules);
+    const { workspaceId } = await t.run(async (ctx) => {
+      const { workspaceId } = await seedWithProject(ctx, {
+        skipPlanning: false,
+        issueStatus: "In Progress",
+        workspaceStatus: "completed",
+        plan: "# Plan",
+      });
+      await ctx.db.patch(workspaceId, { grillingComplete: true });
+      return { workspaceId };
+    });
+
+    await t.mutation(api.workspaces.restartExperiment, { id: workspaceId });
+
+    const ws = await t.run((ctx) => ctx.db.get(workspaceId));
+    expect(ws?.grillingComplete).toBeUndefined();
+  });
+});
+
 describe("dispatch.claim auto-move with planning", () => {
   test("does not move issue off To Do when planning is enabled", async () => {
     const t = convexTest(schema, modules);

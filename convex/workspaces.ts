@@ -68,7 +68,7 @@ export const listByIssue = query({
 });
 
 const ACTIVE_STATUSES = [
-  "creating", "claimed", "planning", "plan_reviewing", "awaiting_feedback", "coding", "testing", "reviewing", "rebasing",
+  "creating", "claimed", "planning", "grilling", "plan_reviewing", "awaiting_feedback", "coding", "testing", "reviewing", "rebasing",
   "pr_open", "creating_pr", "merging", "merge_failed", "test_failed", "changes_requested", "conflict",
 ] as const;
 
@@ -252,6 +252,7 @@ export const updateStatus = mutation({
     reviewFeedback: v.optional(v.string()),
     lastError: v.optional(v.string()),
     skipAutoMove: v.optional(v.boolean()),
+    grillingComplete: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { id, skipAutoMove, ...updates } = args;
@@ -419,7 +420,7 @@ export const requestCancel = mutation({
   handler: async (ctx, args) => {
     const workspace = await ctx.db.get(args.id);
     if (!workspace) throw new Error("Workspace not found");
-    const cancellableStatuses = ["creating", "claimed", "planning", "plan_reviewing", "awaiting_feedback", "coding", "testing", "reviewing", "rebasing", "creating_pr", "merging"];
+    const cancellableStatuses = ["creating", "claimed", "planning", "grilling", "plan_reviewing", "awaiting_feedback", "coding", "testing", "reviewing", "rebasing", "creating_pr", "merging"];
     if (!cancellableStatuses.includes(workspace.status)) {
       throw new Error(`Cannot cancel workspace with status "${workspace.status}"`);
     }
@@ -551,6 +552,7 @@ export const restartExperiment = mutation({
       behindMainBy: undefined,
       reviewFeedback: undefined,
       reviewRequested: undefined,
+      grillingComplete: undefined,
       ...(args.updatedPlan ? { plan: args.updatedPlan } : {}),
     });
   },
@@ -566,6 +568,7 @@ export const requestPlanning = mutation({
     await ctx.db.patch(args.id, {
       status: "creating",
       planApproved: undefined,
+      grillingComplete: undefined,
     });
   },
 });

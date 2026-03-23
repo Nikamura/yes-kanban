@@ -124,6 +124,7 @@ export const create = mutation({
     status: v.string(),
     tags: v.optional(v.array(v.string())),
     deepResearch: v.optional(v.boolean()),
+    grillMe: v.optional(v.boolean()),
     autoMerge: v.optional(v.boolean()),
     actor: v.optional(v.union(v.literal("user"), v.literal("agent"))),
   },
@@ -161,6 +162,7 @@ export const create = mutation({
       status: args.status,
       tags: args.tags ?? [],
       deepResearch: args.deepResearch,
+      ...(args.grillMe !== undefined && { grillMe: args.grillMe }),
       ...(args.autoMerge !== undefined && { autoMerge: args.autoMerge }),
       position: maxPos + 1,
       createdAt: now,
@@ -202,6 +204,7 @@ export const update = mutation({
     tags: v.optional(v.array(v.string())),
     blockedBy: v.optional(v.array(v.id("issues"))),
     deepResearch: v.optional(v.boolean()),
+    grillMe: v.optional(v.boolean()),
     autoMerge: v.optional(v.boolean()),
     actor: v.optional(v.union(v.literal("user"), v.literal("agent"))),
   },
@@ -219,7 +222,7 @@ export const update = mutation({
     const issue = await ctx.db.get(id);
     if (!issue) throw new Error("Issue not found");
 
-    const tracked = ["title", "description", "tags", "blockedBy", "deepResearch", "autoMerge"] as const;
+    const tracked = ["title", "description", "tags", "blockedBy", "deepResearch", "grillMe", "autoMerge"] as const;
     for (const field of tracked) {
       if (updates[field] !== undefined) {
         const oldVal = issue[field];

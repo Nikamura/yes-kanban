@@ -4,13 +4,13 @@ import { api } from "../../convex/_generated/api";
 import { GitWorktreeManager, cleanGitEnv } from "./worktree-manager";
 import { AgentExecutor, type StallPauseSignal } from "./agent-executor";
 import { getAdapter } from "./adapters";
-import { buildPrompt, buildReviewPrompt, buildPlanReviewPrompt, buildRebaseConflictPrompt, buildPlanningPrompt, buildFixPrompt } from "./prompt-builder";
+import { buildPrompt, buildReviewPrompt, buildPlanReviewPrompt, buildRebaseConflictPrompt, buildPlanningPrompt, buildGrillingPrompt, buildFixPrompt } from "./prompt-builder";
 import { getForgeAdapter } from "./forge";
 import { McpServer, type ExternalMcpConfig } from "./mcp-server";
 import type { WorkerConfig, DispatchTask, WorktreeEntry, LogEntry, AgentEvent, AttachmentInfo, ScriptLogger } from "./types";
 import { computeBackoffDelay, shouldRetry, TERMINAL_STATUSES } from "./retry";
 import { consumeStreamLines } from "./stream-lines";
-import { READ_ONLY_TOOLS, PLANNING_TOOLS, PLANNING_RESEARCH_TOOLS, CODING_TOOLS, REVIEW_TOOLS } from "./mcp-tools";
+import { READ_ONLY_TOOLS, PLANNING_TOOLS, PLANNING_RESEARCH_TOOLS, GRILLING_TOOLS, CODING_TOOLS, REVIEW_TOOLS } from "./mcp-tools";
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync, appendFileSync } from "fs";
 import { unlink } from "fs/promises";
 import { basename, dirname, join, resolve } from "path";
@@ -589,6 +589,15 @@ export async function runLifecycle(
     previousPlanningSessionId = lastPlanning?.sessionId;
   } catch { /* optional */ }
 
+  let previousGrillingSessionId: string | undefined;
+  try {
+    const lastGrilling = await convex.query(api.runAttempts.lastSession, {
+      workspaceId,
+      type: "grilling",
+    });
+    previousGrillingSessionId = lastGrilling?.sessionId;
+  } catch { /* optional */ }
+
   let previousCodingSessionId: string | undefined;
   if (effectiveResumed) {
     try {
@@ -772,6 +781,82 @@ export async function runLifecycle(
   const skipPlanning = project?.skipPlanning ?? true;
   const planningTools = issue?.deepResearch ? PLANNING_RESEARCH_TOOLS : PLANNING_TOOLS;
   const planApproved = currentWorkspace?.planApproved ?? false;
+  const grillingComplete = currentWorkspace?.grillingComplete === true;
+
+  /** When grilling finishes in this run, planning resumes the same agent session. */
+  let planningSessionFromGrill: string | undefined;
+
+  // 1b. Grill Me — pre-planning interview (optional)
+  if (!skipPlanning && !planApproved && issue?.grillMe && !grillingComplete) {
+    if (!(await waitForPhaseCapacity(convex, workspaceId, "planning", abortSignal))) return;
+    await convex.mutation(api.workspaces.updateStatus, {
+      id: workspaceId,
+      status: "grilling",
+      worktrees,
+      agentCwd,
+    });
+
+    const questionsForGrill = await convex.query(api.agentQuestions.list, { workspaceId });
+    const answeredForGrill = questionsForGrill
+      .filter((q) => q.status === "answered" && q.answer)
+      .map((q) => ({ question: q.question, answer: q.answer ?? "" }));
+
+    const grillingTemplate = await convex.query(api.promptTemplates.resolve, {
+      projectId: task.projectId,
+      type: "grilling" as const,
+    });
+
+    const isResumingGrilling =
+      !!previousGrillingSessionId && answeredForGrill.length > 0;
+
+    const grillingPrompt = buildGrillingPrompt(
+      issue,
+      worktrees,
+      answeredForGrill,
+      attachments,
+      grillingTemplate?.content,
+      isResumingGrilling,
+    );
+
+    const grillingPlanningConfigId = project?.planningAgentConfigId ?? agentConfig._id;
+    const grillingAgentConfig = grillingPlanningConfigId !== agentConfig._id
+      ? (await convex.query(api.agentConfigs.get, { id: grillingPlanningConfigId })) ?? agentConfig
+      : agentConfig;
+
+    const grillResult = await runAgent(
+      convex, config, executor, workspaceId, grillingAgentConfig, agentCwd,
+      grillingPrompt, "grilling", abortSignal,
+      {
+        mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: previousGrillingSessionId,
+        settingsPath, disableSlashCommands,
+        allowedTools: GRILLING_TOOLS,
+      },
+    );
+
+    if (abortSignal.aborted) return;
+
+    if (!grillResult.success) {
+      await handleFailure(convex, config, workspaceId, grillingAgentConfig, grillResult, worktrees, issue);
+      if (mcpServer) { mcpServer.stop(); }
+      return;
+    }
+
+    const agentAskedQuestionGrill = grillResult.events.some(
+      (e) => e.type === "tool_use" && (e.data as { name?: string }).name === "mcp__yes-kanban__ask_question",
+    );
+
+    if (agentAskedQuestionGrill) {
+      await convex.mutation(api.workspaces.updateStatus, {
+        id: workspaceId,
+        status: "awaiting_feedback",
+      });
+      console.log(`[lifecycle] workspace=${workspaceId} grilling paused for user answer`);
+      if (mcpServer) { mcpServer.stop(); }
+      return;
+    }
+
+    planningSessionFromGrill = grillResult.sessionId;
+  }
 
   if (!skipPlanning && !planApproved) {
     if (!(await waitForPhaseCapacity(convex, workspaceId, "planning", abortSignal))) return;
@@ -780,6 +865,7 @@ export async function runLifecycle(
       status: "planning",
       worktrees,
       agentCwd,
+      ...(planningSessionFromGrill !== undefined ? { grillingComplete: true } : {}),
     });
 
     // Gather any previously answered questions
@@ -791,8 +877,12 @@ export async function runLifecycle(
     // Fetch pending feedback messages so the agent sees user's plan feedback
     const pendingFeedback = await convex.query(api.feedbackMessages.listPending, { workspaceId });
 
+    const planningResumeSessionId = planningSessionFromGrill ?? previousPlanningSessionId;
+
     // When resuming a planning session (questions answered or feedback given),
     // send a concise continuation prompt instead of repeating the full context.
+    // Use only `previousPlanningSessionId` here — transitioning from grilling with Q&A
+    // should still use the full planning prompt (grill context is in answeredQuestions).
     const isResumingPlanning =
       previousPlanningSessionId &&
       (answeredQuestions.length > 0 || pendingFeedback.length > 0);
@@ -838,7 +928,7 @@ export async function runLifecycle(
       convex, config, executor, workspaceId, planningAgentConfig, agentCwd,
       planningPrompt, "planning", abortSignal,
       {
-        mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: previousPlanningSessionId,
+        mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: planningResumeSessionId,
         settingsPath, disableSlashCommands,
         allowedTools: planningTools,
       },

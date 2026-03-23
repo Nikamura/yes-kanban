@@ -5,7 +5,7 @@ import { assertAtLeastOneWhenNumber } from "./lib/concurrencyLimits";
 import { autoMoveIssueToNextColumn, TERMINAL_COLUMN_NAMES } from "./workspaces";
 
 const TERMINAL_STATUSES = TERMINAL_COLUMN_NAMES as readonly string[];
-const RUNNING_STATUSES = ["claimed", "planning", "coding", "testing", "reviewing", "rebasing"] as const;
+const RUNNING_STATUSES = ["claimed", "planning", "grilling", "coding", "testing", "reviewing", "rebasing"] as const;
 
 /** Indices into `RUNNING_STATUSES` query batches (same order as `Promise.all` in `status`). */
 const RUNNING_INDEX = Object.fromEntries(
@@ -109,10 +109,17 @@ export const canEnterPhase = query({
     const workspace = await ctx.db.get(args.workspaceId);
     if (!workspace) return false;
 
-    const inPhase = await ctx.db
+    let inPhase = await ctx.db
       .query("workspaces")
       .withIndex("by_status", (q) => q.eq("status", args.phase))
       .collect();
+    if (args.phase === "planning") {
+      const grilling = await ctx.db
+        .query("workspaces")
+        .withIndex("by_status", (q) => q.eq("status", "grilling"))
+        .collect();
+      inPhase = [...inPhase, ...grilling];
+    }
 
     const countGlobal = inPhase.filter((w) => w._id !== args.workspaceId).length;
     const countInProject = inPhase.filter(
@@ -205,9 +212,13 @@ export const next = query({
     // Dispatch candidates are always `status === "creating"`, so they are not in `allRunning` and
     // must not be subtracted here (unlike `canEnterPhase`, which excludes the current workspace row).
     const countInPhase = (phase: DispatchPhase) =>
-      allRunning.filter((w) => w.status === phase).length;
+      allRunning.filter((w) => w.status === phase || (phase === "planning" && w.status === "grilling")).length;
     const countInPhaseForProject = (phase: DispatchPhase, projectId: Id<"projects">) =>
-      allRunning.filter((w) => w.status === phase && w.projectId === projectId).length;
+      allRunning.filter(
+        (w) =>
+          w.projectId === projectId &&
+          (w.status === phase || (phase === "planning" && w.status === "grilling")),
+      ).length;
 
     const first = unblocked.find((candidate) => {
       const pid = candidate.workspace.projectId;
@@ -348,7 +359,9 @@ export const status = query({
       maxConcurrentTesting: workerState?.maxConcurrentTesting,
       maxConcurrentReviewing: workerState?.maxConcurrentReviewing,
       phaseCounts: {
-        planning: runningResults[RUNNING_INDEX.planning]?.length ?? 0,
+        planning:
+          (runningResults[RUNNING_INDEX.planning]?.length ?? 0) +
+          (runningResults[RUNNING_INDEX.grilling]?.length ?? 0),
         coding: runningResults[RUNNING_INDEX.coding]?.length ?? 0,
         testing: runningResults[RUNNING_INDEX.testing]?.length ?? 0,
         reviewing: runningResults[RUNNING_INDEX.reviewing]?.length ?? 0,

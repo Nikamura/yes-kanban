@@ -51,6 +51,7 @@ export default defineSchema({
     tags: v.array(v.string()),
     blockedBy: v.optional(v.array(v.id("issues"))),
     deepResearch: v.optional(v.boolean()),
+    grillMe: v.optional(v.boolean()),
     autoMerge: v.optional(v.boolean()),
     checklist: v.optional(v.array(v.object({
       id: v.string(),
@@ -120,6 +121,7 @@ export default defineSchema({
     behindMainBy: v.optional(v.number()),
     plan: v.optional(v.string()),
     planApproved: v.optional(v.boolean()),
+    grillingComplete: v.optional(v.boolean()),
     experimentNumber: v.optional(v.number()),
     previousStatus: v.optional(v.string()),
     reviewFeedback: v.optional(v.string()),
@@ -251,7 +253,7 @@ export default defineSchema({
   promptTemplates: defineTable({
     projectId: v.optional(v.id("projects")), // null = global template
     name: v.string(),
-    type: v.union(v.literal("workflow"), v.literal("review"), v.literal("rebase"), v.literal("planning"), v.literal("plan_review")),
+    type: v.union(v.literal("workflow"), v.literal("review"), v.literal("rebase"), v.literal("planning"), v.literal("plan_review"), v.literal("grilling")),
     content: v.string(),
     isDefault: v.boolean(),
     createdAt: v.number(),

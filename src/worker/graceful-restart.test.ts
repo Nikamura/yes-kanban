@@ -4,7 +4,7 @@ import { recoverOrphanedWorkspaces, shouldRequeueOnShutdown } from "./graceful-r
 describe("graceful-restart", () => {
   describe("recoverOrphanedWorkspaces", () => {
     test("resets lifecycle statuses to creating for re-dispatch", () => {
-      const lifecycleStatuses = ["claimed", "planning", "coding", "testing", "reviewing"];
+      const lifecycleStatuses = ["claimed", "planning", "grilling", "coding", "testing", "reviewing"];
       const updates: Array<{ id: string; status: string }> = [];
 
       for (const status of lifecycleStatuses) {
@@ -47,7 +47,7 @@ describe("graceful-restart", () => {
 
   describe("shouldRequeueOnShutdown", () => {
     test("returns true for in-progress statuses", () => {
-      const inProgress = ["claimed", "planning", "coding", "testing", "reviewing", "awaiting_feedback"];
+      const inProgress = ["claimed", "planning", "grilling", "coding", "testing", "reviewing", "awaiting_feedback"];
       for (const status of inProgress) {
         expect(shouldRequeueOnShutdown(status)).toBe(true);
       }

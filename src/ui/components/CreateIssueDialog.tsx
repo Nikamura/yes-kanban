@@ -55,6 +55,7 @@ export function CreateIssueDialog({
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState("");
   const [deepResearch, setDeepResearch] = useState(false);
+  const [grillMe, setGrillMe] = useState(false);
   const [autoMerge, setAutoMerge] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [dragging, setDragging] = useState(false);
@@ -197,6 +198,7 @@ export function CreateIssueDialog({
           .map((t) => t.trim())
           .filter(Boolean),
         deepResearch: deepResearch || undefined,
+        grillMe: grillMe || undefined,
         autoMerge: autoMerge || undefined,
       });
       if (pendingFiles.length > 0) {
@@ -286,6 +288,16 @@ export function CreateIssueDialog({
                 onChange={(e) => setDeepResearch(e.target.checked)}
               />
               Deep research (web search during planning)
+            </label>
+          </div>
+          <div className="form-field">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={grillMe}
+                onChange={(e) => setGrillMe(e.target.checked)}
+              />
+              Grill me (before planning — interview to stress-test the design)
             </label>
           </div>
           <div className="form-field">

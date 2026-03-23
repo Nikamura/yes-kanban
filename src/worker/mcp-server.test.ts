@@ -281,6 +281,15 @@ describe("McpServer planning tools phase validation", () => {
     expect(response.error).toBeDefined();
   });
 
+  test("ask_question allows during grilling phase", async () => {
+    mockConvex.query.mockReturnValue({ status: "grilling" } as any);
+    const response = await sendJsonRpc(port, "tools/call", {
+      name: "ask_question",
+      arguments: { question: "Clarify scope?", suggestedAnswers: ["A", "B", "C"] },
+    });
+    expect(response.error).toBeUndefined();
+  });
+
   test("get_plan returns plan data", async () => {
     mockConvex.query.mockReturnValue({ plan: "Step 1", planApproved: true } as any);
     const response = await sendJsonRpc(port, "tools/call", {

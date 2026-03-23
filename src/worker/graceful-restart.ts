@@ -12,6 +12,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 const REQUEUE_TO_CREATING = [
   "claimed",
   "planning",
+  "grilling",
   "coding",
   "testing",
   "reviewing",

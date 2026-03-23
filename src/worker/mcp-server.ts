@@ -482,7 +482,7 @@ client.on("error", () => process.exit(1));
   private async askQuestion(args: { question: string; suggestedAnswers?: string[] }) {
     // ask_question is allowed during planning and coding phases
     const ws = await this.convex.query(api.workspaces.get, { id: this.workspaceId });
-    if (ws && !["planning", "coding"].includes(ws.status)) {
+    if (ws && !["planning", "grilling", "coding"].includes(ws.status)) {
       throw new Error(`ask_question is not available during "${ws.status}" phase`);
     }
     const id = await this.convex.mutation(api.agentQuestions.create, {

@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { READ_ONLY_TOOLS, PLANNING_TOOLS, PLANNING_RESEARCH_TOOLS, CODING_TOOLS, REVIEW_TOOLS } from "./mcp-tools";
+import { READ_ONLY_TOOLS, PLANNING_TOOLS, PLANNING_RESEARCH_TOOLS, GRILLING_TOOLS, CODING_TOOLS, REVIEW_TOOLS } from "./mcp-tools";
 
 describe("MCP tool lists by phase", () => {
   test("READ_ONLY_TOOLS contains only read operations", () => {
@@ -35,6 +35,16 @@ describe("MCP tool lists by phase", () => {
     expect(PLANNING_TOOLS).toContain("mcp__yes-kanban__submit_plan");
     expect(PLANNING_TOOLS).toContain("mcp__yes-kanban__ask_question");
     expect(PLANNING_TOOLS).toContain("mcp__yes-kanban__get_plan");
+  });
+
+  test("GRILLING_TOOLS is read-only tools plus ask_question only", () => {
+    for (const tool of READ_ONLY_TOOLS) {
+      expect(GRILLING_TOOLS).toContain(tool);
+    }
+    expect(GRILLING_TOOLS).toContain("mcp__yes-kanban__ask_question");
+    expect(GRILLING_TOOLS).not.toContain("mcp__yes-kanban__submit_plan");
+    expect(GRILLING_TOOLS).not.toContain("mcp__yes-kanban__get_plan");
+    expect(GRILLING_TOOLS).toHaveLength(READ_ONLY_TOOLS.length + 1);
   });
 
   test("PLANNING_RESEARCH_TOOLS includes all planning tools plus web tools", () => {
@@ -76,6 +86,7 @@ describe("MCP tool lists by phase", () => {
       ["READ_ONLY_TOOLS", READ_ONLY_TOOLS],
       ["PLANNING_TOOLS", PLANNING_TOOLS],
       ["PLANNING_RESEARCH_TOOLS", PLANNING_RESEARCH_TOOLS],
+      ["GRILLING_TOOLS", GRILLING_TOOLS],
       ["CODING_TOOLS", CODING_TOOLS],
       ["REVIEW_TOOLS", REVIEW_TOOLS],
     ] as const) {
@@ -92,6 +103,7 @@ describe("MCP tool lists by phase", () => {
       ["READ_ONLY_TOOLS", READ_ONLY_TOOLS],
       ["PLANNING_TOOLS", PLANNING_TOOLS],
       ["PLANNING_RESEARCH_TOOLS", PLANNING_RESEARCH_TOOLS],
+      ["GRILLING_TOOLS", GRILLING_TOOLS],
       ["CODING_TOOLS", CODING_TOOLS],
       ["REVIEW_TOOLS", REVIEW_TOOLS],
     ] as const) {

@@ -2262,6 +2262,7 @@ textarea { resize: vertical; }
 .ws-status-test_failed { color: #EF4444; }
 
 .ws-status-planning { color: #8B5CF6; }
+.ws-status-grilling { color: #EC4899; }
 .ws-status-plan_reviewing { color: #8B5CF6; }
 .ws-status-awaiting_feedback { color: #F97316; }
 

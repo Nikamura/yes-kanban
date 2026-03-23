@@ -113,6 +113,25 @@ describe("formatHistoryEntry", () => {
     ).toBe("Deep research disabled");
   });
 
+  it("formats grillMe enabled and disabled", () => {
+    expect(
+      formatHistoryEntry({
+        action: "updated",
+        field: "grillMe",
+        oldValue: JSON.stringify(false),
+        newValue: JSON.stringify(true),
+      })
+    ).toBe("Grill me enabled");
+    expect(
+      formatHistoryEntry({
+        action: "updated",
+        field: "grillMe",
+        oldValue: JSON.stringify(true),
+        newValue: JSON.stringify(false),
+      })
+    ).toBe("Grill me disabled");
+  });
+
   it("formats autoMerge enabled and disabled", () => {
     expect(
       formatHistoryEntry({

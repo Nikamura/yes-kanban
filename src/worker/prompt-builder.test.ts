@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { buildPrompt, buildReviewPrompt, buildPlanReviewPrompt, buildRebaseConflictPrompt, buildPlanningPrompt, buildFixPrompt } from "./prompt-builder";
+import { buildPrompt, buildReviewPrompt, buildPlanReviewPrompt, buildRebaseConflictPrompt, buildPlanningPrompt, buildGrillingPrompt, buildFixPrompt } from "./prompt-builder";
 
 describe("buildPrompt", () => {
   test("includes issue title and description", () => {
@@ -684,6 +684,37 @@ describe("buildPlanningPrompt with reviewer feedback", () => {
       "Some feedback",
     );
     expect(prompt).not.toContain("AI Reviewer Feedback");
+  });
+});
+
+describe("buildGrillingPrompt", () => {
+  test("includes core grill instructions and ask_question guidance", () => {
+    const prompt = buildGrillingPrompt(
+      { title: "Feature", simpleId: "T-1", description: "Do the thing", tags: [] } as any,
+      [],
+      undefined,
+      undefined,
+      undefined,
+      false,
+    );
+    expect(prompt).toContain("Grill Me");
+    expect(prompt).toContain("mcp__yes-kanban__ask_question");
+    expect(prompt).toContain("explore the codebase");
+    expect(prompt).toContain("submit_plan");
+    expect(prompt).not.toContain("# Planning Phase");
+  });
+
+  test("prepends resume line when isResuming is true", () => {
+    const prompt = buildGrillingPrompt(
+      { title: "X", simpleId: "T-1", description: "", tags: [] } as any,
+      [],
+      [{ question: "Q1", answer: "A1" }],
+      undefined,
+      undefined,
+      true,
+    );
+    expect(prompt).toContain("The user has provided responses");
+    expect(prompt).toContain("**Q:** Q1");
   });
 });
 

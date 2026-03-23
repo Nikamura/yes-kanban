@@ -335,6 +335,79 @@ export function buildPlanningPrompt(
 }
 
 /**
+ * Pre-planning "grill me" interview — stress-test the design before a formal plan is written.
+ */
+export function buildGrillingPrompt(
+  issue: Doc<"issues"> | undefined,
+  worktrees: WorktreeEntry[],
+  answeredQuestions?: Array<{ question: string; answer: string }>,
+  attachments?: AttachmentInfo[],
+  customInstructions?: string,
+  isResuming?: boolean,
+): string {
+  const parts: string[] = [];
+
+  if (isResuming) {
+    parts.push("The user has provided responses. Continue the grill interview:");
+  }
+
+  parts.push("# Grill Me (pre-planning interview)");
+
+  if (issue) {
+    parts.push(`\nTask: ${issue.title} (${issue.simpleId})`);
+    if (issue.description) {
+      parts.push(`\n## Requirements\n${issue.description}`);
+    }
+  }
+
+  if (attachments && attachments.length > 0) {
+    parts.push(...renderAttachments(attachments));
+  }
+
+  if (worktrees.length > 0) {
+    parts.push("\n## Workspace");
+    for (const wt of worktrees) {
+      parts.push(`- Repository: ${wt.repoPath}`);
+      parts.push(`  Branch: ${wt.branchName} (based on ${wt.baseBranch})`);
+      parts.push(`  Path: ${wt.worktreePath}`);
+    }
+  }
+
+  if (answeredQuestions && answeredQuestions.length > 0) {
+    parts.push("\n## Answered Questions");
+    for (const qa of answeredQuestions) {
+      parts.push(`\n**Q:** ${qa.question}`);
+      parts.push(`**A:** ${qa.answer}`);
+    }
+  }
+
+  if (customInstructions) {
+    parts.push(`\n## Custom instructions\n${customInstructions}`);
+  }
+
+  parts.push("\n## Your mission");
+  parts.push(
+    "Interview the user relentlessly about every aspect of this plan or design until you reach a shared understanding. " +
+      "Walk down each branch of the design tree, resolving dependencies between decisions one-by-one.",
+  );
+  parts.push(
+    "For each question, state your **recommended answer** in your message, then ask **one** follow-up via " +
+      "`mcp__yes-kanban__ask_question` with exactly **3** suggested answers.",
+  );
+  parts.push(
+    "If a question can be answered by exploring the codebase, explore the codebase instead of asking the user.",
+  );
+  parts.push(
+    "When the design is sufficiently explored and there are no unresolved branches, **finish** without calling `ask_question` again.",
+  );
+  parts.push(
+    "\n**Do NOT** call `mcp__yes-kanban__submit_plan` or `mcp__yes-kanban__get_plan` during this phase. Planning follows after grilling completes.",
+  );
+
+  return parts.join("\n");
+}
+
+/**
  * Build the prompt for resolving rebase conflicts.
  * If a custom template is provided, it replaces the hardcoded instructions.
  */

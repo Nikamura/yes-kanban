@@ -95,8 +95,7 @@ export function IssueDetailPanel({
         (i) =>
           i._id !== issueId &&
           !blockerIds.includes(i._id) &&
-          (i.title.toLowerCase().includes(search) ||
-            i.simpleId.toLowerCase().includes(search))
+          [i.title, i.simpleId].some((s) => s.toLowerCase().includes(search))
       )
       .slice(0, 8);
   }, [blockerSearch, allProjectIssues, issueId, blockerIds]);
@@ -229,6 +228,18 @@ export function IssueDetailPanel({
                   }
                 />
                 Deep research
+              </label>
+            </div>
+            <div className="meta-item">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={issue.grillMe ?? false}
+                  onChange={(e) =>
+                    updateIssue({ id: issueId, grillMe: e.target.checked })
+                  }
+                />
+                Grill me (pre-planning interview)
               </label>
             </div>
             <div className="meta-item meta-item-tags">

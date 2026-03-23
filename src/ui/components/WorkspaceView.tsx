@@ -91,7 +91,7 @@ export function WorkspaceView({
         <div className="panel-header">
           <div className="ws-header-info">
             <span className={`ws-status ws-status-${workspace.status}`}>
-              {workspace.status === "awaiting_feedback" ? "awaiting feedback" : workspace.status === "changes_requested" ? "changes requested" : workspace.status === "plan_reviewing" ? "plan reviewing" : workspace.status}
+              {workspace.status === "awaiting_feedback" ? "awaiting feedback" : workspace.status === "changes_requested" ? "changes requested" : workspace.status === "plan_reviewing" ? "plan reviewing" : workspace.status === "grilling" ? "grilling" : workspace.status}
             </span>
             {workspace.experimentNumber && workspace.experimentNumber > 0 && (
               <span className="ws-experiment-badge">
@@ -103,7 +103,7 @@ export function WorkspaceView({
             )}
             {workspace.lastError && ["failed", "merge_failed", "test_failed"].includes(workspace.status) && (
               <span className="ws-last-error" title={workspace.lastError}>
-                {workspace.lastError.length > 80 ? workspace.lastError.slice(0, 80) + "…" : workspace.lastError}
+                {workspace.lastError.length > 80 ? `${workspace.lastError.slice(0, 80)}…` : workspace.lastError}
               </span>
             )}
             <span className="ws-date">
@@ -319,7 +319,9 @@ export function WorkspaceView({
                 <div className="ws-permission-info">
                   <span className="ws-permission-tool">{pr.toolName}</span>
                   {pr.toolInput && (
-                    <pre className="ws-permission-input">{pr.toolInput.length > 500 ? pr.toolInput.slice(0, 500) + "..." : pr.toolInput}</pre>
+                    <pre className="ws-permission-input">
+                      {pr.toolInput.length > 500 ? `${pr.toolInput.slice(0, 500)}...` : pr.toolInput}
+                    </pre>
                   )}
                 </div>
                 <div className="ws-permission-actions">
@@ -457,7 +459,7 @@ export function WorkspaceView({
                 )}
                 {!workspace.plan && (
                   <div className="empty-state">
-                    {workspace.status === "planning" ? "Agent is creating a plan..." : workspace.status === "plan_reviewing" ? "AI is reviewing the plan..." : "No plan yet"}
+                    {workspace.status === "grilling" ? "Agent is interviewing you before planning..." : workspace.status === "planning" ? "Agent is creating a plan..." : workspace.status === "plan_reviewing" ? "AI is reviewing the plan..." : "No plan yet"}
                   </div>
                 )}
               </div>

@@ -9,6 +9,7 @@ const TEMPLATE_TYPES = [
   { value: "rebase", label: "Rebase", description: "Instructions for conflict resolution" },
   { value: "planning", label: "Planning", description: "Instructions for the planning phase" },
   { value: "plan_review", label: "Plan Review", description: "Criteria for reviewing plans" },
+  { value: "grilling", label: "Grill Me", description: "Extra instructions for the pre-planning interview" },
 ] as const;
 
 const DEFAULT_TEMPLATES: Record<string, string> = {
@@ -38,6 +39,8 @@ Respond with one of:
 5. Continue until the rebase is fully complete.
 
 **IMPORTANT:** Do NOT run \`git rebase --abort\`. You must resolve the conflicts.`,
+  grilling: `Optional extra focus areas for the grill interview (issue {{issueId}}).
+`,
 };
 
 type TemplateDoc = Doc<"promptTemplates">;
@@ -52,7 +55,7 @@ export function PromptTemplatesSection({ projectId }: { projectId: Id<"projects"
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState({
     name: "",
-    type: "workflow" as "workflow" | "review" | "rebase" | "planning" | "plan_review",
+    type: "workflow" as "workflow" | "review" | "rebase" | "planning" | "plan_review" | "grilling",
     content: "",
     scope: "project" as "project" | "global",
   });
@@ -220,7 +223,7 @@ export function PromptTemplatesSection({ projectId }: { projectId: Id<"projects"
             <select
               value={addForm.type}
               onChange={(e) => {
-                const type = e.target.value as "workflow" | "review" | "rebase" | "planning" | "plan_review";
+                const type = e.target.value as "workflow" | "review" | "rebase" | "planning" | "plan_review" | "grilling";
                 setAddForm({
                   ...addForm,
                   type,

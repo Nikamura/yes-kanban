@@ -2,8 +2,15 @@ import { v } from "convex/values";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 
-type TemplateType = "workflow" | "review" | "rebase" | "planning" | "plan_review";
-const templateType = v.union(v.literal("workflow"), v.literal("review"), v.literal("rebase"), v.literal("planning"), v.literal("plan_review"));
+type TemplateType = "workflow" | "review" | "rebase" | "planning" | "plan_review" | "grilling";
+const templateType = v.union(
+  v.literal("workflow"),
+  v.literal("review"),
+  v.literal("rebase"),
+  v.literal("planning"),
+  v.literal("plan_review"),
+  v.literal("grilling"),
+);
 
 /**
  * Pure resolution logic: pick the best template given project-level and global candidates.
