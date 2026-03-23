@@ -240,6 +240,7 @@ Fields:
 - `finishedAt` (number or null)
 - `error` (string or null)
 - `tokenUsage` (object or null) — `{ inputTokens, outputTokens, totalTokens }`.
+- **Project token stats:** `api.stats.tokenUsage` aggregates `runAttempts` in a time window (default: last 90 days; optional `startTime` / `endTime` in epoch ms) using the `by_workspace_started` index.
 
 **Run attempt prompt (table `runAttemptPrompts`):** one row per attempt with `runAttemptId` and `prompt` (string), indexed by `runAttemptId`. Written by `runAttempts.create`; deleted when the parent workspace or project is removed.
 
@@ -409,7 +410,9 @@ export default defineSchema({
         totalTokens: v.number(),
       })
     ),
-  }).index("by_workspace", ["workspaceId"]),
+  })
+    .index("by_workspace", ["workspaceId"])
+    .index("by_workspace_started", ["workspaceId", "startedAt"]),
 
   runAttemptPrompts: defineTable({
     runAttemptId: v.id("runAttempts"),

@@ -198,7 +198,9 @@ export default defineSchema({
       })
     ),
     sessionId: v.optional(v.string()),
-  }).index("by_workspace", ["workspaceId"]),
+  })
+    .index("by_workspace", ["workspaceId"])
+    .index("by_workspace_started", ["workspaceId", "startedAt"]),
 
   runAttemptPrompts: defineTable({
     runAttemptId: v.id("runAttempts"),

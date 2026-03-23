@@ -3,9 +3,18 @@ import { query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { FIXED_COLUMNS } from "./lib/boardConstants";
 
+const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
+
 export const tokenUsage = query({
-  args: { projectId: v.id("projects") },
+  args: {
+    projectId: v.id("projects"),
+    startTime: v.optional(v.number()),
+    endTime: v.optional(v.number()),
+  },
   handler: async (ctx, args) => {
+    const endTime = args.endTime ?? Date.now();
+    const startTime = args.startTime ?? endTime - NINETY_DAYS_MS;
+
     const workspaces = await ctx.db
       .query("workspaces")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -13,12 +22,13 @@ export const tokenUsage = query({
 
     const workspaceIds = workspaces.map((w) => w._id);
 
-    // Fetch all run attempts for all workspaces in this project
     const allAttempts = [];
     for (const wsId of workspaceIds) {
       const attempts = await ctx.db
         .query("runAttempts")
-        .withIndex("by_workspace", (q) => q.eq("workspaceId", wsId))
+        .withIndex("by_workspace_started", (q) =>
+          q.eq("workspaceId", wsId).gte("startedAt", startTime).lte("startedAt", endTime)
+        )
         .collect();
       allAttempts.push(...attempts);
     }
@@ -102,9 +112,8 @@ export const tokenUsage = query({
       byAgentMap.set(configName, existing);
     }
 
-    // Recent runs: last 20 sorted by startedAt desc
-    const sorted = [...allAttempts].sort((a, b) => b.startedAt - a.startedAt);
-    const recentRuns = sorted.slice(0, 20).map((attempt) => {
+    const recentSource = [...allAttempts].sort((a, b) => b.startedAt - a.startedAt).slice(0, 20);
+    const recentRuns = recentSource.map((attempt) => {
       const ws = wsMap.get(attempt.workspaceId);
       const effectiveConfigId = attempt.agentConfigId ?? ws?.agentConfigId;
       const configInfo = effectiveConfigId ? agentConfigs.get(effectiveConfigId) : undefined;
@@ -142,7 +151,6 @@ export const tokenUsage = query({
   },
 });
 
-const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
 const HISTORY_LIMIT = 10000;
 
 export const analyticsData = query({
