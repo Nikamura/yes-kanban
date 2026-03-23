@@ -382,27 +382,3 @@ export const remove = mutation({
     await ctx.db.delete(args.id);
   },
 });
-
-/** Strip legacy fields (priority, dueDate, cardColor, color) from all issues. */
-const LEGACY_ISSUE_FIELDS = ["priority", "dueDate", "cardColor", "color"] as const;
-
-export const migrateLegacyFields = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const all = await ctx.db.query("issues").collect();
-    let migrated = 0;
-    for (const issue of all) {
-      const raw = issue as Record<string, unknown>;
-      const hasLegacy = LEGACY_ISSUE_FIELDS.some((f) => f in raw);
-      if (hasLegacy) {
-        const patch: Record<string, undefined> = {};
-        for (const f of LEGACY_ISSUE_FIELDS) {
-          if (f in raw) patch[f] = undefined;
-        }
-        await ctx.db.patch(issue._id, patch);
-        migrated++;
-      }
-    }
-    return { migrated };
-  },
-});

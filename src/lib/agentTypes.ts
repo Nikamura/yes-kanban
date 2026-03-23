@@ -3,5 +3,4 @@ export {
   type SupportedAgentAdapterType,
   isSupportedAgentAdapterType,
   assertSupportedAgentAdapterType,
-  legacyAgentTypeMigrationPatch,
 } from "../../convex/lib/agentTypes";

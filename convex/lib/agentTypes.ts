@@ -23,18 +23,3 @@ export function assertSupportedAgentAdapterType(agentType: string): void {
     );
   }
 }
-
-/**
- * Maps legacy removed adapter identifiers to current supported types.
- * Used by `migrateLegacyAgentTypes` and unit tests.
- */
-export function legacyAgentTypeMigrationPatch(
-  agentType: string,
-  command: string,
-): { agentType: string; command: string } | null {
-  if (agentType !== "pi") return null;
-  return {
-    agentType: "claude-code",
-    command: command.trim() === "pi" ? "claude" : command,
-  };
-}

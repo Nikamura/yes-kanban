@@ -2,7 +2,6 @@ import { describe, test, expect } from "bun:test";
 import {
   assertSupportedAgentAdapterType,
   isSupportedAgentAdapterType,
-  legacyAgentTypeMigrationPatch,
 } from "./agentTypes";
 
 describe("agentTypes", () => {
@@ -18,17 +17,5 @@ describe("agentTypes", () => {
     expect(() => assertSupportedAgentAdapterType("pi")).toThrow(
       /Unsupported agent type: pi/,
     );
-  });
-
-  test("legacyAgentTypeMigrationPatch maps pi to claude-code", () => {
-    expect(legacyAgentTypeMigrationPatch("pi", "pi")).toEqual({
-      agentType: "claude-code",
-      command: "claude",
-    });
-    expect(legacyAgentTypeMigrationPatch("pi", "/usr/bin/pi")).toEqual({
-      agentType: "claude-code",
-      command: "/usr/bin/pi",
-    });
-    expect(legacyAgentTypeMigrationPatch("claude-code", "claude")).toBeNull();
   });
 });

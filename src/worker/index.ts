@@ -31,29 +31,6 @@ async function main() {
 
   const convex = new ConvexClient(config.convexUrl);
 
-  try {
-    const m = await convex.mutation(api.agentConfigs.migrateLegacyAgentTypes, {});
-    if (m.migrated > 0) {
-      console.log(
-        `[worker] migrated ${m.migrated} legacy agent config(s) (removed agent types)`,
-      );
-    }
-  } catch (err) {
-    console.error("[worker] migrateLegacyAgentTypes failed:", err);
-  }
-
-  try {
-    const m = await convex.mutation(api.issues.migrateLegacyFields, {});
-    if (m.migrated > 0) {
-      console.log(
-        `[worker] migrated ${m.migrated} issue(s) (removed legacy fields)`,
-      );
-    }
-  } catch (err) {
-    console.error("[worker] migrateLegacyFields failed:", err);
-  }
-
-
   // Recover orphaned workspaces — re-queue them for dispatch instead of
   // permanently failing them. This handles both crashes and graceful restarts
   // (e.g., `--watch` restart after a local merge changes files).
