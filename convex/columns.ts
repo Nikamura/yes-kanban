@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { FIXED_COLUMNS } from "./lib/boardConstants";
-import { recordHistory } from "./issueHistory";
 
 const fixedSet = new Set<string>(FIXED_COLUMNS);
 
@@ -15,52 +14,6 @@ export const list = query({
     return columns
       .filter((c) => fixedSet.has(c.name))
       .sort((a, b) => a.position - b.position);
-  },
-});
-
-/** Delete legacy columns and move issues with invalid statuses back to Backlog. */
-export const cleanupLegacyColumns = mutation({
-  args: { projectId: v.id("projects") },
-  handler: async (ctx, args) => {
-    const columns = await ctx.db
-      .query("columns")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-
-    let deletedColumns = 0;
-    for (const col of columns) {
-      if (!fixedSet.has(col.name)) {
-        await ctx.db.delete(col._id);
-        deletedColumns++;
-      }
-    }
-
-    const allIssues = await ctx.db
-      .query("issues")
-      .withIndex("by_project_status", (q) => q.eq("projectId", args.projectId))
-      .collect();
-
-    let movedIssues = 0;
-    for (const issue of allIssues) {
-      if (!fixedSet.has(issue.status)) {
-        await recordHistory(ctx, {
-          issueId: issue._id,
-          projectId: issue.projectId,
-          action: "moved",
-          field: "status",
-          oldValue: JSON.stringify(issue.status),
-          newValue: JSON.stringify("Backlog"),
-          actor: "system",
-        });
-        await ctx.db.patch(issue._id, {
-          status: "Backlog",
-          updatedAt: Date.now(),
-        });
-        movedIssues++;
-      }
-    }
-
-    return { deletedColumns, movedIssues };
   },
 });
 
