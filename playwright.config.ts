@@ -8,6 +8,9 @@ import { defineConfig } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./e2e",
+  // Default Playwright match is *.(spec|test).* only; include *.e2e.ts so Bun can
+  // avoid discovering e2e files (they use Playwright's test API, not bun:test).
+  testMatch: ["**/*.@(spec|test).?(c|m)[jt]s?(x)", "**/*.e2e.ts"],
   timeout: 30000,
   retries: 0,
   use: {
