@@ -607,7 +607,7 @@ export const remove = mutation({
   },
 });
 
-const CHUNK_SIZE = 500;
+const CHUNK_SIZE = 100;
 
 /** Delete workspace data in bounded chunks, re-scheduling until done. */
 export const removeChunk = internalMutation({
