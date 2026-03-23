@@ -788,16 +788,6 @@ body {
   cursor: grab;
 }
 
-/* Card accent strip */
-.issue-card-priority-strip {
-  width: 4px;
-  min-height: 32px;
-  border-radius: 2px;
-  flex-shrink: 0;
-  align-self: stretch;
-  background: var(--border);
-}
-
 /* Selection checkbox */
 .issue-card-checkbox {
   width: 20px;

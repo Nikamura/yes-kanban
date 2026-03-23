@@ -131,7 +131,6 @@ export function ListView({ projectId, activeIssueSimpleId, activeWorkspaceId, on
                 }}
               />
             )}
-            <div className="issue-card-priority-strip" />
             <div className="list-card-content">
               <div className="list-card-header">
                 <span className="issue-id">{issue.simpleId}</span>

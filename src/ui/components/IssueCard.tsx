@@ -51,7 +51,6 @@ export function IssueCard({
           }}
         />
       )}
-      <div className="issue-card-priority-strip" />
       <div className="issue-card-content">
         <div className="issue-card-header">
           <span className="issue-id">{issue.simpleId}</span>
