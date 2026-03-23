@@ -163,7 +163,7 @@ const noLinkComponents = {
 };
 
 function AssistantLine({ data, agentType }: { data: any; agentType?: string }) {
-  const text = extractContent(data);
+  const text = extractContent(data)?.trim();
   if (!text) return null;
 
   return (
