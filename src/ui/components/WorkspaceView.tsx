@@ -30,6 +30,7 @@ export function WorkspaceView({
   const requestChanges = useMutation(api.workspaces.requestChanges);
   const dismissFeedback = useMutation(api.workspaces.dismissReviewFeedback);
   const removeWorkspace = useMutation(api.workspaces.remove);
+  const abandonWorkspace = useMutation(api.workspaces.abandon);
   const updatePlan = useMutation(api.workspaces.updatePlan);
   const answerQuestion = useMutation(api.agentQuestions.answer);
   const dismissQuestion = useMutation(api.agentQuestions.dismiss);
@@ -207,15 +208,10 @@ export function WorkspaceView({
                 Cancel
               </button>
             )}
-            {(canDeleteWorkspace || deleteDisabledByWorktrees) && (
+            {canDeleteWorkspace && (
               <button
                 className="btn btn-danger btn-sm"
-                disabled={deleteDisabledByWorktrees}
-                title={
-                  deleteDisabledByWorktrees
-                    ? "Clean up worktrees first"
-                    : "Delete this workspace permanently"
-                }
+                title="Delete this workspace permanently"
                 onClick={() => {
                   if (
                     !window.confirm(
@@ -235,6 +231,29 @@ export function WorkspaceView({
                 }}
               >
                 Delete
+              </button>
+            )}
+            {deleteDisabledByWorktrees && (
+              <button
+                className="btn btn-danger btn-sm"
+                title="Stop using this workspace and queue worktree cleanup"
+                onClick={() => {
+                  if (
+                    !window.confirm(
+                      "Abandon this workspace? Its worktrees will be removed by the worker; you can delete the record afterward.",
+                    )
+                  ) {
+                    return;
+                  }
+                  setActionError(null);
+                  void abandonWorkspace({ id: workspaceId }).catch((e: unknown) =>
+                    setActionError(
+                      e instanceof Error ? e.message : "Failed to abandon workspace",
+                    ),
+                  );
+                }}
+              >
+                Abandon
               </button>
             )}
             <button className="close-btn" onClick={onClose}>

@@ -428,6 +428,19 @@ export const requestCancel = mutation({
   },
 });
 
+/** Move a terminal workspace with worktrees to `cancelled` so the worker runs normal cleanup. */
+export const abandon = mutation({
+  args: { id: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    const workspace = await ctx.db.get(args.id);
+    if (!workspace) throw new Error("Workspace not found");
+    const terminal = (WORKSPACE_TERMINAL_STATUSES as readonly string[]).includes(workspace.status);
+    if (!terminal) throw new Error("Use cancel for active workspaces");
+    if (workspace.worktrees.length === 0) throw new Error("No worktrees to clean up");
+    await ctx.db.patch(args.id, { status: "cancelled" });
+  },
+});
+
 /** Lightweight mutation to update just the diff output (used for live diff polling). */
 export const updateDiff = mutation({
   args: {

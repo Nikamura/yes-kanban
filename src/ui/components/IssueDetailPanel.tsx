@@ -62,6 +62,7 @@ export function IssueDetailPanel({
   );
   const createWorkspace = useMutation(api.workspaces.create);
   const removeWorkspace = useMutation(api.workspaces.remove);
+  const abandonWorkspace = useMutation(api.workspaces.abandon);
 
   const [editing, setEditing] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -359,8 +360,8 @@ export function IssueDetailPanel({
                   <h3>Workspaces</h3>
                   {workspaces.map((ws) => {
                     const isTerminal = TERMINAL_STATUSES.includes(ws.status);
-                    const canDeleteRecord =
-                      isTerminal && ws.worktrees.length === 0;
+                    const canAbandon =
+                      isTerminal && ws.worktrees.length > 0;
                     return (
                       <div
                         key={ws._id}
@@ -374,19 +375,41 @@ export function IssueDetailPanel({
                         <span className="ws-date">
                           {new Date(ws.createdAt).toLocaleString()}
                         </span>
-                        {isTerminal && (
+                        {canAbandon && (
+                          <button
+                            type="button"
+                            className="btn btn-danger btn-sm workspace-item-abandon"
+                            title="Abandon workspace and queue worktree cleanup"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (
+                                !window.confirm(
+                                  "Abandon this workspace? Its worktrees will be removed by the worker; you can delete the record afterward.",
+                                )
+                              ) {
+                                return;
+                              }
+                              setWorkspaceDeleteError(null);
+                              void abandonWorkspace({ id: ws._id }).catch(
+                                (err: unknown) =>
+                                  setWorkspaceDeleteError(
+                                    err instanceof Error
+                                      ? err.message
+                                      : "Failed to abandon workspace",
+                                  ),
+                              );
+                            }}
+                          >
+                            Abandon
+                          </button>
+                        )}
+                        {isTerminal && !canAbandon && (
                           <button
                             type="button"
                             className="workspace-item-delete"
-                            title={
-                              canDeleteRecord
-                                ? "Delete workspace"
-                                : "Clean up worktrees first"
-                            }
-                            disabled={!canDeleteRecord}
+                            title="Delete workspace"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (!canDeleteRecord) return;
                               if (
                                 !window.confirm(
                                   "Delete this workspace? This cannot be undone.",

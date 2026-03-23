@@ -1132,6 +1132,10 @@ body {
   color: var(--text-muted);
 }
 
+.workspace-item-abandon {
+  flex-shrink: 0;
+}
+
 .workspace-item-delete {
   flex-shrink: 0;
   margin: 0;

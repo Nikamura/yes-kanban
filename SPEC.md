@@ -606,6 +606,10 @@ api.workspaces.updateStatus: (args: {
   completedAt?: number;
 }) => void
 
+// Mutation: move a terminal workspace that still has worktrees to `cancelled` so the worker cleans worktrees (same pipeline as cancel/finish)
+api.workspaces.abandon: (args: { id: Id<"workspaces"> }) => void
+// — Only for terminal statuses with a non-empty worktrees array. Active workspaces must use requestCancel instead. Empty worktrees: use remove.
+
 // Mutation: delete a terminal workspace record after worktrees are empty (cascades related rows)
 api.workspaces.remove: (args: { id: Id<"workspaces"> }) => void
 // — Only allowed when status is terminal (completed, failed, cancelled, merged, merge_failed, conflict, test_failed, changes_requested) and worktrees array is empty.
