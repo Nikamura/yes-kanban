@@ -325,7 +325,15 @@ export function WorkspaceView({
                 <div className="ws-permission-actions">
                   <button
                     className="btn btn-primary btn-sm"
-                    onClick={() => respondPermission({ id: pr._id, status: "approved" }).catch(() => {})}
+                    onClick={() => {
+                      setActionError(null);
+                      void respondPermission({ id: pr._id, status: "approved" }).catch(
+                        (e: unknown) =>
+                          setActionError(
+                            e instanceof Error ? e.message : "Failed to approve permission",
+                          ),
+                      );
+                    }}
                   >
                     Approve
                   </button>
@@ -334,14 +342,28 @@ export function WorkspaceView({
                     onClick={() => {
                       const risky = /^(Bash|Write|NotebookEdit)$/i.test(pr.toolName);
                       if (risky && !window.confirm(`"${pr.toolName}" can modify files and run commands. Always allow this tool for all future runs of this agent config?`)) return;
-                      respondPermission({ id: pr._id, status: "always_allowed" }).catch(() => {});
+                      setActionError(null);
+                      void respondPermission({ id: pr._id, status: "always_allowed" }).catch(
+                        (e: unknown) =>
+                          setActionError(
+                            e instanceof Error ? e.message : "Failed to update permission rule",
+                          ),
+                      );
                     }}
                   >
                     Always Allow
                   </button>
                   <button
                     className="btn btn-danger btn-sm"
-                    onClick={() => respondPermission({ id: pr._id, status: "rejected" }).catch(() => {})}
+                    onClick={() => {
+                      setActionError(null);
+                      void respondPermission({ id: pr._id, status: "rejected" }).catch(
+                        (e: unknown) =>
+                          setActionError(
+                            e instanceof Error ? e.message : "Failed to reject permission",
+                          ),
+                      );
+                    }}
                   >
                     Reject
                   </button>

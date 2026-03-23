@@ -59,6 +59,7 @@ export function CreateIssueDialog({
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [lightboxImage, setLightboxImage] = useState<{
     url: string;
     filename: string;
@@ -167,6 +168,9 @@ export function CreateIssueDialog({
       headers: { "Content-Type": file.type },
       body: file,
     });
+    if (!result.ok) {
+      throw new Error(`Upload failed (${result.status})`);
+    }
     const { storageId } = await result.json();
     await createAttachment({
       issueId,
@@ -181,6 +185,7 @@ export function CreateIssueDialog({
     e.preventDefault();
     if (!title.trim() || submitting) return;
     setSubmitting(true);
+    setSubmitError("");
     try {
       const issueId = await createIssue({
         projectId,
@@ -195,7 +200,16 @@ export function CreateIssueDialog({
         autoMerge: autoMerge || undefined,
       });
       if (pendingFiles.length > 0) {
-        await Promise.allSettled(pendingFiles.map((pf) => uploadFile(pf.file, issueId)));
+        const results = await Promise.allSettled(
+          pendingFiles.map((pf) => uploadFile(pf.file, issueId)),
+        );
+        const failed = results.filter((r) => r.status === "rejected");
+        if (failed.length > 0) {
+          setSubmitError(
+            `${failed.length} attachment(s) failed to upload. The issue was created.`,
+          );
+          return;
+        }
       }
       onClose();
     } finally {
@@ -310,11 +324,12 @@ export function CreateIssueDialog({
                       previewUrl={pf.previewUrl}
                       onClick={
                         pf.previewUrl && isImageFile(pf.file)
-                          ? () =>
-                              setLightboxImage({
-                                url: pf.previewUrl!,
-                                filename: pf.file.name,
-                              })
+                          ? () => {
+                              const url = pf.previewUrl;
+                              if (url) {
+                                setLightboxImage({ url, filename: pf.file.name });
+                              }
+                            }
                           : undefined
                       }
                     />
@@ -338,6 +353,7 @@ export function CreateIssueDialog({
               </div>
             )}
           </div>
+          {submitError && <div className="form-error">{submitError}</div>}
           <div className="dialog-actions">
             <button type="button" className="btn" onClick={onClose} disabled={submitting}>
               Cancel

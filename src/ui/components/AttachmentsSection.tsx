@@ -23,6 +23,7 @@ export function AttachmentsSection({ issueId }: { issueId: Id<"issues"> }) {
   const removeAttachment = useMutation(api.attachments.remove);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<Id<"attachments"> | null>(null);
   const [dragging, setDragging] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<{ url: string; filename: string } | null>(null);
@@ -35,6 +36,9 @@ export function AttachmentsSection({ issueId }: { issueId: Id<"issues"> }) {
       headers: { "Content-Type": file.type },
       body: file,
     });
+    if (!result.ok) {
+      throw new Error(`Upload failed (${result.status})`);
+    }
     const { storageId } = await result.json();
     await createAttachment({
       issueId,
@@ -48,8 +52,15 @@ export function AttachmentsSection({ issueId }: { issueId: Id<"issues"> }) {
   const uploadFiles = useCallback(async (files: File[]) => {
     if (files.length === 0) return;
     setUploading(true);
+    setUploadError(null);
     try {
-      await Promise.allSettled(files.map((f) => uploadFile(f)));
+      const results = await Promise.allSettled(files.map((f) => uploadFile(f)));
+      const failed = results.filter((r) => r.status === "rejected");
+      if (failed.length > 0) {
+        setUploadError(
+          `${failed.length} of ${files.length} file(s) failed to upload.`,
+        );
+      }
     } finally {
       setUploading(false);
     }
@@ -122,9 +133,26 @@ export function AttachmentsSection({ issueId }: { issueId: Id<"issues"> }) {
       onDrop={handleDrop}
     >
       <h3>Attachments</h3>
+      {uploadError && (
+        <div className="form-error" role="alert">
+          {uploadError}
+        </div>
+      )}
       {attachments?.map((a) => (
         <div key={a._id} className="attachment-row attachment-row-with-preview">
-          <AttachmentPreview url={a.url} mimeType={a.mimeType} filename={a.filename} onClick={a.url && isImageMimeType(a.mimeType) ? () => setLightboxImage({ url: a.url!, filename: a.filename }) : undefined} />
+          <AttachmentPreview
+            url={a.url}
+            mimeType={a.mimeType}
+            filename={a.filename}
+            onClick={
+              a.url && isImageMimeType(a.mimeType)
+                ? () => {
+                    const url = a.url;
+                    if (url) setLightboxImage({ url, filename: a.filename });
+                  }
+                : undefined
+            }
+          />
           <div className="attachment-info">
             <span className="attachment-name" title={a.filename}>
               {a.filename}

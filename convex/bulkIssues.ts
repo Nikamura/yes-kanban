@@ -185,6 +185,7 @@ export const bulkDelete = mutation({
         .withIndex("by_issue", (q) => q.eq("issueId", id))
         .collect();
       for (const att of attachments) {
+        await ctx.storage.delete(att.storageId);
         await ctx.db.delete(att._id);
       }
 
