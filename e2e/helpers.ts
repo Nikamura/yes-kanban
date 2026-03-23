@@ -79,6 +79,80 @@ export async function seedWorkspaceWithPendingQuestion(): Promise<{
 }
 
 /**
+ * Grill Me flow: issue has `grillMe`, workspace was in `grilling`, agent asked a question
+ * (`waiting_for_answer`) with three suggested answers — same shape as
+ * {@link seedWorkspaceWithPendingQuestion} but for the pre-planning interview path.
+ */
+export async function seedGrillingWorkspace(): Promise<{
+  slug: string;
+  issueSimpleId: string;
+  workspaceId: string;
+  suggestions: [string, string, string];
+}> {
+  const client = new ConvexHttpClient(getE2eConvexUrl(), {
+    skipConvexDeploymentUrlCheck: true,
+  });
+  const suffix = Date.now();
+  const slug = `e2e-grill-${suffix}`;
+
+  const projectId = await client.mutation(api.projects.create, {
+    name: `E2E Grill Me ${suffix}`,
+    slug,
+    simpleIdPrefix: "GR",
+  });
+
+  const agentConfigId = await client.mutation(api.agentConfigs.create, {
+    projectId,
+    name: "E2E Grill Agent",
+    agentType: "claude-code",
+    command: "echo",
+  });
+
+  const issueId = await client.mutation(api.issues.create, {
+    projectId,
+    title: "E2E Grill Me pre-planning interview",
+    description: "Seeded for grilling UI + lifecycle test",
+    status: "To Do",
+    grillMe: true,
+  });
+
+  const workspaceId = await client.mutation(api.workspaces.create, {
+    issueId,
+    projectId,
+    agentConfigId,
+  });
+
+  await client.mutation(api.workspaces.updateStatus, {
+    id: workspaceId,
+    status: "grilling",
+  });
+
+  await client.mutation(api.workspaces.updateStatus, {
+    id: workspaceId,
+    status: "waiting_for_answer",
+  });
+
+  const suggestions: [string, string, string] = [
+    "Grill option A",
+    "Grill option B",
+    "Grill option C",
+  ];
+
+  await client.mutation(api.agentQuestions.create, {
+    workspaceId,
+    question: "What should we clarify before planning?",
+    suggestedAnswers: suggestions,
+  });
+
+  const issue = await client.query(api.issues.get, { id: issueId });
+  if (!issue) {
+    throw new Error("Expected issue after seeding");
+  }
+
+  return { slug, issueSimpleId: issue.simpleId, workspaceId, suggestions };
+}
+
+/**
  * Seed a project with a known issue via the Convex API.
  * Returns the slug so tests can navigate directly to the correct project.
  */
