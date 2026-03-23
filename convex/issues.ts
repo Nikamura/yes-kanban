@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { recordHistory } from "./issueHistory";
 import { validateIssueTitle, validateIssueDescription } from "./lib/issueValidation";
-import { AUTO_DISPATCH_COLUMNS, CREATABLE_COLUMNS } from "./lib/boardConstants";
+import { AUTO_DISPATCH_COLUMNS, CREATABLE_COLUMNS, FIXED_COLUMNS } from "./lib/boardConstants";
 import { unarchiveIssue } from "./lib/archiveHelpers";
 import { WORKSPACE_TERMINAL_STATUSES } from "./workspaces";
 export const list = query({
@@ -255,6 +255,9 @@ export const move = mutation({
   handler: async (ctx, args) => {
     const issue = await ctx.db.get(args.id);
     if (!issue) throw new Error("Issue not found");
+    if (!(FIXED_COLUMNS as readonly string[]).includes(args.status)) {
+      throw new Error(`Invalid status "${args.status}". Must be one of: ${FIXED_COLUMNS.join(", ")}`);
+    }
 
     if (issue.status !== args.status) {
       await recordHistory(ctx, {

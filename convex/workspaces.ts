@@ -1,9 +1,8 @@
 import { v } from "convex/values";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { getNextVisibleColumn } from "./lib/columnHelpers";
 import { recordHistory } from "./issueHistory";
-import { AUTO_DISPATCH_COLUMNS, TERMINAL_COLUMN_NAMES } from "./lib/boardConstants";
+import { AUTO_DISPATCH_COLUMNS, FIXED_COLUMNS, TERMINAL_COLUMN_NAMES } from "./lib/boardConstants";
 export { TERMINAL_COLUMN_NAMES } from "./lib/boardConstants";
 
 /** Workspace statuses where the agent is no longer running and a new workspace can be created. */
@@ -12,7 +11,7 @@ export const WORKSPACE_TERMINAL_STATUSES = [
   "merge_failed", "conflict", "test_failed", "changes_requested",
 ] as const;
 
-/** Move an issue to the next visible column. Shared by updateStatus, dismissReviewFeedback, approvePlan, and claim. */
+/** Move an issue to the next column in the fixed board flow. Shared by updateStatus, dismissReviewFeedback, approvePlan, and claim. */
 export async function autoMoveIssueToNextColumn(
   ctx: MutationCtx,
   issueId: Id<"issues">,
@@ -22,25 +21,21 @@ export async function autoMoveIssueToNextColumn(
   const issue = await ctx.db.get(issueId);
   if (!issue) return;
 
-  const columns = await ctx.db
-    .query("columns")
-    .withIndex("by_project", (q) => q.eq("projectId", projectId))
-    .collect();
-
   if (opts?.onlyIfAutoDispatchColumn) {
     if (!(AUTO_DISPATCH_COLUMNS as readonly string[]).includes(issue.status)) return;
   }
 
-  const nextColumn = getNextVisibleColumn(columns, issue.status);
-  if (!nextColumn || nextColumn.name === issue.status) return;
+  const currentIndex = (FIXED_COLUMNS as readonly string[]).indexOf(issue.status);
+  if (currentIndex === -1 || currentIndex >= FIXED_COLUMNS.length - 1) return;
+  const nextColumnName = FIXED_COLUMNS[currentIndex + 1];
 
   // Don't auto-move into terminal columns (Done) — user must do that explicitly
-  if (opts?.skipTerminal && (TERMINAL_COLUMN_NAMES as readonly string[]).includes(nextColumn.name)) return;
+  if (opts?.skipTerminal && (TERMINAL_COLUMN_NAMES as readonly string[]).includes(nextColumnName)) return;
 
   const issuesInTarget = await ctx.db
     .query("issues")
     .withIndex("by_project_status", (q) =>
-      q.eq("projectId", issue.projectId).eq("status", nextColumn.name)
+      q.eq("projectId", issue.projectId).eq("status", nextColumnName)
     )
     .collect();
   const maxPos = issuesInTarget.reduce((max, i) => Math.max(max, i.position), -1);
@@ -51,12 +46,12 @@ export async function autoMoveIssueToNextColumn(
     action: "moved",
     field: "status",
     oldValue: JSON.stringify(issue.status),
-    newValue: JSON.stringify(nextColumn.name),
+    newValue: JSON.stringify(nextColumnName),
     actor: "system",
   });
 
   await ctx.db.patch(issue._id, {
-    status: nextColumn.name,
+    status: nextColumnName,
     position: maxPos + 1,
     updatedAt: Date.now(),
   });
