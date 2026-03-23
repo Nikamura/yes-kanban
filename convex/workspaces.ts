@@ -420,7 +420,7 @@ export const requestCancel = mutation({
   handler: async (ctx, args) => {
     const workspace = await ctx.db.get(args.id);
     if (!workspace) throw new Error("Workspace not found");
-    const cancellableStatuses = ["creating", "claimed", "planning", "grilling", "plan_reviewing", "awaiting_feedback", "waiting_for_answer", "coding", "testing", "reviewing", "rebasing", "creating_pr", "merging"];
+    const cancellableStatuses = ["creating", "claimed", "planning", "grilling", "plan_reviewing", "awaiting_feedback", "waiting_for_answer", "coding", "testing", "reviewing", "rebasing", "creating_pr", "merging", "pr_open"];
     if (!cancellableStatuses.includes(workspace.status)) {
       throw new Error(`Cannot cancel workspace with status "${workspace.status}"`);
     }

@@ -1409,6 +1409,8 @@ The user can cancel a running agent from the UI:
 5. Mark the run attempt as `cancelled`.
 6. Workspace is preserved for inspection.
 
+Phases without a running agent subprocess (including `pr_open`, while the worker only polls for merge) still use the same cancel mutation. The worker transitions the workspace to `cancelled` without sending signals to a child process. Closing the pull request on the forge is manual; cancellation does not call the forge API.
+
 ## 11. Development Lifecycle
 
 A workspace progresses through a defined lifecycle from branch creation to merge. Each stage is tracked on the workspace record and visible in the UI.

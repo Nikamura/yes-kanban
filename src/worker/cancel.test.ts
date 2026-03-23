@@ -108,6 +108,30 @@ describe("Cancellable statuses alignment", () => {
     expect(orphanSection).toContain("plan_reviewing");
   });
 
+  test("pr_open is cancellable in backend and worker orphan paths (YES-239)", async () => {
+    const workspacesSource = await Bun.file(
+      new URL("../../convex/workspaces.ts", import.meta.url).pathname
+    ).text();
+
+    const cancelStart = workspacesSource.indexOf("cancellableStatuses");
+    const cancelSection = workspacesSource.slice(cancelStart, cancelStart + 400);
+    expect(cancelSection).toContain('"pr_open"');
+
+    const indexSource = await Bun.file(
+      new URL("./index.ts", import.meta.url).pathname
+    ).text();
+
+    const orphanIdx = indexSource.indexOf("cancelling orphaned workspace");
+    const orphanSection = indexSource.slice(orphanIdx - 500, orphanIdx);
+    expect(orphanSection).toContain('"pr_open"');
+
+    const constantsSource = await Bun.file(
+      new URL("../../src/ui/utils/constants.ts", import.meta.url).pathname
+    ).text();
+    expect(constantsSource).toContain('CANCELLABLE_STATUSES = [');
+    expect(constantsSource).toContain('"pr_open"');
+  });
+
   test("worker skips pending actions when cancelRequested is set", async () => {
     const indexSource = await Bun.file(
       new URL("./index.ts", import.meta.url).pathname
