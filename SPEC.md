@@ -451,6 +451,37 @@ export default defineSchema({
 });
 ```
 
+## Migrations
+
+Schema and data changes that must apply to **existing** deployments are handled with [`@convex-dev/migrations`](https://www.convex.dev/components/migrations). The component is registered in `convex/convex.config.ts`. Migration state is stored by the component so a long-idle instance can run the full queue once after upgrade.
+
+**Define a migration** in `convex/migrations.ts` using `migrations.define()` (see the package README). Each migration is an internal mutation over a table’s documents.
+
+**Register it in the serial runner** by adding `internal.migrations.yourMigration` to the array passed to `migrations.runSerially` inside `runAll`. Keep that list in **chronological order** (oldest first).
+
+**Access control:** Migration entrypoints are **internal** — they are **not** on the public `api` object (no `useMutation(api.migrations.*)`). The `Migrations` helper is constructed with `internalMutation` from `./_generated/server` so `define()` migrations match that model. The generic CLI runner (`run`) comes from `migrations.runner()`, which the library implements with Convex’s internal mutation registration (same visibility as `runAll`). Reference them from server code as `internal.migrations.run`, `internal.migrations.runAll`, or `internal.migrations.yourMigration`. `bun run migrate` and `bunx convex run migrations:runAll` / `migrations:run` use the **Convex CLI with admin credentials** from your project (e.g. deployment admin key), the same trust model as other operator-only `convex run` commands.
+
+The `@convex-dev/migrations` version is pinned exactly in `package.json` so upgrades are explicit when validating against the component API.
+
+**Run migrations** after deploying or pushing schema/code:
+
+- **Local dev:** `bun run dev` runs `bun run migrate` automatically **once** after the first successful push in that session (`dev:convex` uses `convex dev --run-sh ./scripts/run-migrate-after-dev-push.sh`). This requires the **Convex CLI** from the repo’s `convex` dependency (includes `--run-sh`; use a matching `bunx convex` / local install). Later file edits only re-push; they do not run the migrate hook again until you restart dev.
+- Run the full serial list manually: `bun run migrate` (same as `bunx convex run migrations:runAll`).
+- Run a single migration by name via the generic runner: `bunx convex run migrations:run '{"fn":"migrations:myMigration"}'`.
+
+**Status and cancel** (component API):
+
+- Status: `bun run migrate:status` (same as `bunx convex run --component migrations lib:getStatus`). Add `--watch` to stream updates while a migration runs.
+- Cancel one in-progress migration: `bunx convex run --component migrations lib:cancel '{"name":"migrations:myMigration"}'`.
+
+**Typical five-step workflow** for a schema change:
+
+1. Relax the schema so old and new shapes are valid (e.g. optional field, or union of values).
+2. Define the migration and add it to the `runAll` list.
+3. Push (`bunx convex deploy` or `bunx convex dev` as appropriate).
+4. Run migrations (`bun run migrate`) until complete; use `migrate:status` to confirm.
+5. Tighten the schema and application code to the new shape only.
+
 ## 6. Interface Contracts (TypeScript Pseudocode)
 
 These interfaces define the boundaries between components. Each can be implemented and tested independently, enabling parallel development.

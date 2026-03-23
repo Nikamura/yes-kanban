@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"bun run dev:convex\" \"bun run dev:ui\"",
-    "dev:convex": "bunx convex dev",
+    "dev:convex": "bunx convex dev --run-sh ./scripts/run-migrate-after-dev-push.sh",
     "dev:ui": "bunx --bun vite",
     "dev:worker": "bun run --watch src/worker/index.ts",
     "build": "bunx --bun vite build",
@@ -15,9 +15,12 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "migrate": "bunx convex run migrations:runAll",
+    "migrate:status": "bunx convex run --component migrations lib:getStatus",
     "prepare": "husky"
   },
   "dependencies": {
+    "@convex-dev/migrations": "0.3.1",
     "@tanstack/react-virtual": "^3.13.23",
     "convex": "^1.33.1",
     "react": "^19.1.0",

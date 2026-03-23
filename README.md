@@ -65,13 +65,15 @@ bun run dev:worker
 
 | Command | What it does |
 |---|---|
-| `bun run dev` | Convex backend + Vite dev server |
+| `bun run dev` | Convex backend + Vite; after the first Convex push, runs `migrate` once via `scripts/run-migrate-after-dev-push.sh` |
 | `bun run dev:worker` | Worker process (watches for changes) |
 | `bun run test` | Unit + E2E tests (isolated Convex via Docker) |
 | `bun run test:convex` | Convex integration tests (`convex-test` + Vitest, no Docker) |
 | `bun run test -- --file src/worker/foo.test.ts` | Run a single unit test file + E2E |
 | `bun run typecheck` | TypeScript type checking |
 | `bun run lint` | ESLint |
+| `bun run migrate` | Run queued data migrations (`migrations:runAll`, internal; CLI uses admin auth) |
+| `bun run migrate:status` | Show migration status via the migrations component |
 
 ## Project structure
 
