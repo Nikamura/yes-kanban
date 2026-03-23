@@ -1,5 +1,59 @@
 import { describe, test, expect } from "bun:test";
-import { CursorAdapter } from "./cursor";
+import { CursorAdapter, parseDiffString } from "./cursor";
+
+describe("parseDiffString", () => {
+  test("returns empty strings for empty or whitespace input", () => {
+    expect(parseDiffString("")).toEqual({ oldString: "", newString: "" });
+    expect(parseDiffString("   \n  \t  ")).toEqual({ oldString: "", newString: "" });
+  });
+
+  test("splits unified fragment with context, removals, and additions", () => {
+    const diff = [
+      " describe(\"getTerminalColumnNames\", () => {",
+      "-  it(\"old\", () => {",
+      "+  it(\"new\", () => {",
+      "     const x = 1;",
+      "-    expect(a).toBe(2);",
+      "+    expect(a).toBe(3);",
+      "   });",
+    ].join("\n");
+    const { oldString, newString } = parseDiffString(diff);
+    expect(oldString).toBe(
+      [
+        'describe("getTerminalColumnNames", () => {',
+        '  it("old", () => {',
+        "    const x = 1;",
+        "    expect(a).toBe(2);",
+        "  });",
+      ].join("\n"),
+    );
+    expect(newString).toBe(
+      [
+        'describe("getTerminalColumnNames", () => {',
+        '  it("new", () => {',
+        "    const x = 1;",
+        "    expect(a).toBe(3);",
+        "  });",
+      ].join("\n"),
+    );
+  });
+
+  test("skips file headers, hunk headers, and no-newline markers", () => {
+    const diff = [
+      "--- a/foo.ts",
+      "+++ b/foo.ts",
+      "@@ -1,2 +1,2 @@",
+      " line0",
+      "-old",
+      "+new",
+      "\\ No newline at end of file",
+    ].join("\n");
+    expect(parseDiffString(diff)).toEqual({
+      oldString: "line0\nold",
+      newString: "line0\nnew",
+    });
+  });
+});
 
 describe("CursorAdapter", () => {
   const adapter = new CursorAdapter();
@@ -394,6 +448,68 @@ describe("CursorAdapter", () => {
       const data = events[0]!.data as any;
       expect(data.name).toBe("Edit");
       expect(data.input.file_path).toBe("/workspace/file.ts");
+    });
+
+    test("parses editToolCall with diffString (no oldString/newString)", () => {
+      const diffFragment = [
+        ' describe("getTerminalColumnNames", () => {',
+        '-  it("returns last two columns for 3+ column setup", () => {',
+        '+  it("returns only the final column as terminal", () => {',
+        "     const terminal = getTerminalColumnNames(COLUMNS);",
+        "     expect(terminal.has(\"Done\")).toBe(true);",
+        "-    expect(terminal.has(\"Cancelled\")).toBe(true);",
+        "-    expect(terminal.size).toBe(2);",
+        "+    expect(terminal.size).toBe(1);",
+        "   });",
+      ].join("\n");
+      const events = adapter.parseLine(JSON.stringify({
+        type: "tool_call",
+        subtype: "started",
+        call_id: "tool_edit_diff",
+        tool_call: {
+          editToolCall: {
+            args: {
+              path: "/workspace/src/ui/utils/analyticsCalculations.test.ts",
+              diffString: diffFragment,
+              linesAdded: 2,
+              linesRemoved: 3,
+            },
+          },
+        },
+      }));
+      expect(events).toHaveLength(1);
+      const data = events[0]!.data as any;
+      expect(data.name).toBe("Edit");
+      expect(data.input.file_path).toBe("/workspace/src/ui/utils/analyticsCalculations.test.ts");
+      expect(data.input.lines_added).toBe(2);
+      expect(data.input.lines_removed).toBe(3);
+      expect(data.input.old_string.length).toBeGreaterThan(0);
+      expect(data.input.new_string.length).toBeGreaterThan(0);
+      expect(data.input.old_string).toContain("returns last two columns");
+      expect(data.input.new_string).toContain("returns only the final column");
+      expect(data.input.old_string).toContain("expect(terminal.size).toBe(2)");
+      expect(data.input.new_string).toContain("expect(terminal.size).toBe(1)");
+    });
+
+    test("editToolCall prefers oldString/newString over diffString when present", () => {
+      const events = adapter.parseLine(JSON.stringify({
+        type: "tool_call",
+        subtype: "started",
+        call_id: "tool_edit_pref",
+        tool_call: {
+          editToolCall: {
+            args: {
+              path: "/x.ts",
+              oldString: "ONLY_OLD",
+              newString: "ONLY_NEW",
+              diffString: "-ignored\n+ignored",
+            },
+          },
+        },
+      }));
+      const data = events[0]!.data as any;
+      expect(data.input.old_string).toBe("ONLY_OLD");
+      expect(data.input.new_string).toBe("ONLY_NEW");
     });
 
     test("parses globToolCall (actual Cursor format)", () => {

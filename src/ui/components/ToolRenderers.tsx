@@ -149,12 +149,23 @@ function EditToolLine({ data }: { data: any }) {
   const oldStr: string = input?.old_string ?? "";
   const newStr: string = input?.new_string ?? "";
   const hasDiff = oldStr.length > 0 || newStr.length > 0;
+  const linesAdded = input?.lines_added;
+  const linesRemoved = input?.lines_removed;
+  const addedNum = typeof linesAdded === "number" ? linesAdded : undefined;
+  const removedNum = typeof linesRemoved === "number" ? linesRemoved : undefined;
+  const lineCountMeta =
+    hasDiff && (addedNum !== undefined || removedNum !== undefined)
+      ? [addedNum !== undefined ? `+${addedNum}` : null, removedNum !== undefined ? `-${removedNum}` : null]
+          .filter(Boolean)
+          .join(" / ")
+      : null;
 
   return (
     <div className="log-tool-card">
       <div className="log-tool-card-header">
         <span className="log-badge log-badge-tool">Edit</span>
         <span className="log-tool-filepath">{shortenPath(filePath)}</span>
+        {lineCountMeta && <span className="log-tool-meta">{lineCountMeta}</span>}
         {hasDiff && (
           <button className="log-expandable log-expand-icon" onClick={() => setExpanded(!expanded)}>
             {expanded ? "▾" : "▸"}

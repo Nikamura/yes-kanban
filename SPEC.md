@@ -2398,7 +2398,7 @@ A conforming implementation must complete all items below.
 
 - Claude Code adapter with `stream-json` output parsing.
 - Codex CLI adapter.
-- Cursor Agent CLI adapter.
+- Cursor Agent CLI adapter (including `editToolCall` events that only carry `diffString`: the worker parses the unified fragment into old/new text for the agent log, and surfaces `linesAdded` / `linesRemoved` metadata when present).
 - Agent log streaming to Convex and real-time display in UI.
 - Code diff viewer for workspace changes.
 - Timeout enforcement.

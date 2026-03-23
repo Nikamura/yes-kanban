@@ -1,6 +1,40 @@
 import type { Doc } from "../../../convex/_generated/dataModel";
 import type { IAgentAdapter, AgentEvent, TokenUsage } from "../types";
 
+/**
+ * Split a unified diff fragment from Cursor's editToolCall into old/new text
+ * for the log diff UI. Context lines go to both sides; @@ and ---/+++ headers skipped.
+ */
+export function parseDiffString(diff: string): { oldString: string; newString: string } {
+  if (!diff.trim()) {
+    return { oldString: "", newString: "" };
+  }
+  const oldParts: string[] = [];
+  const newParts: string[] = [];
+  for (const line of diff.split(/\r?\n/)) {
+    if (line.startsWith("@@")) continue;
+    if (line.startsWith("---") || line.startsWith("+++")) continue;
+    if (line.startsWith("\\")) continue; // "\ No newline at end of file"
+    if (line.startsWith("+") && !line.startsWith("+++")) {
+      newParts.push(line.slice(1));
+      continue;
+    }
+    if (line.startsWith("-") && !line.startsWith("---")) {
+      oldParts.push(line.slice(1));
+      continue;
+    }
+    if (line.startsWith(" ")) {
+      const text = line.slice(1);
+      oldParts.push(text);
+      newParts.push(text);
+    }
+  }
+  return {
+    oldString: oldParts.join("\n"),
+    newString: newParts.join("\n"),
+  };
+}
+
 export class CursorAdapter implements IAgentAdapter {
   buildCommand(args: {
     config: Doc<"agentConfigs">;
@@ -143,12 +177,27 @@ export class CursorAdapter implements IAgentAdapter {
     if (toolCall["editToolCall"] || toolCall["fileEditToolCall"]) {
       const edit = (toolCall["editToolCall"] ?? toolCall["fileEditToolCall"]) as Record<string, unknown>;
       const args = edit["args"] as Record<string, unknown> | undefined;
+      const rawOld =
+        (args?.["oldString"] as string | undefined) ??
+        (edit["oldString"] as string | undefined) ??
+        (edit["old_string"] as string | undefined) ??
+        "";
+      const rawNew =
+        (args?.["newString"] as string | undefined) ??
+        (edit["newString"] as string | undefined) ??
+        (edit["new_string"] as string | undefined) ??
+        "";
+      const diffStr = args?.["diffString"] as string | undefined;
+      const parsed =
+        !rawOld && !rawNew && diffStr ? parseDiffString(diffStr) : { oldString: rawOld, newString: rawNew };
       return {
         name: "Edit",
         input: {
           file_path: args?.["path"] ?? edit["filePath"] ?? edit["file_path"] ?? "unknown",
-          old_string: args?.["oldString"] ?? edit["oldString"] ?? edit["old_string"] ?? "",
-          new_string: args?.["newString"] ?? edit["newString"] ?? edit["new_string"] ?? "",
+          old_string: parsed.oldString,
+          new_string: parsed.newString,
+          lines_added: args?.["linesAdded"],
+          lines_removed: args?.["linesRemoved"],
         },
         tool_use_id: callId,
       };
