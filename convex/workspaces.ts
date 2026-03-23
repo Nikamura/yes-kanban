@@ -602,64 +602,87 @@ export const remove = mutation({
       throw new Error("Worktrees must be cleaned up before deleting this workspace");
     }
 
-    const questions = await ctx.db
-      .query("agentQuestions")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
-      .collect();
-    for (const row of questions) await ctx.db.delete(row._id);
+    let batch;
 
-    const feedbackRows = await ctx.db
-      .query("feedbackMessages")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
-      .collect();
-    for (const row of feedbackRows) await ctx.db.delete(row._id);
+    do {
+      batch = await ctx.db
+        .query("agentQuestions")
+        .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
+        .take(500);
+      for (const row of batch) await ctx.db.delete(row._id);
+    } while (batch.length === 500);
 
-    const permissionRows = await ctx.db
-      .query("permissionRequests")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
-      .collect();
-    for (const row of permissionRows) await ctx.db.delete(row._id);
+    do {
+      batch = await ctx.db
+        .query("feedbackMessages")
+        .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
+        .take(500);
+      for (const row of batch) await ctx.db.delete(row._id);
+    } while (batch.length === 500);
 
-    const retryRows = await ctx.db
-      .query("retries")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
-      .collect();
-    for (const row of retryRows) await ctx.db.delete(row._id);
+    do {
+      batch = await ctx.db
+        .query("permissionRequests")
+        .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
+        .take(500);
+      for (const row of batch) await ctx.db.delete(row._id);
+    } while (batch.length === 500);
 
-    const runAttempts = await ctx.db
-      .query("runAttempts")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
-      .collect();
-    for (const ra of runAttempts) {
-      const commentsWithAttempt = await ctx.db
-        .query("comments")
-        .withIndex("by_run_attempt", (q) => q.eq("runAttemptId", ra._id))
-        .collect();
-      for (const c of commentsWithAttempt) {
-        await ctx.db.patch(c._id, { runAttemptId: undefined });
+    do {
+      batch = await ctx.db
+        .query("retries")
+        .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
+        .take(500);
+      for (const row of batch) await ctx.db.delete(row._id);
+    } while (batch.length === 500);
+
+    let runAttemptBatch;
+    do {
+      runAttemptBatch = await ctx.db
+        .query("runAttempts")
+        .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
+        .take(500);
+      for (const ra of runAttemptBatch) {
+        let commentBatch;
+        do {
+          commentBatch = await ctx.db
+            .query("comments")
+            .withIndex("by_run_attempt", (q) => q.eq("runAttemptId", ra._id))
+            .take(500);
+          for (const c of commentBatch) {
+            await ctx.db.patch(c._id, { runAttemptId: undefined });
+          }
+        } while (commentBatch.length === 500);
+
+        let logBatch;
+        do {
+          logBatch = await ctx.db
+            .query("agentLogs")
+            .withIndex("by_run_attempt", (q) => q.eq("runAttemptId", ra._id))
+            .take(500);
+          for (const log of logBatch) await ctx.db.delete(log._id);
+        } while (logBatch.length === 500);
+
+        let promptBatch;
+        do {
+          promptBatch = await ctx.db
+            .query("runAttemptPrompts")
+            .withIndex("by_runAttempt", (q) => q.eq("runAttemptId", ra._id))
+            .take(500);
+          for (const p of promptBatch) await ctx.db.delete(p._id);
+        } while (promptBatch.length === 500);
+
+        await ctx.db.delete(ra._id);
       }
-      const logs = await ctx.db
+    } while (runAttemptBatch.length === 500);
+
+    do {
+      batch = await ctx.db
         .query("agentLogs")
-        .withIndex("by_run_attempt", (q) => q.eq("runAttemptId", ra._id))
-        .collect();
-      for (const log of logs) {
-        await ctx.db.delete(log._id);
-      }
-      const promptDocs = await ctx.db
-        .query("runAttemptPrompts")
-        .withIndex("by_runAttempt", (q) => q.eq("runAttemptId", ra._id))
-        .collect();
-      for (const p of promptDocs) await ctx.db.delete(p._id);
-      await ctx.db.delete(ra._id);
-    }
-
-    const strayLogs = await ctx.db
-      .query("agentLogs")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
-      .collect();
-    for (const log of strayLogs) {
-      await ctx.db.delete(log._id);
-    }
+        .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
+        .take(500);
+      for (const log of batch) await ctx.db.delete(log._id);
+    } while (batch.length === 500);
 
     await ctx.db.delete(args.id);
   },
