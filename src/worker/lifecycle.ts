@@ -93,6 +93,13 @@ export function hasPriorCodingRunAttempts(attempts: { type: string }[]): boolean
   return attempts.some((a) => a.type === "coding");
 }
 
+/** True if a prior lifecycle completed a setup runAttempt successfully (skip re-running setup on re-dispatch). */
+export function hasCompletedSetupRunAttempt(
+  attempts: { type: string; status: string }[],
+): boolean {
+  return attempts.some((a) => a.type === "setup" && a.status === "succeeded");
+}
+
 /**
  * True if persisted workspace worktrees can be reused without `createWorktrees` (same logic as
  * `canReuseWorktreesOnDisk` in `runLifecycle`). `workspace` is the Convex document or nullish if missing.
@@ -498,6 +505,10 @@ export async function runLifecycle(
   const storedWts = workspaceForReuse?.worktrees ?? [];
   const canReuseWorktreesOnDisk = canReuseWorktreesOnDiskFromState(workspaceForReuse, repos);
 
+  const runAttemptsForState = await convex.query(api.runAttempts.list, { workspaceId });
+  const hasCompletedSetup = hasCompletedSetupRunAttempt(runAttemptsForState);
+  const effectiveResumed = hasPriorCodingRunAttempts(runAttemptsForState);
+
   if (canReuseWorktreesOnDisk) {
     console.log(
       `[lifecycle] reusing on-disk worktrees for workspace=${workspaceId} (skipping setup and worktree creation)`,
@@ -510,7 +521,7 @@ export async function runLifecycle(
   let setupRunAttemptId: Id<"runAttempts"> | undefined;
   let setupFlush: (() => Promise<void>) | undefined;
   let setupLogger: ScriptLogger | undefined;
-  if (!canReuseWorktreesOnDisk && reposWithSetup.length > 0) {
+  if (!canReuseWorktreesOnDisk && reposWithSetup.length > 0 && !hasCompletedSetup) {
     const promptLines = reposWithSetup.map((r) => `[${r.slug}]\n${r.setupScript}`);
     let storedPrompt = promptLines.join("\n\n");
     if (storedPrompt.length > MAX_SCRIPT_PROMPT_LEN) {
@@ -544,6 +555,7 @@ export async function runLifecycle(
         issueTitle: issue?.title,
         repos,
         logger: setupLogger,
+        skipSetup: hasCompletedSetup,
       });
       worktrees = result.worktrees;
       agentCwd = result.agentCwd;
@@ -578,9 +590,6 @@ export async function runLifecycle(
   }
 
   // Before any planning/coding `runAgent` in this lifecycle — no coding runAttempt for this dispatch yet.
-  const runAttemptsForResume = await convex.query(api.runAttempts.list, { workspaceId });
-  const effectiveResumed = hasPriorCodingRunAttempts(runAttemptsForResume);
-
   let previousPlanningSessionId: string | undefined;
   try {
     const lastPlanning = await convex.query(api.runAttempts.lastSession, {

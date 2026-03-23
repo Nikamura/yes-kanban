@@ -10,6 +10,7 @@ import {
   shouldLocalMerge,
   canReuseStoredWorktreesForRepos,
   hasPriorCodingRunAttempts,
+  hasCompletedSetupRunAttempt,
   isValidGitWorktreePath,
   canReuseWorktreesOnDiskFromState,
   normalizeAttachmentDownloadUrl,
@@ -282,6 +283,20 @@ describe("hasPriorCodingRunAttempts", () => {
     expect(hasPriorCodingRunAttempts([{ type: "setup" }, { type: "planning" }])).toBe(
       false,
     );
+  });
+});
+
+describe("hasCompletedSetupRunAttempt", () => {
+  test("returns true when a setup attempt succeeded", () => {
+    expect(
+      hasCompletedSetupRunAttempt([{ type: "planning", status: "succeeded" }, { type: "setup", status: "succeeded" }]),
+    ).toBe(true);
+  });
+
+  test("returns false when setup never succeeded", () => {
+    expect(hasCompletedSetupRunAttempt([{ type: "setup", status: "failed" }])).toBe(false);
+    expect(hasCompletedSetupRunAttempt([{ type: "setup", status: "running" }])).toBe(false);
+    expect(hasCompletedSetupRunAttempt([{ type: "coding", status: "succeeded" }])).toBe(false);
   });
 });
 

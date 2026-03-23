@@ -1002,6 +1002,7 @@ Creating a workspace (performed by the Worker via `IWorktreeManager`):
    b. Generate a branch name: `yes-kanban/<project-slug>/<simple-id>` (e.g. `yes-kanban/myproject/TASK-42`).
    c. Create a git worktree from the specified base branch: `git worktree add -b <branch> <worktree-path> <base-branch>`.
    d. Run setup hooks if configured (e.g. `bun install`). Setup hooks are also responsible for copying any agent-specific config files (e.g. `CLAUDE.md`, `.claude/`) into the worktree if needed.
+   e. **Once per workspace:** After a `setup` run attempt has completed with status **succeeded** in Convex, later lifecycle dispatches skip `setupScript` even when worktrees must be recreated on disk (e.g. separate dispatches for planning and coding). A failed setup is not treated as complete; the script runs again on the next dispatch until it succeeds.
 2. Set the workspace `agentCwd` to the workspace root directory (containing all worktrees).
 3. Update workspace status to `ready` in Convex.
 

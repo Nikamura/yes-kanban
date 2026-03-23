@@ -72,6 +72,8 @@ export class GitWorktreeManager {
     const exitCode = await proc.exited;
     clearTimeout(overallTimer);
     const output = stdoutParts.join("") + stderrParts.join("");
+    // setTimeout above can set timedOut; eslint does not model that.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- async timeout vs await exited
     if (timedOut) {
       return { exitCode: -1, output: output + "\n[timeout]\n" };
     }
@@ -84,6 +86,8 @@ export class GitWorktreeManager {
     issueTitle?: string;
     repos: Doc<"repos">[];
     logger?: ScriptLogger;
+    /** When true, create/link worktrees but do not run setup scripts (already succeeded in a prior dispatch). */
+    skipSetup?: boolean;
   }): Promise<{ worktrees: WorktreeEntry[]; agentCwd: string; resumed: boolean }> {
     const workspaceDir = join(this.worktreeRoot, args.workspaceId);
     await mkdir(workspaceDir, { recursive: true });
@@ -167,7 +171,7 @@ export class GitWorktreeManager {
         createdPaths.push(worktreePath);
 
         // Run setup script
-        if (repo.setupScript) {
+        if (repo.setupScript && !args.skipSetup) {
           log(`running setup script for repo=${repo.slug}`);
           if (args.logger) {
             args.logger.onLine("stdout", `--- [${repo.slug}] setup ---`);
