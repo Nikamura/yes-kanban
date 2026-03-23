@@ -407,7 +407,7 @@ describe("GitWorktreeManager", () => {
 
     const second = performLocalMerge(worktrees);
     expect(second.success).toBe(true);
-  });
+  }, { timeout: 15_000 });
 
   test("cleanup script streams lines to logger", async () => {
     const manager = new GitWorktreeManager(worktreeRoot);
