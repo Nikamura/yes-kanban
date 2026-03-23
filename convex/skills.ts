@@ -99,7 +99,7 @@ export const installFromSource = action({
 
     // Upsert: check if skill with same sourceRef already exists
     const existing = await ctx.runQuery(api.skills.list, { projectId: args.projectId });
-    const match = existing.find((s) => s.sourceRef === args.sourceRef.trim());
+    const match = existing.find((skill) => skill.sourceRef === args.sourceRef.trim());
 
     if (match) {
       await ctx.runMutation(api.skills.update, {
@@ -144,7 +144,12 @@ export const updateFromSource = action({
     // Re-resolve from sourceRef when available so URL logic stays current
     const { url, source } = skill.sourceRef
       ? resolveSourceUrl(skill.sourceRef)
-      : { url: skill.sourceUrl!, source: skill.source ?? "url" };
+      : (() => {
+          if (!skill.sourceUrl) {
+            throw new Error("Skill has no remote source to update from");
+          }
+          return { url: skill.sourceUrl, source: skill.source ?? "url" };
+        })();
 
     const parsed = await fetchAndParseSkill(url);
 

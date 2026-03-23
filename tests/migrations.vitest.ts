@@ -1,8 +1,9 @@
 /// <reference types="vite/client" />
 import component from "@convex-dev/migrations/test";
 import { convexTest } from "convex-test";
-import { describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { internal } from "../convex/_generated/api";
+import { runAllSerialMigrations } from "../convex/migrations";
 import schema from "../convex/schema";
 
 const modules = import.meta.glob([
@@ -12,11 +13,28 @@ const modules = import.meta.glob([
 ]);
 
 describe("migrations infrastructure", () => {
-  test("runAll with empty serial list completes", async () => {
+  test("runAll serial order: projectId backfill before tokenUsageDaily backfill", () => {
+    const order = runAllSerialMigrations();
+    expect(order).toHaveLength(2);
+    expect(order[0]).toEqual(internal.migrations.backfillRunAttemptsProjectId);
+    expect(order[1]).toEqual(internal.migrations.backfillTokenUsageDaily);
+  });
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test("runAll completes (drain scheduled migration work)", async () => {
     const t = convexTest(schema, modules);
     // Migrations component schema is generic; convex-test expects a looser TestConvex.
     component.register(t as never);
     await expect(t.mutation(internal.migrations.runAll, {})).resolves.toBeNull();
+    await t.finishAllScheduledFunctions(() => {
+      vi.runAllTimers();
+    });
   });
 
   test("run without fn rejects with library error", async () => {

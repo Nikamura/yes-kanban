@@ -1,7 +1,8 @@
 import { Migrations } from "@convex-dev/migrations";
-import { components } from "./_generated/api.js";
+import { components, internal } from "./_generated/api.js";
 import type { DataModel } from "./_generated/dataModel.js";
 import { internalMutation } from "./_generated/server";
+import { upsertTokenUsageDailyForTerminalAttempt } from "./tokenUsageAggregates.js";
 
 export const migrations = new Migrations<DataModel>(components.migrations, {
   internalMutation,
@@ -11,16 +12,54 @@ export const migrations = new Migrations<DataModel>(components.migrations, {
 // bunx convex run migrations:run '{"fn":"migrations:myMigration"}'
 export const run = migrations.runner();
 
-// Run all migrations in order. Add new migrations to the array below in chronological order.
+export const backfillRunAttemptsProjectId = migrations.define({
+  table: "runAttempts",
+  migrateOne: async (ctx, doc) => {
+    if (doc.projectId !== undefined) return;
+    const ws = await ctx.db.get(doc.workspaceId);
+    if (!ws) return;
+    return { projectId: ws.projectId };
+  },
+});
+
+export const backfillTokenUsageDaily = migrations.define({
+  table: "runAttempts",
+  migrateOne: async (ctx, doc) => {
+    if (doc.tokenUsageDailyBackfilled) return;
+    if (!doc.finishedAt || doc.status === "running") return;
+    if (!doc.projectId) return;
+    const ws = await ctx.db.get(doc.workspaceId);
+    if (!ws) return;
+    const effectiveAgentConfigId = doc.agentConfigId ?? ws.agentConfigId;
+    const agentConfig = await ctx.db.get(effectiveAgentConfigId);
+    await upsertTokenUsageDailyForTerminalAttempt(ctx, {
+      projectId: doc.projectId,
+      agentConfigId: effectiveAgentConfigId,
+      agentConfigName: agentConfig?.name ?? "Unknown",
+      model: agentConfig?.model,
+      startedAt: doc.startedAt,
+      status: doc.status,
+      tokenUsage: doc.tokenUsage,
+    });
+    return { tokenUsageDailyBackfilled: true };
+  },
+});
+
+/** Serial order for `runAll`. `backfillTokenUsageDaily` requires `projectId` on runAttempts. */
+export function runAllSerialMigrations() {
+  return [
+    internal.migrations.backfillRunAttemptsProjectId,
+    internal.migrations.backfillTokenUsageDaily,
+  ] as const;
+}
+
+// Run all migrations in order. Append new migrations inside `runAllSerialMigrations` in chronological order.
 // Uses runSerially so an empty list is a no-op (runner([]) from the component cannot be used with zero migrations).
 // Internal mutation (not exposed on `api`). `convex run` and `bun run migrate` use the deployment admin key and may invoke it.
 // bunx convex run migrations:runAll
 export const runAll = internalMutation({
   args: {},
   handler: async (ctx) => {
-    await migrations.runSerially(ctx, [
-      // import { internal } from "./_generated/api.js";
-      // internal.migrations.myFirstMigration,
-    ]);
+    await migrations.runSerially(ctx, [...runAllSerialMigrations()]);
   },
 });

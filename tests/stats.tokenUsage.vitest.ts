@@ -6,6 +6,7 @@ import { api } from "../convex/_generated/api";
 import type { DataModel, Id } from "../convex/_generated/dataModel";
 import schema from "../convex/schema";
 import { DEFAULT_COLUMNS } from "../convex/projects";
+import { utcDayString } from "../convex/tokenUsageAggregates";
 
 const modules = import.meta.glob([
   "../convex/**/*.ts",
@@ -91,6 +92,7 @@ async function insertAttempt(
   ctx: GenericMutationCtx<DataModel>,
   args: {
     workspaceId: Id<"workspaces">;
+    projectId: Id<"projects">;
     attemptNumber: number;
     startedAt: number;
     tokenUsage?: { inputTokens: number; outputTokens: number; totalTokens: number };
@@ -98,6 +100,7 @@ async function insertAttempt(
 ) {
   return await ctx.db.insert("runAttempts", {
     workspaceId: args.workspaceId,
+    projectId: args.projectId,
     type: "coding",
     attemptNumber: args.attemptNumber,
     status: "succeeded",
@@ -113,18 +116,21 @@ describe("stats.tokenUsage", () => {
 
     await t.run(async (ctx) => {
       await insertAttempt(ctx, {
+        projectId,
         workspaceId: workspaceA,
         attemptNumber: 1,
         startedAt: WINDOW_START + 1000,
         tokenUsage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
       });
       await insertAttempt(ctx, {
+        projectId,
         workspaceId: workspaceA,
         attemptNumber: 2,
         startedAt: WINDOW_START - 1000,
         tokenUsage: { inputTokens: 100, outputTokens: 100, totalTokens: 200 },
       });
       await insertAttempt(ctx, {
+        projectId,
         workspaceId: workspaceA,
         attemptNumber: 3,
         startedAt: WINDOW_END + 1,
@@ -150,16 +156,19 @@ describe("stats.tokenUsage", () => {
 
     await t.run(async (ctx) => {
       await insertAttempt(ctx, {
+        projectId,
         workspaceId: workspaceA,
         attemptNumber: 1,
         startedAt: WINDOW_START + 1,
       });
       await insertAttempt(ctx, {
+        projectId,
         workspaceId: workspaceA,
         attemptNumber: 2,
         startedAt: WINDOW_START + 3,
       });
       await insertAttempt(ctx, {
+        projectId,
         workspaceId: workspaceB,
         attemptNumber: 1,
         startedAt: WINDOW_START + 2,
@@ -175,5 +184,166 @@ describe("stats.tokenUsage", () => {
     expect(result.totalRuns).toBe(3);
     const times = result.recentRuns.map((r) => r.startedAt);
     expect(times).toEqual([WINDOW_START + 3, WINDOW_START + 2, WINDOW_START + 1]);
+  });
+
+  test("aggregate totals match runAttempts completed via complete mutation", async () => {
+    const t = convexTest(schema, modules);
+    const { projectId, workspaceA } = await t.run((ctx) => seedProjectWithTwoWorkspaces(ctx));
+
+    const runId1 = await t.mutation(api.runAttempts.create, {
+      workspaceId: workspaceA,
+      prompt: "one",
+    });
+    await t.mutation(api.runAttempts.complete, {
+      id: runId1,
+      status: "succeeded",
+      tokenUsage: { inputTokens: 5, outputTokens: 15, totalTokens: 20 },
+    });
+
+    const runId2 = await t.mutation(api.runAttempts.create, {
+      workspaceId: workspaceA,
+      prompt: "two",
+    });
+    await t.mutation(api.runAttempts.complete, {
+      id: runId2,
+      status: "succeeded",
+      tokenUsage: { inputTokens: 100, outputTokens: 200, totalTokens: 300 },
+    });
+
+    const now = Date.now();
+    const result = await t.query(api.stats.tokenUsage, {
+      projectId,
+      startTime: now - 60_000,
+      endTime: now + 60_000,
+    });
+
+    expect(result.totalRuns).toBe(2);
+    expect(result.totalTokens).toBe(320);
+    expect(result.totalInputTokens).toBe(105);
+    expect(result.totalOutputTokens).toBe(215);
+    expect(result.succeededRuns).toBe(2);
+  });
+
+  test("indexed query mixes raw days with prewritten tokenUsageDaily rows", async () => {
+    const t = convexTest(schema, modules);
+    const { projectId, workspaceA, agentConfigId } = await t.run((ctx) => seedProjectWithTwoWorkspaces(ctx));
+
+    const dayB = "2024-01-11";
+    const tA = Date.UTC(2024, 0, 10, 12, 0, 0);
+
+    await t.run(async (ctx) => {
+      await insertAttempt(ctx, {
+        projectId,
+        workspaceId: workspaceA,
+        attemptNumber: 1,
+        startedAt: tA,
+        tokenUsage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+      });
+      await ctx.db.insert("tokenUsageDaily", {
+        projectId,
+        day: dayB,
+        agentConfigId,
+        agentConfigName: "agent-a",
+        inputTokens: 10,
+        outputTokens: 20,
+        totalTokens: 30,
+        cacheCreationTokens: 0,
+        cacheReadTokens: 0,
+        runCount: 1,
+        succeededRuns: 1,
+        failedRuns: 0,
+        timedOutRuns: 0,
+        abandonedRuns: 0,
+      });
+    });
+
+    const result = await t.query(api.stats.tokenUsage, {
+      projectId,
+      startTime: Date.UTC(2024, 0, 10, 0, 0, 0),
+      // Inclusive end of Jan 11 UTC (must cover full last day for daily vs raw split)
+      endTime: Date.UTC(2024, 0, 12) - 1,
+    });
+
+    expect(result.totalRuns).toBe(2);
+    expect(result.totalTokens).toBe(32);
+    expect(result.totalInputTokens).toBe(11);
+  });
+
+  test("full UTC day merges tokenUsageDaily with unbackfilled runAttempts", async () => {
+    const t = convexTest(schema, modules);
+    const { projectId, workspaceA, agentConfigId } = await t.run((ctx) => seedProjectWithTwoWorkspaces(ctx));
+
+    const dayStr = "2024-06-01";
+    const tMid = Date.UTC(2024, 5, 1, 11, 0, 0);
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("tokenUsageDaily", {
+        projectId,
+        day: dayStr,
+        agentConfigId,
+        agentConfigName: "agent-a",
+        inputTokens: 10,
+        outputTokens: 10,
+        totalTokens: 20,
+        cacheCreationTokens: 0,
+        cacheReadTokens: 0,
+        runCount: 1,
+        succeededRuns: 1,
+        failedRuns: 0,
+        timedOutRuns: 0,
+        abandonedRuns: 0,
+      });
+      await insertAttempt(ctx, {
+        projectId,
+        workspaceId: workspaceA,
+        attemptNumber: 2,
+        startedAt: tMid,
+        tokenUsage: { inputTokens: 5, outputTokens: 5, totalTokens: 10 },
+      });
+    });
+
+    const result = await t.query(api.stats.tokenUsage, {
+      projectId,
+      startTime: Date.UTC(2024, 5, 1, 0, 0, 0),
+      endTime: Date.UTC(2024, 5, 2) - 1,
+    });
+
+    expect(result.totalTokens).toBe(30);
+    expect(result.totalRuns).toBe(2);
+  });
+
+  test("abandonRunning writes tokenUsageDaily with abandonedRuns", async () => {
+    const t = convexTest(schema, modules);
+    const { projectId, workspaceA, agentConfigId } = await t.run((ctx) => seedProjectWithTwoWorkspaces(ctx));
+
+    await t.mutation(api.runAttempts.create, {
+      workspaceId: workspaceA,
+      prompt: "abandon-me",
+    });
+    await t.mutation(api.runAttempts.abandonRunning, { workspaceId: workspaceA });
+
+    const startedAt = await t.run(async (ctx) => {
+      const attempts = await ctx.db
+        .query("runAttempts")
+        .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceA))
+        .collect();
+      return attempts.find((x) => x.status === "abandoned")?.startedAt;
+    });
+    expect(startedAt).toBeDefined();
+    const dayStr = utcDayString(startedAt!);
+
+    const rows = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("tokenUsageDaily")
+        .withIndex("by_project_agent_day", (q) =>
+          q.eq("projectId", projectId).eq("agentConfigId", agentConfigId).eq("day", dayStr)
+        )
+        .collect();
+    });
+
+    expect(rows.length).toBeGreaterThanOrEqual(1);
+    const row = rows.find((r) => r.abandonedRuns === 1);
+    expect(row).toBeDefined();
+    expect(row?.runCount).toBe(1);
   });
 });

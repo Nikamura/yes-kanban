@@ -231,6 +231,8 @@ Fields:
 
 - `_id` (Id<"runAttempts">)
 - `workspaceId` (Id<"workspaces">)
+- `projectId` (optional Id<"projects">) — Denormalized from the workspace for project-scoped indexes (`by_project_started`). Set on create/complete; older rows are backfilled via migration.
+- `tokenUsageDailyBackfilled` (optional boolean) — Set when this attempt’s usage is reflected in `tokenUsageDaily` (live `complete`/`abandon` or historical backfill).
 - `type` (string) — One of: `coding`, `review`, `conflict_resolution`. Indicates the purpose of this run.
 - `attemptNumber` (number) — 1-based.
 - `prompt` (optional string) — Legacy inline field. New attempts store the full prompt in the `runAttemptPrompts` table so bulk queries (e.g. token stats) do not read large strings. `api.workspaces.get` resolves the effective prompt for the UI.
@@ -240,7 +242,7 @@ Fields:
 - `finishedAt` (number or null)
 - `error` (string or null)
 - `tokenUsage` (object or null) — `{ inputTokens, outputTokens, totalTokens }`.
-- **Project token stats:** `api.stats.tokenUsage` aggregates `runAttempts` in a time window (default: last 90 days; optional `startTime` / `endTime` in epoch ms) using the `by_workspace_started` index.
+- **Project token stats:** `api.stats.tokenUsage` aggregates in a time window (default: last 90 days; optional `startTime` / `endTime` in epoch ms). For each full UTC day in range, it loads `tokenUsageDaily` rows for that day and **also** merges any `runAttempts` with `projectId` that still have `tokenUsageDailyBackfilled !== true` for that day, so rollout/backfill never drops unaggregated attempts. If a day has no daily rows yet, it sums raw indexed attempts for that day only. Partial UTC days (window edges) always use indexed `runAttempts` for the overlap interval. The query returns `abandonedRuns` (and per-status counts) so abandoned runs are visible separately from failed/timed out. Until at least one run attempt has `projectId`, the handler uses per-workspace `by_workspace_started` (legacy path). `runAttempts.complete` / `abandonRunning` upsert `tokenUsageDaily`; migrations backfill `projectId` then daily buckets (see `runAllSerialMigrations` in `convex/migrations.ts`: projectId migration first).
 
 **Run attempt prompt (table `runAttemptPrompts`):** one row per attempt with `runAttemptId` and `prompt` (string), indexed by `runAttemptId`. Written by `runAttempts.create`; deleted when the parent workspace or project is removed.
 

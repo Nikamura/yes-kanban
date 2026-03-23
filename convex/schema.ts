@@ -181,6 +181,7 @@ export default defineSchema({
 
   runAttempts: defineTable({
     workspaceId: v.id("workspaces"),
+    projectId: v.optional(v.id("projects")),
     agentConfigId: v.optional(v.id("agentConfigs")),
     type: v.string(),
     attemptNumber: v.number(),
@@ -200,9 +201,33 @@ export default defineSchema({
       })
     ),
     sessionId: v.optional(v.string()),
+    /** Set after this attempt's usage is reflected in `tokenUsageDaily` (write path or backfill). */
+    tokenUsageDailyBackfilled: v.optional(v.boolean()),
   })
     .index("by_workspace", ["workspaceId"])
-    .index("by_workspace_started", ["workspaceId", "startedAt"]),
+    .index("by_workspace_started", ["workspaceId", "startedAt"])
+    .index("by_project_started", ["projectId", "startedAt"]),
+
+  tokenUsageDaily: defineTable({
+    projectId: v.id("projects"),
+    day: v.string(),
+    agentConfigId: v.id("agentConfigs"),
+    agentConfigName: v.string(),
+    model: v.optional(v.string()),
+    inputTokens: v.number(),
+    outputTokens: v.number(),
+    totalTokens: v.number(),
+    cacheCreationTokens: v.number(),
+    cacheReadTokens: v.number(),
+    runCount: v.number(),
+    succeededRuns: v.number(),
+    failedRuns: v.number(),
+    timedOutRuns: v.number(),
+    /** Runs abandoned (e.g. worker restart); optional for rows created before this field existed. */
+    abandonedRuns: v.optional(v.number()),
+  })
+    .index("by_project_day", ["projectId", "day"])
+    .index("by_project_agent_day", ["projectId", "agentConfigId", "day"]),
 
   runAttemptPrompts: defineTable({
     runAttemptId: v.id("runAttempts"),

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { upsertTokenUsageDailyForTerminalAttempt } from "./tokenUsageAggregates";
 
 export const list = query({
   args: { workspaceId: v.id("workspaces") },
@@ -19,6 +20,11 @@ export const create = mutation({
     prompt: v.string(),
   },
   handler: async (ctx, args) => {
+    const workspace = await ctx.db.get(args.workspaceId);
+    if (!workspace) {
+      throw new Error("Workspace not found");
+    }
+
     const existing = await ctx.db
       .query("runAttempts")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
@@ -26,6 +32,7 @@ export const create = mutation({
 
     const id = await ctx.db.insert("runAttempts", {
       workspaceId: args.workspaceId,
+      projectId: workspace.projectId,
       agentConfigId: args.agentConfigId,
       type: args.type ?? "coding",
       attemptNumber: existing.length + 1,
@@ -56,9 +63,34 @@ export const complete = mutation({
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
+    const attempt = await ctx.db.get(id);
+    if (!attempt) {
+      throw new Error("Run attempt not found");
+    }
+    const workspace = await ctx.db.get(attempt.workspaceId);
+    if (!workspace) {
+      throw new Error("Workspace not found");
+    }
+
+    const projectId = workspace.projectId;
+    const effectiveAgentConfigId = attempt.agentConfigId ?? workspace.agentConfigId;
+    const agentConfig = await ctx.db.get(effectiveAgentConfigId);
+
     await ctx.db.patch(id, {
       ...updates,
       finishedAt: Date.now(),
+      projectId,
+      tokenUsageDailyBackfilled: true,
+    });
+
+    await upsertTokenUsageDailyForTerminalAttempt(ctx, {
+      projectId,
+      agentConfigId: effectiveAgentConfigId,
+      agentConfigName: agentConfig?.name ?? "Unknown",
+      model: agentConfig?.model,
+      startedAt: attempt.startedAt,
+      status: args.status,
+      tokenUsage: args.tokenUsage,
     });
   },
 });
@@ -71,6 +103,11 @@ export const complete = mutation({
 export const abandonRunning = mutation({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
+    const workspace = await ctx.db.get(args.workspaceId);
+    if (!workspace) {
+      throw new Error("Workspace not found");
+    }
+
     const attempts = await ctx.db
       .query("runAttempts")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
@@ -79,11 +116,26 @@ export const abandonRunning = mutation({
     let count = 0;
     for (const attempt of attempts) {
       if (attempt.status === "running") {
+        const effectiveAgentConfigId = attempt.agentConfigId ?? workspace.agentConfigId;
+        const agentConfig = await ctx.db.get(effectiveAgentConfigId);
+
         await ctx.db.patch(attempt._id, {
           status: "abandoned",
           finishedAt: Date.now(),
           error: "Run abandoned (worker restart or cancel)",
+          projectId: workspace.projectId,
+          tokenUsageDailyBackfilled: true,
         });
+
+        await upsertTokenUsageDailyForTerminalAttempt(ctx, {
+          projectId: workspace.projectId,
+          agentConfigId: effectiveAgentConfigId,
+          agentConfigName: agentConfig?.name ?? "Unknown",
+          model: agentConfig?.model,
+          startedAt: attempt.startedAt,
+          status: "abandoned",
+        });
+
         count++;
       }
     }

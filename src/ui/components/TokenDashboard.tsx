@@ -3,18 +3,21 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 // Pricing per million tokens by model family
-const MODEL_PRICING: Record<string, { input: number; cacheCreation: number; cacheRead: number; output: number }> = {
-  sonnet: { input: 3, cacheCreation: 3.75, cacheRead: 0.30, output: 15 },
-  opus: { input: 15, cacheCreation: 18.75, cacheRead: 1.50, output: 75 },
-  haiku: { input: 0.80, cacheCreation: 1.00, cacheRead: 0.08, output: 4 },
-};
-const DEFAULT_PRICING = MODEL_PRICING["sonnet"]!;
+const MODEL_PRICING = {
+  sonnet: { input: 3, cacheCreation: 3.75, cacheRead: 0.3, output: 15 },
+  opus: { input: 15, cacheCreation: 18.75, cacheRead: 1.5, output: 75 },
+  haiku: { input: 0.8, cacheCreation: 1.0, cacheRead: 0.08, output: 4 },
+} as const;
 
-function getPricing(model?: string) {
+type ModelPricing = (typeof MODEL_PRICING)[keyof typeof MODEL_PRICING];
+
+const DEFAULT_PRICING: ModelPricing = MODEL_PRICING.sonnet;
+
+function getPricing(model?: string): ModelPricing {
   if (!model) return DEFAULT_PRICING;
   const lower = model.toLowerCase();
-  if (lower.includes("opus")) return MODEL_PRICING["opus"]!;
-  if (lower.includes("haiku")) return MODEL_PRICING["haiku"]!;
+  if (lower.includes("opus")) return MODEL_PRICING.opus;
+  if (lower.includes("haiku")) return MODEL_PRICING.haiku;
   return DEFAULT_PRICING;
 }
 
@@ -29,7 +32,7 @@ function calculateCost(
   outputTokens: number,
   cacheCreationTokens: number,
   cacheReadTokens: number,
-  pricing = DEFAULT_PRICING,
+  pricing: ModelPricing = DEFAULT_PRICING,
 ): number {
   return (
     (inputTokens / 1_000_000) * pricing.input +
@@ -138,6 +141,12 @@ export function TokenDashboard({ projectId }: { projectId: Id<"projects"> }) {
           <div className="stat-label">Timed Out</div>
           <div className="stat-value">{data.timedOutRuns}</div>
         </div>
+        {data.abandonedRuns > 0 && (
+          <div className="stat-card">
+            <div className="stat-label">Abandoned</div>
+            <div className="stat-value">{data.abandonedRuns}</div>
+          </div>
+        )}
       </div>
 
       {/* Usage by agent */}
