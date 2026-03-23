@@ -25,10 +25,6 @@ interface UpdateIssueArgs extends IssueIdentifierArgs {
   autoMerge?: boolean;
 }
 
-interface MoveIssueArgs extends IssueIdentifierArgs {
-  status: string;
-}
-
 interface ListIssuesArgs {
   status?: string;
   tags?: string[];
@@ -277,8 +273,6 @@ client.on("error", () => process.exit(1));
         return this.createIssue(args as unknown as CreateIssueArgs);
       case "update_issue":
         return this.updateIssue(args as unknown as UpdateIssueArgs);
-      case "move_issue":
-        return this.moveIssue(args as unknown as MoveIssueArgs);
       case "delete_issue":
         return this.deleteIssue(args as unknown as IssueIdentifierArgs);
       case "get_issue":
@@ -358,19 +352,6 @@ client.on("error", () => process.exit(1));
       actor: "agent",
     });
     return { updated: true };
-  }
-
-  private async moveIssue(args: MoveIssueArgs) {
-    const id = await this.resolveIssueId(args);
-    const issue = await this.convex.query(api.issues.get, { id });
-    const previousStatus = issue?.status;
-    await this.convex.mutation(api.issues.move, {
-      id,
-      status: args.status,
-      position: 0,
-      actor: "agent",
-    });
-    return { moved: true, previousStatus };
   }
 
   private async deleteIssue(args: IssueIdentifierArgs) {
@@ -574,19 +555,6 @@ client.on("error", () => process.exit(1));
             tags: { type: "array", items: { type: "string" } },
             autoMerge: { type: "boolean", description: "Auto-merge after passing review" },
           },
-        },
-      },
-      {
-        name: "move_issue",
-        description: "Move an issue to a different column",
-        inputSchema: {
-          type: "object",
-          properties: {
-            issueId: { type: "string" },
-            simpleId: { type: "string" },
-            status: { type: "string", description: "Target column name" },
-          },
-          required: ["status"],
         },
       },
       {

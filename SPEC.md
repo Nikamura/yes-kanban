@@ -502,14 +502,25 @@ api.issues.create: (args: {
   tags?: string[];
 }) => Id<"issues">
 
-// Mutation: update issue fields
-api.issues.update: (args: { id: Id<"issues">; ...partial Issue fields }) => void
+// Mutation: update issue fields (does not include status/position — use issues.move for column changes)
+api.issues.update: (args: {
+  id: Id<"issues">;
+  title?: string;
+  description?: string;
+  tags?: string[];
+  blockedBy?: Id<"issues">[];
+  deepResearch?: boolean;
+  autoMerge?: boolean;
+  actor?: "user" | "agent";
+}) => void
 
-// Mutation: move issue to a new status (triggers auto-dispatch if target status is To Do)
+// Mutation: move issue to a new status (triggers auto-dispatch if target status is To Do).
+// Optional `actor` (default user): agents cannot move to terminal columns (e.g. Done).
 api.issues.move: (args: {
   id: Id<"issues">;
   status: string;
   position: number;
+  actor?: "user" | "agent";
 }) => void
 
 // Mutation: delete an issue and its attachments
@@ -1604,7 +1615,7 @@ Each workspace gets its own MCP server instance. The server is scoped to the wor
 
 ### 14.2 MCP Tools
 
-The MCP server exposes the following tools to the agent:
+The MCP server exposes the following tools to the agent. Moving issues between columns is not available via MCP (users move cards on the board); the Convex `issues.move` mutation still rejects `actor: agent` when the target is a terminal column such as Done.
 
 #### Issue Management
 
@@ -1613,13 +1624,8 @@ The MCP server exposes the following tools to the agent:
   - Returns: `{ issueId, simpleId }`.
 
 - **`update_issue`** — Update an existing issue.
-  - Parameters: `issueId` or `simpleId` (required), plus any fields to update: `title`, `description`, `status`, `tags`.
+  - Parameters: `issueId` or `simpleId` (required), plus any fields to update: `title`, `description`, `tags`, `autoMerge`. (Column/status changes are not supported here; use the board UI, which calls `issues.move`.)
   - Returns: `{ updated: true }`.
-
-- **`move_issue`** — Move an issue to a different column.
-  - Parameters: `issueId` or `simpleId` (required), `status` (required).
-  - Returns: `{ moved: true, previousStatus }`.
-  - This can trigger auto-dispatch if the target column has `autoDispatch: true`.
 
 - **`delete_issue`** — Delete an issue.
   - Parameters: `issueId` or `simpleId` (required).
@@ -2334,7 +2340,6 @@ A conforming implementation should include tests that cover the behaviors define
 - MCP server shuts down when agent exits.
 - `create_issue` creates an issue visible in Convex immediately.
 - `update_issue` modifies issue fields.
-- `move_issue` changes status and triggers auto-dispatch if applicable.
 - `delete_issue` removes the issue.
 - `get_issue` returns full issue details.
 - `list_issues` returns filtered results.

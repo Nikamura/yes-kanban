@@ -2,7 +2,12 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { recordHistory } from "./issueHistory";
 import { validateIssueTitle, validateIssueDescription } from "./lib/issueValidation";
-import { AUTO_DISPATCH_COLUMNS, CREATABLE_COLUMNS, FIXED_COLUMNS } from "./lib/boardConstants";
+import {
+  AUTO_DISPATCH_COLUMNS,
+  CREATABLE_COLUMNS,
+  FIXED_COLUMNS,
+  isAgentForbiddenMoveTarget,
+} from "./lib/boardConstants";
 import { unarchiveIssue } from "./lib/archiveHelpers";
 import { WORKSPACE_TERMINAL_STATUSES } from "./workspaces";
 export const list = query({
@@ -200,6 +205,7 @@ export const update = mutation({
     autoMerge: v.optional(v.boolean()),
     actor: v.optional(v.union(v.literal("user"), v.literal("agent"))),
   },
+  // Note: `status` is intentionally omitted — column moves use `move` only (Convex rejects unknown args).
   handler: async (ctx, args) => {
     const { id, actor: actorArg, ...updates } = args;
     if (updates.title !== undefined) {
@@ -257,6 +263,10 @@ export const move = mutation({
     if (!issue) throw new Error("Issue not found");
     if (!(FIXED_COLUMNS as readonly string[]).includes(args.status)) {
       throw new Error(`Invalid status "${args.status}". Must be one of: ${FIXED_COLUMNS.join(", ")}`);
+    }
+
+    if (isAgentForbiddenMoveTarget(args.status, args.actor)) {
+      throw new Error(`Agents are not allowed to move issues to "${args.status}"`);
     }
 
     if (issue.status !== args.status) {

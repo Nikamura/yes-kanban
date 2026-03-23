@@ -69,7 +69,18 @@ describe("MCP tool lists by phase", () => {
 
   test("CODING_TOOLS does not include destructive tools", () => {
     expect(CODING_TOOLS).not.toContain("mcp__yes-kanban__delete_issue");
-    expect(CODING_TOOLS).not.toContain("mcp__yes-kanban__move_issue");
+  });
+
+  test("MCP tool lists do not reference move_issue (column moves are user-only)", () => {
+    for (const [, tools] of [
+      ["READ_ONLY_TOOLS", READ_ONLY_TOOLS],
+      ["PLANNING_TOOLS", PLANNING_TOOLS],
+      ["PLANNING_RESEARCH_TOOLS", PLANNING_RESEARCH_TOOLS],
+      ["CODING_TOOLS", CODING_TOOLS],
+      ["REVIEW_TOOLS", REVIEW_TOOLS],
+    ] as const) {
+      expect(tools).not.toContain("mcp__yes-kanban__move_issue");
+    }
   });
 
   test("REVIEW_TOOLS is read-only only", () => {
