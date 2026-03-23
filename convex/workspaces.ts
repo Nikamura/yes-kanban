@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query, type MutationCtx } from "./_generated/server";
+import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { recordHistory } from "./issueHistory";
 import { AUTO_DISPATCH_COLUMNS, FIXED_COLUMNS, TERMINAL_COLUMN_NAMES } from "./lib/boardConstants";
@@ -602,88 +603,78 @@ export const remove = mutation({
       throw new Error("Worktrees must be cleaned up before deleting this workspace");
     }
 
-    let batch;
+    await ctx.scheduler.runAfter(0, internal.workspaces.removeChunk, { id: args.id });
+  },
+});
 
-    do {
-      batch = await ctx.db
-        .query("agentQuestions")
-        .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
-        .take(500);
-      for (const row of batch) await ctx.db.delete(row._id);
-    } while (batch.length === 500);
+const CHUNK_SIZE = 500;
 
-    do {
-      batch = await ctx.db
-        .query("feedbackMessages")
-        .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
-        .take(500);
-      for (const row of batch) await ctx.db.delete(row._id);
-    } while (batch.length === 500);
+/** Delete workspace data in bounded chunks, re-scheduling until done. */
+export const removeChunk = internalMutation({
+  args: { id: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    const workspace = await ctx.db.get(args.id);
+    if (!workspace) return;
 
-    do {
-      batch = await ctx.db
-        .query("permissionRequests")
-        .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
-        .take(500);
-      for (const row of batch) await ctx.db.delete(row._id);
-    } while (batch.length === 500);
+    // Phase 1: delete agentLogs (usually the largest table) via workspace index
+    const strayLogs = await ctx.db
+      .query("agentLogs")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
+      .take(CHUNK_SIZE);
+    if (strayLogs.length > 0) {
+      for (const log of strayLogs) await ctx.db.delete(log._id);
+      await ctx.scheduler.runAfter(0, internal.workspaces.removeChunk, { id: args.id });
+      return;
+    }
 
-    do {
-      batch = await ctx.db
-        .query("retries")
-        .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
-        .take(500);
-      for (const row of batch) await ctx.db.delete(row._id);
-    } while (batch.length === 500);
+    // Phase 2: delete runAttempt children, then runAttempts themselves
+    const runAttempt = await ctx.db
+      .query("runAttempts")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
+      .first();
+    if (runAttempt) {
+      const comments = await ctx.db
+        .query("comments")
+        .withIndex("by_run_attempt", (q) => q.eq("runAttemptId", runAttempt._id))
+        .take(CHUNK_SIZE);
+      for (const c of comments) await ctx.db.patch(c._id, { runAttemptId: undefined });
 
-    let runAttemptBatch;
-    do {
-      runAttemptBatch = await ctx.db
-        .query("runAttempts")
-        .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
-        .take(500);
-      for (const ra of runAttemptBatch) {
-        let commentBatch;
-        do {
-          commentBatch = await ctx.db
-            .query("comments")
-            .withIndex("by_run_attempt", (q) => q.eq("runAttemptId", ra._id))
-            .take(500);
-          for (const c of commentBatch) {
-            await ctx.db.patch(c._id, { runAttemptId: undefined });
-          }
-        } while (commentBatch.length === 500);
-
-        let logBatch;
-        do {
-          logBatch = await ctx.db
-            .query("agentLogs")
-            .withIndex("by_run_attempt", (q) => q.eq("runAttemptId", ra._id))
-            .take(500);
-          for (const log of logBatch) await ctx.db.delete(log._id);
-        } while (logBatch.length === 500);
-
-        let promptBatch;
-        do {
-          promptBatch = await ctx.db
-            .query("runAttemptPrompts")
-            .withIndex("by_runAttempt", (q) => q.eq("runAttemptId", ra._id))
-            .take(500);
-          for (const p of promptBatch) await ctx.db.delete(p._id);
-        } while (promptBatch.length === 500);
-
-        await ctx.db.delete(ra._id);
-      }
-    } while (runAttemptBatch.length === 500);
-
-    do {
-      batch = await ctx.db
+      const logs = await ctx.db
         .query("agentLogs")
-        .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
-        .take(500);
-      for (const log of batch) await ctx.db.delete(log._id);
-    } while (batch.length === 500);
+        .withIndex("by_run_attempt", (q) => q.eq("runAttemptId", runAttempt._id))
+        .take(CHUNK_SIZE);
+      for (const log of logs) await ctx.db.delete(log._id);
 
+      const prompts = await ctx.db
+        .query("runAttemptPrompts")
+        .withIndex("by_runAttempt", (q) => q.eq("runAttemptId", runAttempt._id))
+        .take(CHUNK_SIZE);
+      for (const p of prompts) await ctx.db.delete(p._id);
+
+      // Only delete the runAttempt once all its children are gone
+      if (logs.length === 0 && prompts.length === 0 && comments.length === 0) {
+        await ctx.db.delete(runAttempt._id);
+      }
+
+      await ctx.scheduler.runAfter(0, internal.workspaces.removeChunk, { id: args.id });
+      return;
+    }
+
+    // Phase 3: delete remaining small tables
+    const tables = ["agentQuestions", "feedbackMessages", "permissionRequests", "retries"] as const;
+    for (const table of tables) {
+      const rows = await ctx.db
+        .query(table)
+        .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
+        .take(CHUNK_SIZE);
+      for (const row of rows) await ctx.db.delete(row._id);
+      if (rows.length === CHUNK_SIZE) {
+        await ctx.scheduler.runAfter(0, internal.workspaces.removeChunk, { id: args.id });
+        return;
+      }
+    }
+
+    // All children gone — delete the workspace
     await ctx.db.delete(args.id);
   },
 });

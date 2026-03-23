@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
 import type { GenericMutationCtx } from "convex/server";
-import { describe, test, expect } from "vitest";
+import { afterEach, beforeEach, describe, test, expect, vi } from "vitest";
 import { api } from "../convex/_generated/api";
 import type { DataModel } from "../convex/_generated/dataModel";
 import schema from "../convex/schema";
@@ -38,6 +38,13 @@ async function seedProjectWithAgent(ctx: GenericMutationCtx<DataModel>) {
 }
 
 describe("workspaces.remove", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   test("rejects when workspace does not exist", async () => {
     const t = convexTest(schema, modules);
     const staleId = await t.run(async (ctx) => {
@@ -204,6 +211,9 @@ describe("workspaces.remove", () => {
     });
 
     await t.mutation(api.workspaces.remove, { id: wsId });
+    await t.finishAllScheduledFunctions(() => {
+      vi.runAllTimers();
+    });
 
     const after = await t.run(async (ctx) => {
       const ws = await ctx.db.get(wsId);
