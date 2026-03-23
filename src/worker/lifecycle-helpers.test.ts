@@ -12,6 +12,7 @@ import {
   hasPriorCodingRunAttempts,
   isValidGitWorktreePath,
   canReuseWorktreesOnDiskFromState,
+  normalizeAttachmentDownloadUrl,
 } from "./lifecycle";
 
 describe("handleFailure", () => {
@@ -358,6 +359,34 @@ describe("isValidGitWorktreePath", () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("normalizeAttachmentDownloadUrl", () => {
+  test("returns null for empty or whitespace-only", () => {
+    expect(normalizeAttachmentDownloadUrl("")).toBeNull();
+    expect(normalizeAttachmentDownloadUrl("   ")).toBeNull();
+    expect(normalizeAttachmentDownloadUrl("\t\n")).toBeNull();
+  });
+
+  test("returns null for non-URL strings", () => {
+    expect(normalizeAttachmentDownloadUrl("not a url")).toBeNull();
+    expect(normalizeAttachmentDownloadUrl("://bad")).toBeNull();
+  });
+
+  test("returns null for non-http(s) protocols", () => {
+    expect(normalizeAttachmentDownloadUrl("ftp://example.com/file")).toBeNull();
+  });
+
+  test("returns normalized href for http and https", () => {
+    expect(normalizeAttachmentDownloadUrl("https://example.com/a%20b")).toBe(
+      "https://example.com/a%20b",
+    );
+    expect(normalizeAttachmentDownloadUrl("http://localhost/x")).toBe("http://localhost/x");
+  });
+
+  test("trims surrounding whitespace before parsing", () => {
+    expect(normalizeAttachmentDownloadUrl("  https://x.test/y  ")).toBe("https://x.test/y");
   });
 });
 

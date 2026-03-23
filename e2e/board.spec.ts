@@ -167,7 +167,7 @@ test.describe("Board", () => {
 
     // Navigate away from board to settings
     await page.getByRole("button", { name: "Settings" }).click();
-    await expect(page.getByText("Workflow")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Workflow" })).toBeVisible();
 
     // Click the Yes Kanban title
     await page.getByRole("heading", { name: "Yes Kanban" }).click();

@@ -34,6 +34,30 @@ function clampDepth(value: unknown, maxDepth: number, depth = 0): unknown {
 
 const ATTACHMENTS_DIR = ".yes-kanban-attachments";
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10 MB
+
+/** Max chars of attachment URL to include in warning logs (avoid huge lines). */
+const ATTACHMENT_URL_LOG_MAX = 120;
+
+/**
+ * Returns a normalized http(s) URL string for fetch, or null if missing/invalid.
+ * Convex `getUrl` should yield https URLs; this guards empty strings and garbage.
+ * Exported for unit tests.
+ */
+export function normalizeAttachmentDownloadUrl(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    const u = new URL(trimmed);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return u.href;
+  } catch {
+    return null;
+  }
+}
+
+function formatAttachmentUrlForLog(url: string): string {
+  return url.length > ATTACHMENT_URL_LOG_MAX ? `${url.slice(0, ATTACHMENT_URL_LOG_MAX)}…` : url;
+}
 /** Truncate stored script prompts for runAttempts (Convex document size). */
 const MAX_SCRIPT_PROMPT_LEN = 50_000;
 
@@ -138,8 +162,14 @@ async function downloadAttachments(
       continue;
     }
 
+    const fetchUrl = normalizeAttachmentDownloadUrl(att.url);
+    if (!fetchUrl) {
+      console.warn(`[lifecycle] skipping attachment ${att.filename}: invalid or empty URL`);
+      continue;
+    }
+
     try {
-      const response = await fetch(att.url);
+      const response = await fetch(fetchUrl);
       if (!response.ok) {
         console.warn(`[lifecycle] failed to download attachment ${att.filename}: HTTP ${response.status}`);
         continue;
@@ -165,7 +195,10 @@ async function downloadAttachments(
 
       console.log(`[lifecycle] downloaded attachment ${att.filename} -> ${localPath}`);
     } catch (err) {
-      console.warn(`[lifecycle] failed to download attachment ${att.filename}:`, err);
+      console.warn(
+        `[lifecycle] failed to download attachment ${att.filename} (url=${formatAttachmentUrlForLog(att.url)}):`,
+        err,
+      );
     }
   }
 }
@@ -714,8 +747,11 @@ export async function runLifecycle(
     try {
       const rawAttachments = await convex.query(api.attachments.list, { issueId: task.issueId });
       attachments = rawAttachments
-        .filter((a): a is Omit<typeof a, "url"> & { url: string } => a.url !== null)
-        .map((a) => ({ filename: a.filename, mimeType: a.mimeType, size: a.size, url: a.url }));
+        .filter(
+          (a): a is Omit<typeof a, "url"> & { url: string } =>
+            typeof a.url === "string" && a.url.trim().length > 0,
+        )
+        .map((a) => ({ filename: a.filename, mimeType: a.mimeType, size: a.size, url: a.url.trim() }));
       if (attachments.length === 0) attachments = undefined;
     } catch { /* attachments are optional */ }
   }
