@@ -991,10 +991,6 @@ New issues may be created only in **Backlog** or **To Do**. Workflow automation 
 - The dispatcher creates a workspace and the worker picks it up for execution.
 - If no default agent config is set, auto-dispatch is a no-op.
 
-### 7.5 Data migration
-
-- Existing deployments should run `api.migrations.simplifyFlow` once after upgrading to move legacy statuses (e.g. In Review → In Progress, Cancelled → Done), copy workflow settings from the old **In Progress** column onto the project document, and reset columns to the fixed four.
-
 ## 8. Workspace Management
 
 ### 8.1 Git Worktree Lifecycle
