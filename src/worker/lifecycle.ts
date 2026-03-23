@@ -378,35 +378,6 @@ function commitUnstagedChanges(worktreePath: string, issueId: string): boolean {
  * Start periodic diff polling that updates the workspace's diffOutput in Convex.
  * Returns a cleanup function to stop polling.
  */
-const MAX_FILE_TREE_PATHS = 10000;
-
-/** Build a capped, JSON-encoded file tree snapshot from a worktree. */
-function buildFileTreeSnapshot(
-  worktreeManager: GitWorktreeManager,
-  worktreePath: string,
-): { json: string; truncated: boolean } {
-  const files = worktreeManager.getFileTree(worktreePath);
-  const truncated = files.length > MAX_FILE_TREE_PATHS;
-  const capped = truncated ? files.slice(0, MAX_FILE_TREE_PATHS) : files;
-  return { json: JSON.stringify(capped), truncated };
-}
-
-/** Push a file tree snapshot to Convex (best-effort, swallows errors). */
-async function pushFileTree(
-  convex: ConvexClient,
-  worktreeManager: GitWorktreeManager,
-  workspaceId: Id<"workspaces">,
-  worktreePath: string,
-): Promise<string> {
-  const { json, truncated } = buildFileTreeSnapshot(worktreeManager, worktreePath);
-  await convex.mutation(api.workspaces.updateFileTree, {
-    id: workspaceId,
-    fileTree: json,
-    fileTreeTruncated: truncated ? true : undefined,
-  });
-  return json;
-}
-
 function startDiffPolling(
   convex: ConvexClient,
   worktreeManager: GitWorktreeManager,
@@ -419,14 +390,6 @@ function startDiffPolling(
   if (!firstWt) return () => {};
 
   let lastDiff = "";
-  let lastFileTreeJson = "";
-
-  // Push initial file tree immediately
-  void (async () => {
-    try {
-      lastFileTreeJson = await pushFileTree(convex, worktreeManager, workspaceId, firstWt.worktreePath);
-    } catch { /* best-effort */ }
-  })();
 
   const timer = setInterval(() => {
     void (async () => {
@@ -438,18 +401,6 @@ function startDiffPolling(
             id: workspaceId,
             diffOutput: diff,
           });
-
-          // File tree may have changed when diff changes (files added/deleted)
-          try {
-            const { json } = buildFileTreeSnapshot(worktreeManager, firstWt.worktreePath);
-            if (json !== lastFileTreeJson) {
-              lastFileTreeJson = json;
-              await convex.mutation(api.workspaces.updateFileTree, {
-                id: workspaceId,
-                fileTree: json,
-              });
-            }
-          } catch { /* best-effort */ }
         }
       } catch {
         // Diff polling is best-effort — don't crash the lifecycle
@@ -1158,7 +1109,6 @@ export async function runLifecycle(
           convex, worktreeManager, workspaceId, worktrees, repos,
         );
         await convex.mutation(api.workspaces.clearWorktrees, { id: workspaceId });
-        await convex.mutation(api.fileContentRequests.deleteByWorkspace, { workspaceId });
         console.log(`[lifecycle] workspace=${workspaceId} worktrees cleaned up (no file changes)`);
       } catch (cleanupErr) {
         console.error(`[lifecycle] workspace=${workspaceId} worktree cleanup failed:`, cleanupErr);
@@ -1339,7 +1289,7 @@ export async function runLifecycle(
     try { await unlink(settingsPath); } catch { /* best-effort */ }
   }
 
-  // Collect diff output and file tree before rebasing (while worktrees are still clean)
+  // Collect diff output before rebasing (while worktrees are still clean)
   let diffOutput: string | undefined;
   if (worktrees.length > 0) {
     try {
@@ -1352,14 +1302,6 @@ export async function runLifecycle(
       const message = err instanceof Error ? err.message : String(err);
       console.warn(`[lifecycle] failed to collect diff for workspace=${workspaceId}:`, message);
     }
-
-    // Snapshot file tree at completion
-    try {
-      const firstWt = worktrees[0];
-      if (firstWt) {
-        await pushFileTree(convex, worktreeManager, workspaceId, firstWt.worktreePath);
-      }
-    } catch { /* best-effort */ }
   }
 
   // 5. Local merge (if configured on project or issue) — rebase first, then squash merge
@@ -1409,7 +1351,6 @@ export async function runLifecycle(
         convex, worktreeManager, workspaceId, worktrees, repos,
       );
       await convex.mutation(api.workspaces.clearWorktrees, { id: workspaceId });
-      await convex.mutation(api.fileContentRequests.deleteByWorkspace, { workspaceId });
       console.log(`[lifecycle] workspace=${workspaceId} worktrees cleaned up`);
     } catch (cleanupErr) {
       console.error(`[lifecycle] workspace=${workspaceId} worktree cleanup failed:`, cleanupErr);

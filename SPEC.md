@@ -1557,13 +1557,11 @@ All data flows through Convex subscriptions (`useQuery`). When any data changes 
 
 ### 12.4 Code Diff Viewer
 
-The workspace view includes a live diff viewer powered by Monaco Editor (the VSCode editor core):
+The workspace view includes a live unified diff viewer (plain HTML/CSS, no editor bundle):
 
-- **Live updates:** During the coding stage, the worker polls `git diff` every 5 seconds and pushes updates to Convex. The UI receives changes in real-time via Convex subscriptions — no manual refresh needed.
-- **Monaco DiffEditor:** Uses `@monaco-editor/react` to render side-by-side or inline diffs with full VSCode-quality syntax highlighting, line numbers, and scroll sync.
-- **File tree sidebar:** Lists all changed files with status badges (A = added, M = modified, D = deleted). Click a file to view its diff.
-- **Language detection:** Automatically detects language from file extension for proper syntax highlighting.
-- **Responsive:** On mobile, the file list stacks above the editor instead of beside it.
+- **Live updates:** During the coding stage, the worker polls `git diff` every 5 seconds and writes `diffOutput` on the workspace document. The UI receives changes in real-time via Convex subscriptions — no manual refresh needed. (There is no separate file-tree snapshot or on-demand file read path; the diff string is the source of truth for changed content.)
+- **Unified diff:** Renders the full `git diff` output in one scrollable view. Each file is a section with path and status badge (A = added, M = modified, D = deleted). Hunk headers (`@@`) separate change blocks; added lines use a green tint, removed lines a red tint, with old/new line numbers in gutters.
+- **Binary files:** When the diff indicates a binary change, a short note is shown instead of line-by-line content.
 
 ### 12.5 Agent Log Stream
 

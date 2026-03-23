@@ -409,19 +409,6 @@ describe("GitWorktreeManager", () => {
     expect(second.success).toBe(true);
   });
 
-  test("getFileTree returns tracked files", async () => {
-    const manager = new GitWorktreeManager(worktreeRoot);
-    const { worktrees } = await manager.createWorktrees({
-      workspaceId: "ws-filetree",
-      simpleId: "TASK-9",
-      repos: [{ _id: "r1", path: repoDir, slug: "repo", defaultBranch: "main", scriptTimeoutMs: 10000 } as any],
-    });
-
-    const wt = worktrees[0]!;
-    const files = manager.getFileTree(wt.worktreePath);
-    expect(files).toContain("README.md");
-  });
-
   test("cleanup script streams lines to logger", async () => {
     const manager = new GitWorktreeManager(worktreeRoot);
     const { worktrees } = await manager.createWorktrees({
@@ -488,22 +475,5 @@ describe("GitWorktreeManager", () => {
     expect(received.some((r) => r.line.includes("--- [repo] setup ---"))).toBe(true);
     expect(received.some((r) => r.stream === "stdout" && r.line === "hello")).toBe(true);
     expect(received.some((r) => r.stream === "stderr" && r.line === "err")).toBe(true);
-  });
-
-  test("getFileTree includes untracked files", async () => {
-    const manager = new GitWorktreeManager(worktreeRoot);
-    const { worktrees } = await manager.createWorktrees({
-      workspaceId: "ws-filetree2",
-      simpleId: "TASK-10",
-      repos: [{ _id: "r1", path: repoDir, slug: "repo", defaultBranch: "main", scriptTimeoutMs: 10000 } as any],
-    });
-
-    const wt = worktrees[0]!;
-    // Create an untracked file
-    Bun.spawnSync(["touch", join(wt.worktreePath, "new-file.ts")]);
-
-    const files = manager.getFileTree(wt.worktreePath);
-    expect(files).toContain("README.md");
-    expect(files).toContain("new-file.ts");
   });
 });

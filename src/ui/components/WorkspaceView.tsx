@@ -567,12 +567,7 @@ export function WorkspaceView({
           )}
 
           {effectiveTab === "diff" && workspace.worktrees.length > 0 && (
-            <DiffViewer
-              worktrees={workspace.worktrees}
-              diffOutput={workspace.diffOutput}
-              fileTree={workspace.fileTree}
-              workspaceId={workspaceId}
-            />
+            <DiffViewer worktrees={workspace.worktrees} diffOutput={workspace.diffOutput} />
           )}
           {effectiveTab === "details" && (
             <div className="ws-details">

@@ -22,7 +22,7 @@ Built for solo developers. Mobile-first. Convention over configuration.
 
 **MCP integration** -- Built-in MCP server gives agents tools for file operations, search, git status, test execution, and board interaction (create/move issues, ask questions, request permissions).
 
-**Code review** -- Monaco-based diff viewer. File tree visualization. Review feedback loop: leave notes and the agent re-runs.
+**Code review** -- Lightweight unified diff (HTML/CSS, no editor bundle). Review feedback loop: leave notes and the agent re-runs.
 
 **Workspace cleanup** -- Delete finished workspace records from the issue panel or workspace view once the worker has cleared worktrees, so cancelled or stale runs do not clutter the issue.
 

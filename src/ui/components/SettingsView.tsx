@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useState, useEffect, useCallback } from "react";
-import Editor from "@monaco-editor/react";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { PromptTemplatesSection } from "./PromptTemplatesSection";
 import { IssueTemplatesSection } from "./IssueTemplatesSection";
@@ -1053,26 +1052,18 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
           />
           Disable built-in yes-kanban MCP (only use configured servers below)
         </label>
-        <div style={{ border: "1px solid var(--border)", borderRadius: "4px", overflow: "hidden" }}>
-          <Editor
-            height="300px"
-            language="json"
-            theme="vs-dark"
-            value={mcpJsonValue}
-            onChange={(value) => {
-              setMcpJsonValue(value ?? "");
-              setMcpJsonDirty(true);
-              setMcpJsonError(null);
-            }}
-            options={{
-              minimap: { enabled: false },
-              scrollBeyondLastLine: false,
-              fontSize: 13,
-              lineNumbers: "on",
-              tabSize: 2,
-            }}
-          />
-        </div>
+        <textarea
+          className="settings-mcp-json"
+          spellCheck={false}
+          rows={14}
+          value={mcpJsonValue}
+          onChange={(e) => {
+            setMcpJsonValue(e.target.value);
+            setMcpJsonDirty(true);
+            setMcpJsonError(null);
+          }}
+          autoComplete="off"
+        />
         {mcpJsonError && (
           <p style={{ color: "var(--danger)", fontSize: "0.85rem", marginTop: "0.25rem" }}>{mcpJsonError}</p>
         )}

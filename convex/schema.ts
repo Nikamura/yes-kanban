@@ -113,8 +113,6 @@ export default defineSchema({
     agentCwd: v.string(),
     cancelRequested: v.optional(v.boolean()),
     diffOutput: v.optional(v.string()),
-    fileTree: v.optional(v.string()),
-    fileTreeTruncated: v.optional(v.boolean()),
     behindMainBy: v.optional(v.number()),
     plan: v.optional(v.string()),
     planApproved: v.optional(v.boolean()),
@@ -307,16 +305,4 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_project", ["projectId"]),
-
-  fileContentRequests: defineTable({
-    workspaceId: v.id("workspaces"),
-    filePath: v.string(),
-    status: v.union(v.literal("pending"), v.literal("fulfilled"), v.literal("error")),
-    content: v.optional(v.string()),
-    error: v.optional(v.string()),
-    isBinary: v.optional(v.boolean()),
-    fileSize: v.optional(v.number()),
-  })
-    .index("by_workspace_path", ["workspaceId", "filePath"])
-    .index("by_status", ["status"]),
 });

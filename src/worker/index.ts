@@ -8,8 +8,6 @@ import { isTerminalStatus } from "./retry";
 import { sendHeartbeat } from "./heartbeat";
 import { checkBranchStatus, pullBaseBranches } from "./branch-monitor";
 import { recoverOrphanedWorkspaces } from "./graceful-restart";
-import { resolve } from "path";
-import { readFileSync } from "fs";
 
 const DEFAULT_CONFIG: WorkerConfig = {
   convexUrl: process.env["CONVEX_URL"] ?? "http://localhost:3210",
@@ -58,7 +56,6 @@ async function main() {
       const worktreeManager = new GitWorktreeManager(config.worktreeRoot);
       await worktreeManager.removeWorktrees({ worktrees: ws.worktrees, repos });
       await convex.mutation(api.workspaces.clearWorktrees, { id: ws._id });
-      await convex.mutation(api.fileContentRequests.deleteByWorkspace, { workspaceId: ws._id });
       console.log(`[worker] startup cleanup: worktrees cleaned for workspace=${ws._id}`);
     }
   } catch (err) {
@@ -276,7 +273,6 @@ async function main() {
                 const worktreeManager = new GitWorktreeManager(config.worktreeRoot);
                 await worktreeManager.removeWorktrees({ worktrees: ws.worktrees, repos });
                 await convex.mutation(api.workspaces.clearWorktrees, { id: ws._id });
-                await convex.mutation(api.fileContentRequests.deleteByWorkspace, { workspaceId: ws._id });
                 console.log(`[worker] worktrees cleaned up for workspace=${ws._id}`);
               } catch (cleanupErr) {
                 console.error(`[worker] worktree cleanup failed for workspace=${ws._id}:`, cleanupErr);
@@ -344,7 +340,6 @@ async function main() {
                   const worktreeManager = new GitWorktreeManager(config.worktreeRoot);
                   await worktreeManager.removeWorktrees({ worktrees: ws.worktrees, repos });
                   await convex.mutation(api.workspaces.clearWorktrees, { id: ws._id });
-                  await convex.mutation(api.fileContentRequests.deleteByWorkspace, { workspaceId: ws._id });
                   console.log(`[worker] worktrees cleaned up for workspace=${ws._id}`);
                 } catch (cleanupErr) {
                   console.error(`[worker] worktree cleanup failed for workspace=${ws._id}:`, cleanupErr);
@@ -371,87 +366,6 @@ async function main() {
       }
     } catch (err) {
       console.error("[worker] pending actions poll error:", err);
-    }
-
-    // Fulfill file content requests (for browsing unmodified files in diff view)
-    try {
-      const pendingFileRequests = await convex.query(api.fileContentRequests.listPending, {});
-      for (const req of pendingFileRequests) {
-        try {
-          const ws = await convex.query(api.workspaces.get, { id: req.workspaceId });
-          if (!ws || ws.worktrees.length === 0) {
-            await convex.mutation(api.fileContentRequests.fulfill, {
-              id: req._id,
-              status: "error",
-              error: "Worktree no longer available",
-            });
-            continue;
-          }
-
-          const firstWt = ws.worktrees[0];
-          if (!firstWt) {
-            await convex.mutation(api.fileContentRequests.fulfill, {
-              id: req._id, status: "error", error: "No worktree available",
-            });
-            continue;
-          }
-
-          // Path traversal guard
-          const resolvedPath = resolve(firstWt.worktreePath, req.filePath);
-          if (!resolvedPath.startsWith(resolve(firstWt.worktreePath) + "/")) {
-            await convex.mutation(api.fileContentRequests.fulfill, {
-              id: req._id, status: "error", error: "Invalid file path",
-            });
-            continue;
-          }
-
-          // Read file
-          const MAX_FILE_SIZE = 512 * 1024; // 512KB
-          let buffer: Buffer;
-          try {
-            buffer = readFileSync(resolvedPath);
-          } catch {
-            await convex.mutation(api.fileContentRequests.fulfill, {
-              id: req._id, status: "error", error: "File not found",
-            });
-            continue;
-          }
-
-          // Size check
-          if (buffer.length > MAX_FILE_SIZE) {
-            await convex.mutation(api.fileContentRequests.fulfill, {
-              id: req._id, status: "error",
-              error: `File too large (${Math.round(buffer.length / 1024)}KB)`,
-              fileSize: buffer.length,
-            });
-            continue;
-          }
-
-          // Binary detection (null bytes in first 8KB)
-          const checkSlice = buffer.subarray(0, 8192);
-          if (checkSlice.includes(0)) {
-            await convex.mutation(api.fileContentRequests.fulfill, {
-              id: req._id, status: "fulfilled",
-              isBinary: true, fileSize: buffer.length,
-            });
-            continue;
-          }
-
-          await convex.mutation(api.fileContentRequests.fulfill, {
-            id: req._id, status: "fulfilled",
-            content: buffer.toString("utf-8"),
-            fileSize: buffer.length,
-          });
-        } catch (err) {
-          console.error(`[worker] file content request error for ${req.filePath}:`, err);
-          await convex.mutation(api.fileContentRequests.fulfill, {
-            id: req._id, status: "error",
-            error: err instanceof Error ? err.message : "Unknown error",
-          }).catch(() => {});
-        }
-      }
-    } catch (err) {
-      console.error("[worker] file content poll error:", err);
     }
 
     if (activeCount < maxConcurrentAgents) {
@@ -565,7 +479,6 @@ async function main() {
         const worktreeManager = new GitWorktreeManager(config.worktreeRoot);
         await worktreeManager.removeWorktrees({ worktrees: ws.worktrees, repos });
         await convex.mutation(api.workspaces.clearWorktrees, { id: ws._id });
-        await convex.mutation(api.fileContentRequests.deleteByWorkspace, { workspaceId: ws._id });
         console.log(`[worker] worktrees cleaned up for workspace=${ws._id}`);
       }
     } catch (err) {

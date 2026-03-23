@@ -359,17 +359,6 @@ export class GitWorktreeManager {
     return mergeBase || baseBranch;
   }
 
-  getFileTree(worktreePath: string): string[] {
-    const result = Bun.spawnSync(
-      ["git", "-C", worktreePath, "ls-files", "-co", "--exclude-standard"],
-      { timeout: 30000, env: cleanGitEnv() }
-    );
-    return result.stdout
-      .toString()
-      .split("\n")
-      .filter(Boolean);
-  }
-
   getDiff(worktreePath: string, baseBranch: string): Promise<string> {
     const base = this.getMergeBase(worktreePath, baseBranch);
     const result = Bun.spawnSync(

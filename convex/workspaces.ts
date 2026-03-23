@@ -427,23 +427,6 @@ export const requestCancel = mutation({
   },
 });
 
-/** Lightweight mutation to update the file tree listing. */
-export const updateFileTree = mutation({
-  args: {
-    id: v.id("workspaces"),
-    fileTree: v.string(),
-    fileTreeTruncated: v.optional(v.boolean()),
-  },
-  handler: async (ctx, args) => {
-    const workspace = await ctx.db.get(args.id);
-    if (!workspace) throw new Error("Workspace not found");
-    await ctx.db.patch(args.id, {
-      fileTree: args.fileTree,
-      fileTreeTruncated: args.fileTreeTruncated,
-    });
-  },
-});
-
 /** Lightweight mutation to update just the diff output (used for live diff polling). */
 export const updateDiff = mutation({
   args: {
@@ -626,12 +609,6 @@ export const remove = mutation({
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.id))
       .collect();
     for (const row of retryRows) await ctx.db.delete(row._id);
-
-    const fileContentRows = await ctx.db
-      .query("fileContentRequests")
-      .withIndex("by_workspace_path", (q) => q.eq("workspaceId", args.id))
-      .collect();
-    for (const row of fileContentRows) await ctx.db.delete(row._id);
 
     const runAttempts = await ctx.db
       .query("runAttempts")
