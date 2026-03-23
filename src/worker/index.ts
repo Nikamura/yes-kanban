@@ -122,7 +122,7 @@ async function main() {
             status: "cancelled",
             completedAt: Date.now(),
           });
-        } else if (["creating", "claimed", "planning", "grilling", "plan_reviewing", "awaiting_feedback", "coding", "testing", "reviewing", "rebasing", "creating_pr", "merging"].includes(ws.status)) {
+        } else if (["creating", "claimed", "planning", "grilling", "plan_reviewing", "awaiting_feedback", "waiting_for_answer", "coding", "testing", "reviewing", "rebasing", "creating_pr", "merging"].includes(ws.status)) {
           // Workspace has cancelRequested but no active controller — it may be
           // running in another worker or stuck. Mark it cancelled directly.
           console.log(`[worker] cancelling orphaned workspace=${ws._id} (no active controller)`);

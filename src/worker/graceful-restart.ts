@@ -21,6 +21,7 @@ const REQUEUE_TO_CREATING = [
 /** Statuses that have their own poll handlers and should be preserved as-is. */
 const PRESERVE_STATUSES = [
   "awaiting_feedback",
+  "waiting_for_answer",
   "rebasing",
   "creating_pr",
   "merging",

@@ -2265,6 +2265,7 @@ textarea { resize: vertical; }
 .ws-status-grilling { color: #EC4899; }
 .ws-status-plan_reviewing { color: #8B5CF6; }
 .ws-status-awaiting_feedback { color: #F97316; }
+.ws-status-waiting_for_answer { color: #F97316; }
 
 .ws-status-filters {
   display: flex;

@@ -848,7 +848,7 @@ export async function runLifecycle(
     if (agentAskedQuestionGrill) {
       await convex.mutation(api.workspaces.updateStatus, {
         id: workspaceId,
-        status: "awaiting_feedback",
+        status: "waiting_for_answer",
       });
       console.log(`[lifecycle] workspace=${workspaceId} grilling paused for user answer`);
       if (mcpServer) { mcpServer.stop(); }
@@ -961,6 +961,21 @@ export async function runLifecycle(
     const agentAskedQuestion = planResult.events.some(
       (e) => e.type === "tool_use" && (e.data as { name?: string }).name === "mcp__yes-kanban__ask_question",
     );
+    // If the agent asked questions, check whether any are still pending.
+    // If so, park the workspace in "waiting_for_answer" until the user responds.
+    if (agentAskedQuestion) {
+      const pendingQs = await convex.query(api.agentQuestions.listPending, { workspaceId });
+      if (pendingQs.length > 0) {
+        await convex.mutation(api.workspaces.updateStatus, {
+          id: workspaceId,
+          status: "waiting_for_answer",
+        });
+        console.log(`[lifecycle] workspace=${workspaceId} agent asked ${pendingQs.length} question(s), waiting for answers`);
+        if (mcpServer) { mcpServer.stop(); }
+        return;
+      }
+    }
+
     if (!agentCalledSubmitPlan && !agentAskedQuestion) {
       console.log(`[lifecycle] workspace=${workspaceId} agent did not call submit_plan, resuming session to request it`);
       const resumeSessionId = planResult.events
@@ -1079,6 +1094,19 @@ export async function runLifecycle(
             }
 
             if (abortSignal.aborted) return; // eslint-disable-line @typescript-eslint/no-unnecessary-condition
+
+            // If the replan agent asked questions, wait for answers before continuing the review loop
+            const replanPendingQs = await convex.query(api.agentQuestions.listPending, { workspaceId });
+            if (replanPendingQs.length > 0) {
+              await convex.mutation(api.workspaces.updateStatus, {
+                id: workspaceId,
+                status: "waiting_for_answer",
+              });
+              console.log(`[lifecycle] workspace=${workspaceId} replan agent asked ${replanPendingQs.length} question(s), waiting for answers`);
+              if (mcpServer) { mcpServer.stop(); }
+              return;
+            }
+
             continue;
           }
 

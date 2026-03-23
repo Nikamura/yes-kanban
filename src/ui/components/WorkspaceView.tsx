@@ -63,7 +63,7 @@ export function WorkspaceView({
   const canCreatePR = ["completed", "changes_requested"].includes(workspace.status) && workspace.worktrees.length > 0 && hasChanges;
   const canMerge = ["completed", "changes_requested"].includes(workspace.status) && workspace.worktrees.length > 0 && hasChanges;
   const canApprovePlan = workspace.status === "awaiting_feedback" && workspace.plan;
-  const canReplan = workspace.status === "awaiting_feedback";
+  const canReplan = workspace.status === "awaiting_feedback" || workspace.status === "waiting_for_answer";
   const canRestartExperiment = ["completed", "failed", "changes_requested", "test_failed"].includes(workspace.status);
   const canRequestReview = ["completed", "changes_requested"].includes(workspace.status) && workspace.worktrees.length > 0 && hasChanges;
   const canRequestChanges = ["completed", "changes_requested"].includes(workspace.status) && workspace.worktrees.length > 0;
@@ -83,7 +83,7 @@ export function WorkspaceView({
   }, 0);
 
   // Default to plan tab when awaiting feedback, otherwise logs. User can override by clicking tabs.
-  const effectiveTab = activeTab ?? (workspace.status === "awaiting_feedback" ? "plan" : "logs");
+  const effectiveTab = activeTab ?? (workspace.status === "awaiting_feedback" || workspace.status === "waiting_for_answer" ? "plan" : "logs");
 
   return (
     <div className="panel-overlay workspace-overlay" onClick={onClose}>
@@ -91,7 +91,7 @@ export function WorkspaceView({
         <div className="panel-header">
           <div className="ws-header-info">
             <span className={`ws-status ws-status-${workspace.status}`}>
-              {workspace.status === "awaiting_feedback" ? "awaiting feedback" : workspace.status === "changes_requested" ? "changes requested" : workspace.status === "plan_reviewing" ? "plan reviewing" : workspace.status === "grilling" ? "grilling" : workspace.status}
+              {workspace.status === "awaiting_feedback" ? "awaiting feedback" : workspace.status === "waiting_for_answer" ? "waiting for answer" : workspace.status === "changes_requested" ? "changes requested" : workspace.status === "plan_reviewing" ? "plan reviewing" : workspace.status === "grilling" ? "grilling" : workspace.status}
             </span>
             {workspace.experimentNumber && workspace.experimentNumber > 0 && (
               <span className="ws-experiment-badge">

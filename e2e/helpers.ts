@@ -55,7 +55,7 @@ export async function seedWorkspaceWithPendingQuestion(): Promise<{
 
   await client.mutation(api.workspaces.updateStatus, {
     id: workspaceId,
-    status: "awaiting_feedback",
+    status: "waiting_for_answer",
   });
 
   const suggestions: [string, string, string] = [

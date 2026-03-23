@@ -57,7 +57,7 @@ async function autoContinuePlanningIfReady(
 
   if (!remaining) {
     const workspace = await ctx.db.get(workspaceId);
-    if (workspace?.status === "awaiting_feedback") {
+    if (workspace?.status === "awaiting_feedback" || workspace?.status === "waiting_for_answer") {
       await ctx.db.patch(workspaceId, {
         status: "creating",
         planApproved: undefined,

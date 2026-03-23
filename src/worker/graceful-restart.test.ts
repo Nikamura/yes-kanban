@@ -20,8 +20,8 @@ describe("graceful-restart", () => {
       }
     });
 
-    test("preserves manual action statuses (awaiting_feedback, rebasing, creating_pr, merging)", () => {
-      const manualStatuses = ["awaiting_feedback", "rebasing", "creating_pr", "merging"];
+    test("preserves manual action statuses (awaiting_feedback, waiting_for_answer, rebasing, creating_pr, merging)", () => {
+      const manualStatuses = ["awaiting_feedback", "waiting_for_answer", "rebasing", "creating_pr", "merging"];
 
       for (const status of manualStatuses) {
         const result = recoverOrphanedWorkspaces([
@@ -47,7 +47,7 @@ describe("graceful-restart", () => {
 
   describe("shouldRequeueOnShutdown", () => {
     test("returns true for in-progress statuses", () => {
-      const inProgress = ["claimed", "planning", "grilling", "coding", "testing", "reviewing", "awaiting_feedback"];
+      const inProgress = ["claimed", "planning", "grilling", "coding", "testing", "reviewing", "awaiting_feedback", "waiting_for_answer"];
       for (const status of inProgress) {
         expect(shouldRequeueOnShutdown(status)).toBe(true);
       }
