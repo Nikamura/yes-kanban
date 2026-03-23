@@ -8,6 +8,7 @@ export const READ_ONLY_TOOLS = [
   "mcp__yes-kanban__get_issue",
   "mcp__yes-kanban__list_attachments",
   "mcp__yes-kanban__list_comments",
+  "mcp__yes-kanban__get_test_results",
 ];
 
 export const PLANNING_TOOLS = [

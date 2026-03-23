@@ -68,9 +68,9 @@ describe("McpServer", () => {
     expect(response.result.serverInfo.name).toBe("yes-kanban");
   });
 
-  test("tools/list returns all 20 tools when no allowlist", async () => {
+  test("tools/list returns all 21 tools when no allowlist", async () => {
     const response = await sendJsonRpc(port, "tools/list", {});
-    expect(response.result.tools.length).toBe(20);
+    expect(response.result.tools.length).toBe(21);
     const names = response.result.tools.map((t: any) => t.name);
     expect(names).toContain("create_issue");
     expect(names).toContain("list_attachments");
@@ -80,6 +80,7 @@ describe("McpServer", () => {
     expect(names).toContain("submit_plan");
     expect(names).toContain("get_plan");
     expect(names).toContain("get_feedback");
+    expect(names).toContain("get_test_results");
     expect(names).not.toContain("move_issue");
   });
 
@@ -183,6 +184,22 @@ describe("McpServer", () => {
     });
     const result = JSON.parse(response.result.content[0].text);
     expect(result).toEqual([{ name: "To Do" }]);
+  });
+
+  test("get_test_results returns status and logs from latest test run", async () => {
+    mockConvex.query
+      .mockReturnValueOnce({ _id: "ra1", status: "failed", exitCode: 1, error: "Exited with code 1" } as any)
+      .mockReturnValueOnce([{ stream: "stdout", line: "assertion failed", timestamp: 100 }] as any);
+    const response = await sendJsonRpc(port, "tools/call", {
+      name: "get_test_results",
+      arguments: {},
+    });
+    const result = JSON.parse(response.result.content[0].text);
+    expect(result.status).toBe("failed");
+    expect(result.exitCode).toBe(1);
+    expect(result.error).toBe("Exited with code 1");
+    expect(result.logs).toHaveLength(1);
+    expect(result.logs[0].line).toBe("assertion failed");
   });
 
   test("unknown tool returns error in response", async () => {

@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { buildPrompt, buildReviewPrompt, buildPlanReviewPrompt, buildRebaseConflictPrompt, buildPlanningPrompt, buildGrillingPrompt, buildFixPrompt } from "./prompt-builder";
+import { buildPrompt, buildReviewPrompt, buildPlanReviewPrompt, buildRebaseConflictPrompt, buildPlanningPrompt, buildGrillingPrompt, buildFixPrompt, buildTestFixPrompt } from "./prompt-builder";
 
 describe("buildPrompt", () => {
   test("includes issue title and description", () => {
@@ -732,5 +732,14 @@ describe("buildFixPrompt", () => {
   test("includes instruction to address issues", () => {
     const prompt = buildFixPrompt("Update the API endpoint");
     expect(prompt).toContain("Please address these issues");
+  });
+});
+
+describe("buildTestFixPrompt", () => {
+  test("includes test output and fix instruction", () => {
+    const prompt = buildTestFixPrompt("FAIL src/a.test.ts\n  expected 1 to be 2");
+    expect(prompt).toContain("FAIL src/a.test.ts");
+    expect(prompt).toContain("Tests failed.");
+    expect(prompt).toContain("Please fix the failing tests");
   });
 });

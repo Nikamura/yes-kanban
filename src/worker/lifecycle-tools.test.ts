@@ -18,6 +18,7 @@ describe("MCP tool lists by phase", () => {
       "mcp__yes-kanban__get_issue",
       "mcp__yes-kanban__list_attachments",
       "mcp__yes-kanban__list_comments",
+      "mcp__yes-kanban__get_test_results",
     ];
     for (const tool of expected) {
       expect(READ_ONLY_TOOLS).toContain(tool);

@@ -621,6 +621,12 @@ api.agentLogs.list: (args: {
   limit?: number;
 }) => AgentLogEntry[]
 
+// Query: latest run attempt for a workspace with the given `type` (by workspace attempt order)
+api.runAttempts.lastByType: (args: {
+  workspaceId: Id<"workspaces">;
+  type: string;
+}) => { /* runAttempts table fields */ } | null
+
 // Mutation: create a run attempt (called when starting an agent)
 api.runAttempts.create: (args: {
   workspaceId: Id<"workspaces">;
@@ -1423,7 +1429,7 @@ A workspace progresses through a defined lifecycle from branch creation to merge
 2. **Planning** (optional, per-project via `skipPlanning`) — A planning agent runs in plan mode (read-only). It explores the codebase, asks clarifying questions via MCP (`ask_question`), and submits an implementation plan (`submit_plan`). The planning agent cannot modify files.
 3. **Awaiting Feedback** — The planning agent has finished. The user reviews the plan, answers any pending questions, edits the plan if needed, and either approves it or requests re-planning. Approval transitions the workspace back to `creating` with `planApproved=true`.
 4. **Coding** — The coding agent is executing with the approved plan included in its prompt. It works on the issue, makes changes, and commits. The agent can check for user feedback via MCP (`get_feedback`).
-5. **Testing** — After the coding agent exits successfully, the worker runs the project's configured test command in the worktree. If tests fail, the workspace can auto-retry or fail for user review.
+5. **Testing** — After the coding agent exits successfully, the worker runs the project's configured test command in the worktree. If tests fail, the worker resumes the coding agent once with test output (and exposes `get_test_results` via MCP); if tests still fail after that, the workspace moves to `test_failed` for user review.
 6. **Reviewing** — A fresh agent run reviews the diff with clean context. The review agent checks for bugs, style issues, missing tests, and potential problems. If it requests changes, the coding agent is re-dispatched with the review feedback (up to maxReviewCycles).
 7. **Completed** — Work is done. The user can now take manual actions from the UI:
    - **Create PR** — Pushes the branch and creates a pull request via the forge adapter (`creating_pr` → `pr_open`).
@@ -1478,8 +1484,8 @@ After the coding agent exits successfully, the worker runs tests:
 2. Capture test output and store it as agent logs in Convex.
 3. If tests pass (exit code 0), advance to the Reviewing stage.
 4. If tests fail:
-   a. If auto-retry is enabled and retries remain, dispatch the coding agent again with the test failure output as context. The workspace returns to `coding` status.
-   b. If retries exhausted, set status to `test_failed` for user review.
+   a. Dispatch the coding agent once more with the test failure output in the prompt (truncated to the same limit as other script prompts). The agent may also call the MCP tool `get_test_results` to read the latest test run logs from Convex. The workspace returns to `coding` status, then tests run again after the agent exits successfully.
+   b. If tests still fail after that single test-fix attempt, set status to `test_failed` for user review.
 
 Test configuration (per repository):
 
@@ -2372,8 +2378,8 @@ A conforming implementation should include tests that cover the behaviors define
 - Workspace progresses through stages: creating → coding → testing → reviewing → rebasing → pr_open → merged.
 - Testing stage runs configured `testCommand` and captures output.
 - Testing stage skipped when `testCommand` is null.
-- Test failure dispatches coding agent with failure context (when auto-retry enabled).
-- Test failure sets `test_failed` status when retries exhausted.
+- Test failure triggers one inline test-fix coding run (prompt + optional `get_test_results` MCP), then re-runs tests.
+- Test failure sets `test_failed` if tests still fail after that attempt.
 - Review stage creates a fresh run attempt with `type: review`.
 - Review agent receives diff and issue context but NOT coding agent conversation history.
 - Review approve advances to rebasing.
@@ -2404,6 +2410,7 @@ A conforming implementation should include tests that cover the behaviors define
 - `list_comments` returns comments sorted by creation time.
 - `add_blocker` / `remove_blocker` modifies `blockedBy` relationships.
 - `get_current_issue` returns the workspace's associated issue.
+- `get_test_results` returns status, exit code, error, and log lines for the most recent test run attempt (`type: test`).
 - `mcpTools` allowlist restricts available tools.
 - Disallowed tool calls return an error without executing.
 - Rate limiting enforced (60 calls/min/workspace).

@@ -4,7 +4,7 @@ import { api } from "../../convex/_generated/api";
 import { GitWorktreeManager, cleanGitEnv } from "./worktree-manager";
 import { AgentExecutor, type StallPauseSignal } from "./agent-executor";
 import { getAdapter } from "./adapters";
-import { buildPrompt, buildReviewPrompt, buildPlanReviewPrompt, buildRebaseConflictPrompt, buildPlanningPrompt, buildGrillingPrompt, buildFixPrompt } from "./prompt-builder";
+import { buildPrompt, buildReviewPrompt, buildPlanReviewPrompt, buildRebaseConflictPrompt, buildPlanningPrompt, buildGrillingPrompt, buildFixPrompt, buildTestFixPrompt } from "./prompt-builder";
 import { getForgeAdapter } from "./forge";
 import { McpServer, type ExternalMcpConfig } from "./mcp-server";
 import type { WorkerConfig, DispatchTask, WorktreeEntry, LogEntry, AgentEvent, AttachmentInfo, ScriptLogger } from "./types";
@@ -1294,15 +1294,23 @@ export async function runLifecycle(
     if (!project?.skipTests) {
       console.log(`[lifecycle] workspace=${workspaceId} running tests`);
       if (!(await waitForPhaseCapacity(convex, workspaceId, "testing", abortSignal))) return;
-      const testResult = await runTests(convex, workspaceId, repos, worktrees, abortSignal);
+      const twf = await runTestsWithFix(
+        convex, config, executor, workspaceId, agentConfig, agentCwd,
+        repos, worktrees, abortSignal, lastCodingSessionId,
+        mcpConfigPath, mcpServer, settingsPath, disableSlashCommands, issueRef, issue,
+      );
       if (abortSignal.aborted) return;
-      if (testResult && !testResult.passed) {
-        await convex.mutation(api.workspaces.updateStatus, {
-          id: workspaceId, status: "test_failed",
-        });
-        console.log(`[lifecycle] tests failed for workspace=${workspaceId}`);
+      if (twf === null) return;
+      if (!twf.ok) {
+        if (twf.kind === "tests_failed") {
+          await convex.mutation(api.workspaces.updateStatus, {
+            id: workspaceId, status: "test_failed",
+          });
+          console.log(`[lifecycle] tests failed for workspace=${workspaceId}`);
+        }
         return;
       }
+      lastCodingSessionId = twf.lastCodingSessionId;
     }
   }
 
@@ -1429,17 +1437,24 @@ export async function runLifecycle(
           }
         }
 
-        // Re-run tests
         if (!project.skipTests) {
           if (!(await waitForPhaseCapacity(convex, workspaceId, "testing", abortSignal))) return;
-          const retestResult = await runTests(convex, workspaceId, repos, worktrees, abortSignal);
+          const twf = await runTestsWithFix(
+            convex, config, executor, workspaceId, agentConfig, agentCwd,
+            repos, worktrees, abortSignal, lastCodingSessionId,
+            mcpConfigPath, mcpServer, settingsPath, disableSlashCommands, issueRef, issue,
+          );
           if (abortSignal.aborted) return;
-          if (retestResult && !retestResult.passed) {
-            await convex.mutation(api.workspaces.updateStatus, {
-              id: workspaceId, status: "test_failed",
-            });
+          if (twf === null) return;
+          if (!twf.ok) {
+            if (twf.kind === "tests_failed") {
+              await convex.mutation(api.workspaces.updateStatus, {
+                id: workspaceId, status: "test_failed",
+              });
+            }
             return;
           }
+          lastCodingSessionId = twf.lastCodingSessionId;
         }
       }
     }
@@ -2185,6 +2200,103 @@ export async function runTests(
     }
   }
   return { passed: true, output: "" };
+}
+
+type RunTestsWithFixResult =
+  | { ok: true; lastCodingSessionId: string | undefined }
+  | { ok: false; kind: "tests_failed" }
+  | { ok: false; kind: "agent_failed" };
+
+/**
+ * Run tests; on failure resume the coding agent once with test output, then re-run tests.
+ */
+async function runTestsWithFix(
+  convex: ConvexClient,
+  config: WorkerConfig,
+  executor: AgentExecutor,
+  workspaceId: Id<"workspaces">,
+  agentConfig: Doc<"agentConfigs">,
+  agentCwd: string,
+  repos: Doc<"repos">[],
+  worktrees: WorktreeEntry[],
+  abortSignal: AbortSignal,
+  lastCodingSessionId: string | undefined,
+  mcpConfigPath: string | undefined,
+  mcpServer: McpServer | null,
+  settingsPath: string,
+  disableSlashCommands: boolean,
+  issueRef: string,
+  issue: Doc<"issues"> | undefined,
+): Promise<RunTestsWithFixResult | null> {
+  const testResult = await runTests(convex, workspaceId, repos, worktrees, abortSignal);
+  if (abortSignal.aborted) return null;
+  if (testResult === null) return null;
+  if (testResult.passed) {
+    return { ok: true, lastCodingSessionId };
+  }
+
+  let testOutputForPrompt = testResult.output;
+  if (testOutputForPrompt.length > MAX_SCRIPT_PROMPT_LEN) {
+    testOutputForPrompt = testOutputForPrompt.slice(0, MAX_SCRIPT_PROMPT_LEN) + "\n\n... [truncated]";
+  }
+  const fixPrompt = buildTestFixPrompt(testOutputForPrompt);
+
+  for (const wt of worktrees) {
+    if (commitUnstagedChanges(wt.worktreePath, issueRef)) {
+      console.log(`[lifecycle] workspace=${workspaceId} auto-committed before test-fix cycle`);
+    }
+  }
+
+  if (!(await waitForPhaseCapacity(convex, workspaceId, "coding", abortSignal))) return null;
+  await convex.mutation(api.workspaces.updateStatus, {
+    id: workspaceId,
+    status: "coding",
+  });
+
+  const fixResult = await runAgent(
+    convex,
+    config,
+    executor,
+    workspaceId,
+    agentConfig,
+    agentCwd,
+    fixPrompt,
+    "coding",
+    abortSignal,
+    {
+      mcpConfigPath,
+      mcpServer,
+      sessionId: lastCodingSessionId,
+      settingsPath,
+      disableSlashCommands,
+      allowedTools: CODING_TOOLS,
+      permissionMode: agentConfig.permissionMode === "accept" ? "accept" : undefined,
+      agentConfigId: agentConfig._id,
+    },
+  );
+
+  const newSessionId = fixResult.sessionId;
+
+  if (!fixResult.success) {
+    await handleFailure(convex, config, workspaceId, agentConfig, fixResult, worktrees, issue);
+    return { ok: false, kind: "agent_failed" };
+  }
+
+  for (const wt of worktrees) {
+    if (commitUnstagedChanges(wt.worktreePath, issueRef)) {
+      console.log(`[lifecycle] workspace=${workspaceId} auto-committed after test-fix cycle`);
+    }
+  }
+
+  if (!(await waitForPhaseCapacity(convex, workspaceId, "testing", abortSignal))) return null;
+  const retestResult = await runTests(convex, workspaceId, repos, worktrees, abortSignal);
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- mirror first `runTests` exit pattern; TS narrows abort after successful `runAgent`
+  if (abortSignal.aborted) return null;
+  if (retestResult === null) return null;
+  if (!retestResult.passed) {
+    return { ok: false, kind: "tests_failed" };
+  }
+  return { ok: true, lastCodingSessionId: newSessionId };
 }
 
 export async function handleFailure(

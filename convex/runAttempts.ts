@@ -91,6 +91,21 @@ export const abandonRunning = mutation({
   },
 });
 
+/** Latest run attempt of a given type (by insertion order under by_workspace). */
+export const lastByType = query({
+  args: { workspaceId: v.id("workspaces"), type: v.string() },
+  handler: async (ctx, args) => {
+    const attempts = await ctx.db
+      .query("runAttempts")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .collect();
+    for (let i = attempts.length - 1; i >= 0; i--) {
+      if (attempts[i]?.type === args.type) return attempts[i];
+    }
+    return null;
+  },
+});
+
 /** Get the most recent successful run attempt for a workspace to retrieve its sessionId. */
 export const lastSession = query({
   args: { workspaceId: v.id("workspaces"), type: v.optional(v.string()) },

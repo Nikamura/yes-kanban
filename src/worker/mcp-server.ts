@@ -45,6 +45,14 @@ interface ChecklistItemArgs extends IssueIdentifierArgs {
   itemId?: string;
 }
 
+/** Payload for `get_test_results` — null fields when no test run exists yet. */
+interface TestResultsResponse {
+  status: string | null;
+  exitCode: number | null;
+  error: string | null;
+  logs: Array<{ stream: string; line: string; timestamp: number }>;
+}
+
 /** Configuration for an external MCP server to include alongside yes-kanban. */
 export interface ExternalMcpConfig {
   name: string;
@@ -309,6 +317,8 @@ client.on("error", () => process.exit(1));
         return this.getPlan();
       case "get_feedback":
         return this.getFeedback();
+      case "get_test_results":
+        return this.getTestResults();
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -522,6 +532,23 @@ client.on("error", () => process.exit(1));
       });
     }
     return { messages: pending.map((m) => ({ id: m._id, body: m.body, author: m.author, createdAt: m.createdAt })) };
+  }
+
+  private async getTestResults(): Promise<TestResultsResponse> {
+    const attempt = await this.convex.query(api.runAttempts.lastByType, {
+      workspaceId: this.workspaceId,
+      type: "test",
+    });
+    if (!attempt) {
+      return { status: null, exitCode: null, error: null, logs: [] };
+    }
+    const logs = await this.convex.query(api.agentLogs.list, { runAttemptId: attempt._id });
+    return {
+      status: attempt.status,
+      exitCode: attempt.exitCode ?? null,
+      error: attempt.error ?? null,
+      logs: logs.map((l) => ({ stream: l.stream, line: l.line, timestamp: l.timestamp })),
+    };
   }
 
   private getToolDefinitions() {
@@ -741,6 +768,11 @@ client.on("error", () => process.exit(1));
       {
         name: "get_feedback",
         description: "Check for any pending feedback messages from the user. Returns and marks as delivered any unread messages.",
+        inputSchema: { type: "object", properties: {} },
+      },
+      {
+        name: "get_test_results",
+        description: "Get the output from the most recent test run",
         inputSchema: { type: "object", properties: {} },
       },
     ];

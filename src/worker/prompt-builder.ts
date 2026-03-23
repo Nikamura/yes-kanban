@@ -126,6 +126,13 @@ export function buildFixPrompt(reviewFeedback: string): string {
 }
 
 /**
+ * Build the prompt for the test-fix cycle after tests fail.
+ */
+export function buildTestFixPrompt(testOutput: string): string {
+  return `Tests failed. Here is the test output:\n\n${testOutput}\n\nPlease fix the failing tests and ensure all tests pass.`;
+}
+
+/**
  * Build the prompt for a review run.
  * If a custom template is provided, it replaces the Review Criteria + Output Format sections.
  */
