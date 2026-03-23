@@ -79,6 +79,49 @@ describe("runAgent", () => {
     });
   });
 
+  test("passes GIT_EDITOR and GIT_MERGE_AUTOEDIT to executor so git rebase does not open an editor (YES-209)", async () => {
+    const convex = mockConvex();
+    const executeMock = mock((args: any) => {
+      args.onLine("stdout", "Working...");
+      return Promise.resolve({ exitCode: 0, timedOut: false, stalled: false });
+    });
+    const executor = { execute: executeMock };
+
+    await runAgent(
+      convex as any, baseConfig, executor as any, "wsId" as any,
+      baseAgentConfig, "/tmp/cwd", "Fix bug", "coding",
+      new AbortController().signal,
+    );
+
+    expect(executeMock.mock.calls.length).toBe(1);
+    const env = executeMock.mock.calls[0]![0].env as Record<string, string>;
+    expect(env["GIT_EDITOR"]).toBe("true");
+    expect(env["GIT_MERGE_AUTOEDIT"]).toBe("no");
+  });
+
+  test("overrides GIT_EDITOR from agent config when set (YES-209)", async () => {
+    const convex = mockConvex();
+    const executeMock = mock((args: any) => {
+      args.onLine("stdout", "Working...");
+      return Promise.resolve({ exitCode: 0, timedOut: false, stalled: false });
+    });
+    const executor = { execute: executeMock };
+    const configWithEditor = {
+      ...baseAgentConfig,
+      env: { GIT_EDITOR: "vim", GIT_MERGE_AUTOEDIT: "yes" },
+    };
+
+    await runAgent(
+      convex as any, baseConfig, executor as any, "wsId" as any,
+      configWithEditor, "/tmp/cwd", "Fix bug", "coding",
+      new AbortController().signal,
+    );
+
+    const env = executeMock.mock.calls[0]![0].env as Record<string, string>;
+    expect(env["GIT_EDITOR"]).toBe("true");
+    expect(env["GIT_MERGE_AUTOEDIT"]).toBe("no");
+  });
+
   test("throws before runAttempts.create when agentType is unsupported (e.g. legacy pi)", async () => {
     const convex = mockConvex();
     const executor = makeExecutor({ exitCode: 0 });

@@ -1610,6 +1610,10 @@ export async function runAgent(
     disableSlashCommands: options?.disableSlashCommands,
   });
 
+  // Prevent git from opening an editor during rebase/merge in agent subprocesses
+  cmd.env["GIT_EDITOR"] = "true";
+  cmd.env["GIT_MERGE_AUTOEDIT"] = "no";
+
   console.log(`[lifecycle] workspace=${workspaceId} executing: ${cmd.command} ${cmd.args.join(" ")}`);
 
   const logBuffer: LogEntry[] = [];
