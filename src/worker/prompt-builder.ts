@@ -388,11 +388,12 @@ export function buildGrillingPrompt(
   parts.push("\n## Your mission");
   parts.push(
     "Interview the user relentlessly about every aspect of this plan or design until you reach a shared understanding. " +
-      "Walk down each branch of the design tree, resolving dependencies between decisions one-by-one.",
+      "Walk the decision tree systematically and resolve each branch. Resolve dependencies between decisions one-by-one.",
   );
   parts.push(
-    "For each question, state your **recommended answer** in your message, then ask **one** follow-up via " +
-      "`mcp__yes-kanban__ask_question` with exactly **3** suggested answers.",
+    "For each question, state your **recommended answer** in your message, then ask follow-ups via " +
+      "`mcp__yes-kanban__ask_question` with exactly **3** suggested answers. " +
+      "Ask multiple questions at the same time when they are independent of each other.",
   );
   parts.push(
     "If a question can be answered by exploring the codebase, explore the codebase instead of asking the user.",
