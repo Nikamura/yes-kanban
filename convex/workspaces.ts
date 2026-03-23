@@ -15,7 +15,7 @@ export const WORKSPACE_TERMINAL_STATUSES = [
 export async function autoMoveIssueToNextColumn(
   ctx: MutationCtx,
   issueId: Id<"issues">,
-  projectId: Id<"projects">,
+  _projectId: Id<"projects">,
   opts?: { onlyIfAutoDispatchColumn?: boolean; skipTerminal?: boolean },
 ) {
   const issue = await ctx.db.get(issueId);
@@ -27,7 +27,7 @@ export async function autoMoveIssueToNextColumn(
 
   const currentIndex = (FIXED_COLUMNS as readonly string[]).indexOf(issue.status);
   if (currentIndex === -1 || currentIndex >= FIXED_COLUMNS.length - 1) return;
-  const nextColumnName = FIXED_COLUMNS[currentIndex + 1];
+  const nextColumnName = FIXED_COLUMNS[currentIndex + 1] as string;
 
   // Don't auto-move into terminal columns (Done) — user must do that explicitly
   if (opts?.skipTerminal && (TERMINAL_COLUMN_NAMES as readonly string[]).includes(nextColumnName)) return;
