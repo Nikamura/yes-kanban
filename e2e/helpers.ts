@@ -78,6 +78,112 @@ export async function seedWorkspaceWithPendingQuestion(): Promise<{
   return { slug, issueSimpleId: issue.simpleId, workspaceId, suggestions };
 }
 
+/** Multi-file unified diff for E2E: modified, added (with a very long line), deleted. */
+export function buildE2eMultiFileDiff(): string {
+  const longLine = `export const LONG_LINE = "${"x".repeat(2500)}";`;
+  return [
+    `diff --git a/src/utils.ts b/src/utils.ts`,
+    `index 111..222 100644`,
+    `--- a/src/utils.ts`,
+    `+++ b/src/utils.ts`,
+    `@@ -1,2 +1,3 @@`,
+    ` a`,
+    `-b`,
+    `+c`,
+    `+d`,
+    `diff --git a/src/newFile.ts b/src/newFile.ts`,
+    `new file mode 100644`,
+    `index 0000000..1234567`,
+    `--- /dev/null`,
+    `+++ b/src/newFile.ts`,
+    `@@ -0,0 +1,2 @@`,
+    `+added line one`,
+    `+${longLine}`,
+    `diff --git a/src/removed.ts b/src/removed.ts`,
+    `deleted file mode 100644`,
+    `index 7654321..0000000`,
+    `--- a/src/removed.ts`,
+    `+++ /dev/null`,
+    `@@ -1,2 +0,0 @@`,
+    `-gone1`,
+    `-gone2`,
+  ].join("\n");
+}
+
+/**
+ * Completed workspace with fake worktree metadata and a multi-file diff so the Diff tab
+ * renders the diff viewer with toolbar, stats, split mode, and horizontal overflow.
+ */
+export async function seedWorkspaceWithDiff(): Promise<{
+  slug: string;
+  issueSimpleId: string;
+  workspaceId: string;
+}> {
+  const client = new ConvexHttpClient(getE2eConvexUrl(), {
+    skipConvexDeploymentUrlCheck: true,
+  });
+  const suffix = Date.now();
+  const slug = `e2e-diff-${suffix}`;
+
+  const projectId = await client.mutation(api.projects.create, {
+    name: `E2E Diff viewer ${suffix}`,
+    slug,
+    simpleIdPrefix: "DF",
+  });
+
+  const repoId = await client.mutation(api.repos.create, {
+    projectId,
+    name: "E2E Repo",
+    slug: `e2e-repo-${suffix}`,
+    path: "/tmp/e2e-diff-repo",
+  });
+
+  const agentConfigId = await client.mutation(api.agentConfigs.create, {
+    projectId,
+    name: "E2E Diff Agent",
+    agentType: "claude-code",
+    command: "echo",
+  });
+
+  const issueId = await client.mutation(api.issues.create, {
+    projectId,
+    title: "E2E diff viewer coverage",
+    description: "Seeded for diff viewer Playwright tests",
+    status: "To Do",
+  });
+
+  const workspaceId = await client.mutation(api.workspaces.create, {
+    issueId,
+    projectId,
+    agentConfigId,
+  });
+
+  const diffOutput = buildE2eMultiFileDiff();
+
+  await client.mutation(api.workspaces.updateStatus, {
+    id: workspaceId,
+    status: "completed",
+    skipAutoMove: true,
+    worktrees: [
+      {
+        repoId,
+        repoPath: "/tmp/e2e-diff-repo",
+        baseBranch: "main",
+        branchName: "feature/e2e-diff",
+        worktreePath: "/tmp/e2e-diff-wt",
+      },
+    ],
+    diffOutput,
+  });
+
+  const issue = await client.query(api.issues.get, { id: issueId });
+  if (!issue) {
+    throw new Error("Expected issue after seeding");
+  }
+
+  return { slug, issueSimpleId: issue.simpleId, workspaceId };
+}
+
 /**
  * Grill Me flow: issue has `grillMe`, workspace was in `grilling`, agent asked a question
  * (`waiting_for_answer`) with three suggested answers — same shape as
