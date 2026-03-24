@@ -12,6 +12,7 @@ import { ActivityFeed } from "./components/ActivityFeed";
 import { ArchiveView } from "./components/ArchiveView";
 import { useNotifications } from "./hooks/useNotifications";
 import type { Id } from "../../convex/_generated/dataModel";
+import { cn } from "@/ui/lib/utils";
 
 type View = "board" | "list" | "dashboard" | "settings" | "activity" | "archive";
 
@@ -152,21 +153,29 @@ export function App() {
   // Show nothing until projects load to avoid "No project" flash
   if (!projects) {
     return (
-      <div className="app">
-        <header className="app-header">
-          <div className="header-left">
-            <h1 className="app-title">Yes Kanban</h1>
+      <div className="flex h-full flex-col">
+        <header className="z-10 flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card/85 px-4 py-2.5 backdrop-blur-md lg:px-6">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <h1 className="font-mono text-[15px] font-bold tracking-tight whitespace-nowrap lg:text-base">
+              Yes Kanban
+            </h1>
           </div>
         </header>
-        <main className="app-main">
-          <div className="loading">Loading...</div>
+        <main className="min-h-0 flex-1 overflow-hidden pb-[52px] lg:pb-0">
+          <div className="flex h-full flex-col items-center justify-center gap-4 text-muted-foreground animate-in fade-in duration-300">
+            <div
+              className="size-6 animate-spin rounded-full border-2 border-border border-t-primary"
+              aria-hidden
+            />
+            <span>Loading...</span>
+          </div>
         </main>
       </div>
     );
   }
 
   return (
-    <div className="app">
+    <div className="flex h-full flex-col lg:flex-row">
       <ProjectSelector
         projects={projects}
         selectedId={selectedProjectId}
@@ -174,71 +183,67 @@ export function App() {
         onCreateNew={() => setShowCreateProject(true)}
       />
 
-      <div className="app-body">
-        <header className="app-header">
-          <div className="header-left">
-            <h1 className="app-title" onClick={() => { setView("board"); closeIssue(); }} style={{ cursor: "pointer" }}>Yes Kanban</h1>
-          </div>
-          {dispatchStatus && (
-            <span
-              className="worker-status-dot"
-              title={dispatchStatus.workerConnected ? "Worker connected" : "Worker disconnected"}
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                display: "inline-block",
-                backgroundColor: dispatchStatus.workerConnected ? "#10b981" : "#ef4444",
-                marginRight: 8,
-                flexShrink: 0,
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="z-10 flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card/85 px-4 py-2.5 backdrop-blur-md lg:px-6">
+          <div className="flex min-w-0 min-h-0 flex-1 items-center gap-3">
+            <h1
+              className="cursor-pointer font-mono text-[15px] font-bold tracking-tight whitespace-nowrap lg:text-base"
+              onClick={() => {
+                setView("board");
+                closeIssue();
               }}
-            />
-          )}
-          <nav className="header-nav">
-            <button
-              className={`nav-btn ${view === "board" ? "active" : ""}`}
-              onClick={() => { setView("board"); closeIssue(); }}
             >
-              Board
-            </button>
-            <button
-              className={`nav-btn ${view === "list" ? "active" : ""}`}
-              onClick={() => { setView("list"); closeIssue(); }}
-            >
-              List
-            </button>
-            <button
-              className={`nav-btn ${view === "activity" ? "active" : ""}`}
-              onClick={() => { setView("activity"); closeIssue(); }}
-            >
-              Activity
-            </button>
-            <button
-              className={`nav-btn ${view === "archive" ? "active" : ""}`}
-              onClick={() => { setView("archive"); closeIssue(); }}
-            >
-              Archive
-            </button>
-            <button
-              className={`nav-btn ${view === "dashboard" ? "active" : ""}`}
-              onClick={() => { setView("dashboard"); closeIssue(); }}
-            >
-              Dashboard
-            </button>
-            <button
-              className={`nav-btn ${view === "settings" ? "active" : ""}`}
-              onClick={() => { setView("settings"); closeIssue(); }}
-            >
-              Settings
-            </button>
+              Yes Kanban
+            </h1>
+            {dispatchStatus && (
+              <span
+                title={dispatchStatus.workerConnected ? "Worker connected" : "Worker disconnected"}
+                className="inline-block size-2 shrink-0 rounded-full"
+                style={{
+                  backgroundColor: dispatchStatus.workerConnected ? "#10b981" : "#ef4444",
+                }}
+              />
+            )}
+          </div>
+          <nav className="fixed right-0 bottom-0 left-0 z-[90] flex gap-0 border-t border-border bg-card pb-[max(4px,env(safe-area-inset-bottom))] pt-1 lg:static lg:z-auto lg:ml-0 lg:flex lg:w-auto lg:shrink-0 lg:gap-1 lg:border-t-0 lg:bg-transparent lg:p-0">
+            {(
+              [
+                ["board", "Board"] as const,
+                ["list", "List"] as const,
+                ["activity", "Activity"] as const,
+                ["archive", "Archive"] as const,
+                ["dashboard", "Dashboard"] as const,
+                ["settings", "Settings"] as const,
+              ] as const
+            ).map(([v, label]) => (
+              <button
+                key={v}
+                type="button"
+                className={cn(
+                  "relative flex flex-1 cursor-pointer items-center justify-center border-0 bg-transparent px-1 py-2.5 font-mono text-[11px] font-medium tracking-wide text-muted-foreground uppercase transition-colors hover:text-foreground",
+                  "min-h-11",
+                  "lg:flex-none lg:min-h-0 lg:rounded-full lg:border lg:border-border lg:px-4 lg:py-1.5 lg:text-xs lg:normal-case lg:tracking-normal",
+                  view === v &&
+                    "bg-primary/10 text-primary after:absolute after:bottom-0 after:left-[20%] after:right-[20%] after:h-0.5 after:rounded-t after:bg-primary lg:after:hidden lg:border-primary lg:shadow-[0_0_20px_rgba(37,99,235,0.15)]",
+                  view === v && "lg:hover:bg-primary/10",
+                  view !== v && "lg:hover:bg-secondary",
+                )}
+                onClick={() => {
+                  setView(v as View);
+                  closeIssue();
+                }}
+              >
+                {label}
+              </button>
+            ))}
           </nav>
         </header>
 
-        <main className="app-main">
+        <main className="min-h-0 flex-1 overflow-hidden pb-[52px] lg:pb-0">
           {!selectedProjectId ? (
-            <div className="empty-state">
-              <h2>No project selected</h2>
-              <p>Create a project to get started.</p>
+            <div className="flex h-full flex-col items-center justify-center gap-4 text-muted-foreground animate-in fade-in duration-300">
+              <h2 className="text-lg font-semibold text-foreground">No project selected</h2>
+              <p className="max-w-[280px] text-center leading-relaxed">Create a project to get started.</p>
               <Button onClick={() => setShowCreateProject(true)}>Create Project</Button>
             </div>
           ) : view === "board" ? (

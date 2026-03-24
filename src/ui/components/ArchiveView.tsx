@@ -29,10 +29,8 @@ export function ArchiveView({ projectId, activeIssueSimpleId, activeWorkspaceId,
   const filtered = search
     ? issues.filter((i) => {
         const s = search.toLowerCase();
-        return (
-          i.title.toLowerCase().includes(s) ||
-          i.description.toLowerCase().includes(s) ||
-          i.simpleId.toLowerCase().includes(s)
+        return [i.title, i.description ?? "", i.simpleId].some((field) =>
+          field.toLowerCase().includes(s),
         );
       })
     : issues;
@@ -73,7 +71,7 @@ export function ArchiveView({ projectId, activeIssueSimpleId, activeWorkspaceId,
             placeholder="Search archived issues..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="board-search"
+            className="min-w-[120px] flex-1"
             autoComplete="off"
           />
           {selectedIds.size > 0 && (

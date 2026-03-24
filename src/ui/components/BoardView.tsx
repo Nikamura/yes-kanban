@@ -13,6 +13,8 @@ import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { ShortcutsHelpModal } from "./ShortcutsHelpModal";
 import { QuickActionPopover } from "./QuickActionPopover";
 import { CommandPalette } from "./CommandPalette";
+import { cn } from "@/ui/lib/utils";
+import { Button } from "@/ui/components/ui/button";
 
 interface DropTarget {
   columnName: string;
@@ -151,7 +153,7 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
     const container = columnRefs.current.get(columnName);
     if (!container) return 0;
 
-    const cards = container.querySelectorAll(".issue-card:not(.dragging)");
+    const cards = container.querySelectorAll('[data-issue-card]:not([data-dragging="true"])');
     for (let i = 0; i < cards.length; i++) {
       const card = cards[i];
       if (!card) continue;
@@ -296,31 +298,46 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
   const activeColumn = visibleColumns[activeColumnIdx] ?? visibleColumns[0];
 
   if (!columns || !issues) {
-    return <div className="loading">Loading board...</div>;
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4 text-muted-foreground animate-in fade-in duration-300">
+        <div className="size-6 animate-spin rounded-full border-2 border-border border-t-primary" aria-hidden />
+        <span>Loading board...</span>
+      </div>
+    );
   }
 
   return (
-    <div className="board">
-      <div className="board-filters">
-        <div className="search-wrapper">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 px-4 py-3 lg:flex-nowrap lg:px-5">
+        <div className="relative min-w-[120px] flex-1">
           <input
             ref={searchRef}
             type="text"
             placeholder="Search issues..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="board-search"
+            className="min-h-11 w-full rounded-md border border-border bg-secondary px-3 py-2 pr-8 text-sm text-foreground outline-none focus:border-primary lg:min-h-0"
             autoComplete="off"
           />
-          <kbd className="kbd-hint">/</kbd>
+          <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border border-border bg-muted px-1 py-px font-sans text-[0.7rem] text-muted-foreground">
+            /
+          </kbd>
         </div>
-        <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}>
+        <select
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as SortKey)}
+          className="min-h-11 rounded-md border border-border bg-secondary px-2 py-2 text-sm lg:min-h-0"
+        >
           <option value="position">Position</option>
           <option value="createdAt">Created</option>
           <option value="updatedAt">Updated</option>
         </select>
         <button
-          className={`select-toggle ${selectionMode ? "active" : ""}`}
+          type="button"
+          className={cn(
+            "min-h-11 cursor-pointer rounded-md border border-border px-3 font-mono text-[11px] font-medium tracking-wide text-muted-foreground uppercase transition-colors hover:text-foreground",
+            selectionMode && "border-primary bg-primary/10 text-primary",
+          )}
           onClick={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
         >
           {selectionMode ? "Cancel" : "Select"}
@@ -331,86 +348,111 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
       )}
 
       {/* Mobile: column tabs */}
-      <div className="column-tabs">
+      <div className="flex shrink-0 gap-1 overflow-x-auto px-4 pb-3 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] lg:hidden [&::-webkit-scrollbar]:hidden">
         {visibleColumns.map((col, idx) => {
           const count = (issuesByColumn.get(col.name) ?? []).length;
           return (
             <button
               key={col._id}
-              className={`column-tab ${idx === activeColumnIdx ? "active" : ""}`}
+              type="button"
+              className={cn(
+                "flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 font-mono text-[11px] font-medium whitespace-nowrap transition-colors",
+                idx === activeColumnIdx
+                  ? "border-primary bg-primary text-white shadow-[0_0_20px_rgba(37,99,235,0.15)]"
+                  : "border-border bg-card text-muted-foreground hover:border-primary hover:text-foreground",
+              )}
               onClick={() => setActiveColumnIdx(idx)}
             >
               {col.name}
-              <span className="column-tab-count">{count}</span>
+              <span
+                className={cn(
+                  "rounded-lg px-1.5 py-px text-[10px]",
+                  idx === activeColumnIdx ? "bg-white/30" : "bg-white/20",
+                )}
+              >
+                {count}
+              </span>
             </button>
           );
         })}
       </div>
 
-      <div className="board-columns" data-testid="board-columns">
+      <div
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-4 lg:flex-row lg:gap-3 lg:overflow-x-auto lg:overflow-y-hidden lg:px-5 lg:pb-5"
+        data-testid="board-columns"
+      >
         {visibleColumns.map((col, idx) => {
           const colIssues = issuesByColumn.get(col.name) ?? [];
           const isActive = idx === activeColumnIdx;
           const isDragOver = dropTarget?.columnName === col.name;
+          const showEndIndicator =
+            isDragOver && dropTarget !== null && (dropTarget.index >= colIssues.length || colIssues.length === 0);
           return (
             <div
               key={col._id}
-              className={`board-column ${!isActive ? "mobile-hidden" : ""} ${isDragOver ? "drag-over" : ""}`}
+              className={cn(
+                "flex w-full flex-col",
+                !isActive && "hidden lg:flex",
+                isDragOver && "rounded-lg bg-primary/10 lg:bg-card lg:shadow-[0_0_20px_rgba(37,99,235,0.15)]",
+                "lg:min-h-0 lg:min-w-[260px] lg:max-w-[360px] lg:flex-1 lg:overflow-hidden lg:rounded-lg lg:border lg:border-border lg:bg-card",
+              )}
               onDragOver={(e) => handleDragOver(e, col.name)}
               onDragLeave={(e) => handleDragLeave(e, col.name)}
               onDrop={() => handleDrop(col.name)}
             >
-              <div className="column-header" style={{ borderTopColor: col.color }}>
-                <div className="column-header-color" style={{ backgroundColor: col.color }} />
-                <span className="column-name" data-testid="column-name">
+              <div
+                className="flex items-center gap-2 border-t-0 py-3 font-semibold text-[13px] lg:border-t-[3px] lg:border-solid lg:px-3 lg:pt-3.5 lg:pb-2.5"
+                style={{ borderTopColor: col.color }}
+              >
+                <div className="h-5 w-1 shrink-0 rounded-sm lg:hidden" style={{ backgroundColor: col.color }} />
+                <span className="font-mono text-xs font-semibold tracking-wide uppercase" data-testid="column-name">
                   {col.name}
                 </span>
-                <span className="column-count">{colIssues.length}</span>
-                {selectionMode && (
-                  <button
-                    className="btn btn-sm"
-                    onClick={() => selectAllInColumn(col.name)}
-                    style={{ marginLeft: "auto", marginRight: 4 }}
-                  >
-                    All
-                  </button>
-                )}
-                {(TERMINAL_COLUMN_NAMES as readonly string[]).includes(col.name) && colIssues.length > 0 && (
-                  <button
-                    type="button"
-                    data-testid="column-archive-btn"
-                    className="column-add-btn"
-                    onClick={() => bulkArchive({ ids: colIssues.map((i) => i._id) })}
-                    title={`Archive all ${col.name} issues`}
-                    style={{ fontSize: "0.7rem", marginRight: 2 }}
-                  >
-                    Archive
-                  </button>
-                )}
-                {(CREATABLE_COLUMNS as readonly string[]).includes(col.name) && (
-                <button
-                  type="button"
-                  data-testid="column-add-btn"
-                  className="column-add-btn"
-                  onClick={() => {
-                    setCreateInColumn(col.name);
-                    setShowCreateIssue(true);
-                  }}
-                  title="Add issue (c)"
-                >
-                  +
-                </button>
-                )}
+                <span className="rounded-[10px] bg-muted px-2 py-px font-mono text-[11px] text-muted-foreground">
+                  {colIssues.length}
+                </span>
+                <div className="ml-auto flex items-center gap-1">
+                  {selectionMode && (
+                    <Button variant="outline" size="sm" onClick={() => selectAllInColumn(col.name)}>
+                      All
+                    </Button>
+                  )}
+                  {(TERMINAL_COLUMN_NAMES as readonly string[]).includes(col.name) && colIssues.length > 0 && (
+                    <button
+                      type="button"
+                      data-testid="column-archive-btn"
+                      className="flex h-10 min-w-[4.5rem] items-center justify-center rounded-md px-1 text-[0.7rem] text-muted-foreground hover:bg-muted hover:text-foreground lg:h-7"
+                      onClick={() => bulkArchive({ ids: colIssues.map((i) => i._id) })}
+                      title={`Archive all ${col.name} issues`}
+                    >
+                      Archive
+                    </button>
+                  )}
+                  {(CREATABLE_COLUMNS as readonly string[]).includes(col.name) && (
+                    <button
+                      type="button"
+                      data-testid="column-add-btn"
+                      className="flex h-11 w-11 items-center justify-center rounded-md text-lg text-muted-foreground hover:bg-muted hover:text-foreground lg:h-7 lg:w-7"
+                      onClick={() => {
+                        setCreateInColumn(col.name);
+                        setShowCreateIssue(true);
+                      }}
+                      title="Add issue (c)"
+                    >
+                      +
+                    </button>
+                  )}
+                </div>
               </div>
               <div
-                className="column-issues"
+                className="flex min-h-10 flex-col gap-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:p-2"
                 ref={(el) => setColumnRef(col.name, el)}
               >
                 {colIssues.map((issue, i) => {
                   const globalIdx = allVisibleIds.indexOf(issue._id);
                   return (
                   <div key={issue._id}>
-                    {isDragOver && dropTarget.index === i && (
+                    {isDragOver && dropTarget?.index === i && (
                       <div className="drop-indicator" />
                     )}
                     <IssueCard
@@ -436,12 +478,7 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
                   </div>
                   );
                 })}
-                {/* Drop indicator at the end of the list */}
-                {isDragOver && dropTarget.index >= colIssues.length && (
-                  <div className="drop-indicator" />
-                )}
-                {/* Empty column drop zone */}
-                {colIssues.length === 0 && isDragOver && (
+                {showEndIndicator && (
                   <div className="drop-indicator" />
                 )}
               </div>
@@ -453,7 +490,8 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
       {/* Mobile FAB */}
       {!selectionMode && (
         <button
-          className="fab"
+          type="button"
+          className="fixed right-4 bottom-[68px] z-[80] flex h-14 w-14 items-center justify-center rounded-2xl border-0 bg-primary text-2xl text-white shadow-[0_4px_16px_rgba(37,99,235,0.4),0_0_20px_rgba(37,99,235,0.15)] transition-transform hover:scale-105 active:scale-95 lg:hidden"
           onClick={() => {
             if (activeColumn) {
               setCreateInColumn(

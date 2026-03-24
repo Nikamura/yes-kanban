@@ -1205,7 +1205,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
           autoComplete="off"
         />
         {mcpJsonError && (
-          <p style={{ color: "var(--danger)", fontSize: "0.85rem", marginTop: "0.25rem" }}>{mcpJsonError}</p>
+          <p style={{ color: "var(--destructive)", fontSize: "0.85rem", marginTop: "0.25rem" }}>{mcpJsonError}</p>
         )}
         <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
           <button
@@ -1293,7 +1293,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
               disabled={installing}
             />
             {installError && (
-              <p style={{ color: "var(--danger)", fontSize: "0.85rem", margin: 0 }}>{installError}</p>
+              <p style={{ color: "var(--destructive)", fontSize: "0.85rem", margin: 0 }}>{installError}</p>
             )}
             <div style={{ display: "flex", gap: "0.5rem" }}>
               <button type="submit" className="btn btn-primary btn-sm" disabled={!installSource.trim() || installing}>
@@ -1357,7 +1357,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                       fontSize: "0.7rem",
                       padding: "0.1rem 0.4rem",
                       borderRadius: "3px",
-                      background: "var(--surface-2, #333)",
+                      background: "var(--secondary)",
                       opacity: 0.8,
                     }}
                     title={skill.sourceRef ?? undefined}
@@ -1421,7 +1421,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
               </div>
             )}
             {updateSkillError?.id === skill._id && (
-              <p style={{ color: "var(--danger)", fontSize: "0.85rem", margin: "0.25rem 0 0" }}>{updateSkillError.message}</p>
+              <p style={{ color: "var(--destructive)", fontSize: "0.85rem", margin: "0.25rem 0 0" }}>{updateSkillError.message}</p>
             )}
           </div>
         ))}

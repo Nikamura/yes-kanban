@@ -4,7 +4,6 @@ import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { App } from "./App";
 import { ThemeProvider } from "./components/ThemeProvider";
 import "./globals.css";
-import "./styles.css";
 
 const convex = new ConvexReactClient(
   import.meta.env["VITE_CONVEX_URL"] ?? "http://localhost:3210"

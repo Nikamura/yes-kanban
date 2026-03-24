@@ -177,17 +177,10 @@ export function PromptTemplatesSection({ projectId }: { projectId: Id<"projects"
           </div>
         )}
         {isExpanded && !isEditing && (
-          <pre style={{
-            background: "var(--surface-2)",
-            padding: "0.75rem",
-            borderRadius: "6px",
-            fontSize: "0.8rem",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-            margin: 0,
-            maxHeight: "300px",
-            overflow: "auto",
-          }}>
+          <pre
+            className="max-h-[300px] overflow-auto rounded-md bg-secondary p-3 text-[0.8rem] whitespace-pre-wrap break-words"
+            style={{ margin: 0 }}
+          >
             {t.content}
           </pre>
         )}
