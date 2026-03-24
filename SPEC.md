@@ -1419,14 +1419,14 @@ A workspace progresses through a defined lifecycle from branch creation to merge
 
 ```
 ┌──────────┐   ┌──────────┐   ┌───────────┐   ┌──────────┐   ┌───────────┐   ┌──────────┐   ┌───────────┐
-│ Creating │──▶│ Planning │──▶│ Awaiting  │──▶│  Coding  │──▶│  Testing  │──▶│ Reviewing│──▶│ Completed │
+│ Creating │──▶│ Planning │──▶│ Awaiting  │──▶│  Coding  │──▶│ Reviewing │──▶│ Testing  │──▶│ Completed │
 └──────────┘   └──────────┘   │ Feedback  │   └──────────┘   └───────────┘   └──────────┘   └───────────┘
                     ▲         └───────────┘        │               │              │               │
                     │              │                ▼               ▼              ▼          ┌────┴──────────────┐
                     │         ┌────┴────┐      ┌──────────┐   ┌──────────┐  ┌──────────┐    │  Manual actions   │
-                    │         │ Approve │      │  Failed  │   │  Failed  │  │ Changes  │    │  from the UI:     │
-                    │         │  Plan   │      └──────────┘   └──────────┘  │ Requested│    ├───────────────────┤
-                    │         └─────────┘                                   └──────────┘    │ • Create PR       │
+                    │         │ Approve │      │  Failed  │   │ Changes  │  │  Failed  │    │  from the UI:     │
+                    │         │  Plan   │      └──────────┘   │ Requested│  └──────────┘    ├───────────────────┤
+                    │         └─────────┘                     └──────────┘                  │ • Create PR       │
                     │         │ Re-plan │                                                   │ • Local Merge     │
                     │         └────┬────┘                                                   │ • Rebase          │
                     └─────────────┘                                                        │ • New Experiment  │
@@ -1437,8 +1437,8 @@ A workspace progresses through a defined lifecycle from branch creation to merge
 2. **Planning** (optional, per-project via `skipPlanning`) — A planning agent runs in plan mode (read-only). It explores the codebase, asks clarifying questions via MCP (`ask_question`), and submits an implementation plan (`submit_plan`). The planning agent cannot modify files.
 3. **Awaiting Feedback** — The planning agent has finished. The user reviews the plan, answers any pending questions, edits the plan if needed, and either approves it or requests re-planning. Approval transitions the workspace back to `creating` with `planApproved=true`.
 4. **Coding** — The coding agent is executing with the approved plan included in its prompt. It works on the issue, makes changes, and commits. The agent can check for user feedback via MCP (`get_feedback`).
-5. **Testing** — After the coding agent exits successfully, the worker runs the project's configured test command in the worktree. If tests fail, the worker resumes the coding agent once with test output (and exposes `get_test_results` via MCP); if tests still fail after that, the workspace moves to `test_failed` for user review.
-6. **Reviewing** — A fresh agent run reviews the diff with clean context. The review agent checks for bugs, style issues, missing tests, and potential problems. If it requests changes, the coding agent is re-dispatched with the review feedback (up to maxReviewCycles).
+5. **Reviewing** — A fresh agent run reviews the diff with clean context. The review agent checks for bugs, style issues, missing tests, and potential problems. If it requests changes, the coding agent is re-dispatched with the review feedback (up to maxReviewCycles). Tests are not run during review fix cycles.
+6. **Testing** — After the review agent approves (or when review is skipped), the worker runs the project's configured test command in the worktree. If tests fail, the worker resumes the coding agent once with test output (and exposes `get_test_results` via MCP); if tests still fail after that, the workspace moves to `test_failed` for user review. Test failures after review do not trigger another review round.
 7. **Completed** — Work is done. The user can now take manual actions from the UI:
    - **Create PR** — Pushes the branch and creates a pull request via the forge adapter (`creating_pr` → `pr_open`).
    - **Local Merge** — Squash-merges the branch into the base branch (`git merge --squash` then a single commit; `merging` → `merged`). No merge commit and no forge/PR flow required. Afterward the worker attempts `git push origin <base>` (best-effort; failures are logged only). Periodically it fast-forwards the local base from `origin` when possible so upstream changes are picked up.
@@ -1481,30 +1481,12 @@ The coding agent receives a prompt that includes:
 
 The agent's prompt is constructed so that it treats its own work as a complete unit — it should not exit until it believes the work is done and tests pass.
 
-If the agent exits with code 0, the workspace advances to the Testing stage.
+If the agent exits with code 0, the workspace advances to the Reviewing stage (unless review is skipped on the project).
 If the agent exits with non-zero, the workspace enters `failed` status and follows the retry policy.
 
-### 11.4 Testing Stage
+### 11.4 Review Stage
 
-After the coding agent exits successfully, the worker runs tests:
-
-1. Execute the project's configured `testCommand` in the worktree (e.g. `bun test`, `npm test`).
-2. Capture test output and store it as agent logs in Convex.
-3. If tests pass (exit code 0), advance to the Reviewing stage.
-4. If tests fail:
-   a. Dispatch the coding agent once more with the test failure output in the prompt (truncated to the same limit as other script prompts). The agent may also call the MCP tool `get_test_results` to read the latest test run logs from Convex. The workspace returns to `coding` status, then tests run again after the agent exits successfully.
-   b. If tests still fail after that single test-fix attempt, set status to `test_failed` for user review.
-
-Test configuration (per repository):
-
-- `testCommand` (string or null) — Shell command to run tests. If null, the testing stage is skipped.
-- `testTimeoutMs` (number) — Timeout for the test command. Default: `300000` (5 minutes).
-
-If no `testCommand` is configured, the workspace skips directly from Coding to Reviewing.
-
-### 11.5 Review Stage
-
-After tests pass, a fresh agent run reviews the changes:
+After the coding agent exits successfully, a fresh agent run reviews the changes:
 
 1. The worker creates a new run attempt on the same workspace with `type: review`.
 2. The review agent receives a prompt containing:
@@ -1513,7 +1495,7 @@ After tests pass, a fresh agent run reviews the changes:
    - Instructions to check for: bugs, logic errors, missing edge cases, code style issues, security concerns, missing or inadequate tests, and documentation gaps.
 3. The review agent does NOT receive the coding agent's conversation history — it gets fresh context to simulate an independent reviewer.
 4. The review agent produces a structured result:
-   - **Approve** — Changes look good. Workspace advances to Rebasing.
+   - **Approve** — Changes look good. The worker proceeds to the Testing stage (or skips it if tests are disabled), then toward completion and manual follow-up actions (rebase, PR, merge) as configured.
    - **Request Changes** — Agent found issues. It outputs a list of specific changes needed.
    - **Concern** — Agent flags potential problems but doesn't block (informational).
 
@@ -1521,10 +1503,28 @@ If the review agent requests changes:
 
 1. The workspace status is set to `changes_requested`.
 2. A new coding agent run is dispatched with the review feedback as context.
-3. After the coding agent addresses the feedback, the workspace goes through Testing and Reviewing again.
+3. After the coding agent addresses the feedback, the workspace goes through Reviewing again (tests run only after a review round produces **Approve**).
 4. A maximum of `maxReviewCycles` (default: `3`) review iterations are allowed before the workspace stops and waits for user intervention.
 
 If no review agent config is set for the project, the review stage is skipped.
+
+### 11.5 Testing Stage
+
+After review approval (or when the review stage is skipped), the worker runs tests:
+
+1. Execute the project's configured `testCommand` in the worktree (e.g. `bun test`, `npm test`).
+2. Capture test output and store it as agent logs in Convex.
+3. If tests pass (exit code 0), the workspace advances toward completion and post-completion actions (rebase, PR, merge) as configured.
+4. If tests fail:
+   a. Dispatch the coding agent once more with the test failure output in the prompt (truncated to the same limit as other script prompts). The agent may also call the MCP tool `get_test_results` to read the latest test run logs from Convex. The workspace returns to `coding` status, then tests run again without another review round.
+   b. If tests still fail after that single test-fix attempt, set status to `test_failed` for user review.
+
+Test configuration (per repository):
+
+- `testCommand` (string or null) — Shell command to run tests. If null, the testing stage is skipped.
+- `testTimeoutMs` (number) — Timeout for the test command. Default: `300000` (5 minutes).
+
+If no `testCommand` is configured, the workspace skips the Testing stage after review (or after coding when review is skipped).
 
 ### 11.6 Rebase Stage
 
@@ -1537,7 +1537,7 @@ Before opening a PR, the workspace branch must be up to date with the base branc
    a. The worker aborts the rebase (`git rebase --abort`).
    b. The workspace status is set to `conflict`.
    c. A coding agent is dispatched with the conflict details (which files conflict, the diff of the conflicting changes) and instructions to resolve them.
-   d. After the agent resolves conflicts and commits, the workspace returns to the Testing stage (to verify the resolution didn't break anything).
+   d. After the agent resolves conflicts and commits, the workspace continues the post-coding pipeline (Reviewing, then Testing after approval) to verify the resolution.
 
 ### 11.7 PR Open Stage
 
@@ -2383,20 +2383,20 @@ A conforming implementation should include tests that cover the behaviors define
 
 ### 22.9 Development Lifecycle
 
-- Workspace progresses through stages: creating → coding → testing → reviewing → rebasing → pr_open → merged.
-- Testing stage runs configured `testCommand` and captures output.
-- Testing stage skipped when `testCommand` is null.
-- Test failure triggers one inline test-fix coding run (prompt + optional `get_test_results` MCP), then re-runs tests.
-- Test failure sets `test_failed` if tests still fail after that attempt.
+- Workspace progresses through stages: creating → coding → reviewing → testing → rebasing → pr_open → merged.
 - Review stage creates a fresh run attempt with `type: review`.
 - Review agent receives diff and issue context but NOT coding agent conversation history.
-- Review approve advances to rebasing.
-- Review request-changes dispatches coding agent with feedback context.
+- Review approve is followed by the Testing stage (when tests are enabled), then completion and user-driven rebase/PR/merge actions.
+- Review request-changes dispatches coding agent with feedback context (tests do not run until a review round approves).
+- Testing stage runs configured `testCommand` and captures output.
+- Testing stage skipped when `testCommand` is null.
+- Test failure triggers one inline test-fix coding run (prompt + optional `get_test_results` MCP), then re-runs tests (no re-review).
+- Test failure sets `test_failed` if tests still fail after that attempt.
 - Review cycles capped at `maxReviewCycles`.
 - Review stage skipped when `skipReview` is true on column.
 - Rebase stage runs `git rebase` and handles clean success.
 - Rebase conflict dispatches coding agent to resolve.
-- After conflict resolution, workspace returns to testing stage.
+- After conflict resolution, workspace continues reviewing then testing (after approval) as in the normal lifecycle.
 - PR creation pushes branch and creates PR via forge adapter.
 - Auto-merge enabled when column `mergePolicy` is `auto_merge`.
 - Manual merge waits for user action when `mergePolicy` is `manual_merge`.
@@ -2494,11 +2494,11 @@ A conforming implementation must complete all items below.
 
 ### 23.6 Development Lifecycle
 
-- Full lifecycle flow: creating → coding → testing → reviewing → rebasing → pr_open → merged.
-- Testing stage with configurable test command per repo.
-- Test failure re-dispatches coding agent with failure context.
+- Full lifecycle flow: creating → coding → reviewing → testing → rebasing → pr_open → merged.
 - Independent review stage with fresh agent context (diff only, no conversation history).
-- Review approve/request-changes flow with configurable max cycles.
+- Review approve/request-changes flow with configurable max cycles (tests run after approval, not during fix cycles).
+- Testing stage with configurable test command per repo.
+- Test failure re-dispatches coding agent with failure context (without another review round).
 - Rebase onto latest base branch before PR.
 - Conflict detection and agent-driven resolution.
 - Column-level lifecycle config (mergePolicy, skipReview, skipTests).

@@ -452,7 +452,7 @@ async function waitForPhaseCapacity(
 
 /**
  * Full development lifecycle for a workspace:
- * creating → coding → testing → reviewing → completed
+ * creating → coding → reviewing → testing → completed
  * Post-completion actions (triggered manually from UI):
  *   - Create PR: completed → creating_pr → pr_open
  *   - Local merge: completed → merging → merged
@@ -1185,10 +1185,10 @@ export async function runLifecycle(
   let lastCodingSessionId: string | undefined = previousCodingSessionId;
 
   // 2. Coding stage — or fix cycle if retrying from changes_requested
-  // When reviewRequested is set, skip coding and testing — go straight to review
+  // When reviewRequested is set, skip coding — go straight to review (tests run after review)
   const reviewRequested = currentWorkspace?.reviewRequested;
   if (reviewRequested) {
-    console.log(`[lifecycle] workspace=${workspaceId} review requested — skipping coding and testing`);
+    console.log(`[lifecycle] workspace=${workspaceId} review requested — skipping coding`);
     if (!(await waitForPhaseCapacity(convex, workspaceId, "reviewing", abortSignal))) return;
     await convex.mutation(api.workspaces.updateStatus, {
       id: workspaceId, status: "reviewing",
@@ -1286,35 +1286,9 @@ export async function runLifecycle(
         console.log(`[lifecycle] workspace=${workspaceId} auto-committed uncommitted changes in ${wt.worktreePath}`);
       }
     }
-
-    // 3. Testing stage (if configured)
-    if (project?.skipTests) {
-      console.log(`[lifecycle] workspace=${workspaceId} skipping tests (project settings)`);
-    }
-    if (!project?.skipTests) {
-      console.log(`[lifecycle] workspace=${workspaceId} running tests`);
-      if (!(await waitForPhaseCapacity(convex, workspaceId, "testing", abortSignal))) return;
-      const twf = await runTestsWithFix(
-        convex, config, executor, workspaceId, agentConfig, agentCwd,
-        repos, worktrees, abortSignal, lastCodingSessionId,
-        mcpConfigPath, mcpServer, settingsPath, disableSlashCommands, issueRef, issue,
-      );
-      if (abortSignal.aborted) return;
-      if (twf === null) return;
-      if (!twf.ok) {
-        if (twf.kind === "tests_failed") {
-          await convex.mutation(api.workspaces.updateStatus, {
-            id: workspaceId, status: "test_failed",
-          });
-          console.log(`[lifecycle] tests failed for workspace=${workspaceId}`);
-        }
-        return;
-      }
-      lastCodingSessionId = twf.lastCodingSessionId;
-    }
   }
 
-  // 4. Review stage (if configured)
+  // 3. Review stage (if configured)
   if (project?.skipReview || !project) {
     console.log(`[lifecycle] workspace=${workspaceId} skipping review (${project?.skipReview ? "project settings" : "no project"})`);
   }
@@ -1436,28 +1410,34 @@ export async function runLifecycle(
             console.log(`[lifecycle] workspace=${workspaceId} auto-committed after fix cycle`);
           }
         }
-
-        if (!project.skipTests) {
-          if (!(await waitForPhaseCapacity(convex, workspaceId, "testing", abortSignal))) return;
-          const twf = await runTestsWithFix(
-            convex, config, executor, workspaceId, agentConfig, agentCwd,
-            repos, worktrees, abortSignal, lastCodingSessionId,
-            mcpConfigPath, mcpServer, settingsPath, disableSlashCommands, issueRef, issue,
-          );
-          if (abortSignal.aborted) return;
-          if (twf === null) return;
-          if (!twf.ok) {
-            if (twf.kind === "tests_failed") {
-              await convex.mutation(api.workspaces.updateStatus, {
-                id: workspaceId, status: "test_failed",
-              });
-            }
-            return;
-          }
-          lastCodingSessionId = twf.lastCodingSessionId;
-        }
       }
     }
+  }
+
+  // 4. Testing stage (if configured) — after review approval (or when review is skipped)
+  if (project?.skipTests) {
+    console.log(`[lifecycle] workspace=${workspaceId} skipping tests (project settings)`);
+  }
+  if (!project?.skipTests) {
+    console.log(`[lifecycle] workspace=${workspaceId} running tests`);
+    if (!(await waitForPhaseCapacity(convex, workspaceId, "testing", abortSignal))) return;
+    const twf = await runTestsWithFix(
+      convex, config, executor, workspaceId, agentConfig, agentCwd,
+      repos, worktrees, abortSignal, lastCodingSessionId,
+      mcpConfigPath, mcpServer, settingsPath, disableSlashCommands, issueRef, issue,
+    );
+    if (abortSignal.aborted) return;
+    if (twf === null) return;
+    if (!twf.ok) {
+      if (twf.kind === "tests_failed") {
+        await convex.mutation(api.workspaces.updateStatus, {
+          id: workspaceId, status: "test_failed",
+        });
+        console.log(`[lifecycle] tests failed for workspace=${workspaceId}`);
+      }
+      return;
+    }
+    lastCodingSessionId = twf.lastCodingSessionId;
   }
   } finally {
     stopDiffPolling();
