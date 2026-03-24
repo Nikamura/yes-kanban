@@ -12,7 +12,7 @@ test.describe("Board", () => {
     await page.goto("/");
     await page.waitForTimeout(1500);
 
-    const addBtn = page.locator(".project-sidebar-add");
+    const addBtn = page.getByTestId("project-sidebar-add");
 
     if (await addBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
       await addBtn.click();
@@ -22,20 +22,19 @@ test.describe("Board", () => {
 
     await expect(page.getByRole("heading", { name: "Create Project" })).toBeVisible({ timeout: 5000 });
 
-    const nameField = page.locator(".dialog input[type='text']").first();
-    await nameField.fill(`E2E Project ${Date.now()}`);
+    await page.getByLabel("Name").fill(`E2E Project ${Date.now()}`);
     await page.getByRole("button", { name: "Create", exact: true }).click();
 
-    await expect(page.locator(".column-name").filter({ hasText: "Backlog" })).toBeVisible({ timeout: 5000 });
-    await expect(page.locator(".column-name").filter({ hasText: "To Do" })).toBeVisible();
-    await expect(page.locator(".column-name").filter({ hasText: "In Progress" })).toBeVisible();
-    await expect(page.locator(".column-name").filter({ hasText: "Done" })).toBeVisible();
+    await expect(page.getByTestId("column-name").filter({ hasText: "Backlog" })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId("column-name").filter({ hasText: "To Do" })).toBeVisible();
+    await expect(page.getByTestId("column-name").filter({ hasText: "In Progress" })).toBeVisible();
+    await expect(page.getByTestId("column-name").filter({ hasText: "Done" })).toBeVisible();
   });
 
   test("can create an issue in a column", async ({ page }) => {
     await ensureBoardWithIssue(page);
 
-    const addButtons = page.locator(".column-add-btn");
+    const addButtons = page.getByTestId("column-add-btn");
     await addButtons.first().click();
 
     const uniqueTitle = `E2E issue ${Date.now()}`;
@@ -51,7 +50,7 @@ test.describe("Board", () => {
   test("can create an issue with file attachment", async ({ page }) => {
     await ensureBoardWithIssue(page);
 
-    await page.locator(".column-add-btn").first().click();
+    await page.getByTestId("column-add-btn").first().click();
     await expect(page.getByRole("heading", { name: "Create Issue" })).toBeVisible();
 
     const uniqueTitle = `Attachment issue ${Date.now()}`;
@@ -62,7 +61,7 @@ test.describe("Board", () => {
     await expect(page.locator(".drop-zone")).toBeVisible();
 
     // Attach a file via the hidden file input
-    const fileInput = page.locator('.dialog input[type="file"]');
+    const fileInput = page.getByTestId("create-issue-file-input");
     await fileInput.setInputFiles({
       name: "test-file.txt",
       mimeType: "text/plain",
@@ -88,7 +87,9 @@ test.describe("Board", () => {
     await page.getByRole("button", { name: "Create", exact: true }).click();
 
     // Wait for dialog to close (uses allSettled so closes even if upload fails)
-    await expect(page.locator(".dialog-overlay")).toBeHidden({ timeout: 15000 });
+    await expect(page.locator('[data-slot="dialog-overlay"]')).toBeHidden({
+      timeout: 15000,
+    });
 
     // Verify issue was created
     await expect(page.getByText(uniqueTitle)).toBeVisible();
@@ -97,7 +98,7 @@ test.describe("Board", () => {
   test("can open issue detail panel", async ({ page }) => {
     await ensureBoardWithIssue(page);
 
-    const issueCard = page.locator(".issue-card").first();
+    const issueCard = page.getByTestId("issue-card").first();
     await issueCard.click();
 
     await expect(page.locator(".detail-panel")).toBeVisible();
@@ -119,7 +120,7 @@ test.describe("Board", () => {
   test("can add a comment on issue detail", async ({ page }) => {
     await ensureBoardWithIssue(page);
 
-    const issueCard = page.locator(".issue-card").first();
+    const issueCard = page.getByTestId("issue-card").first();
     await issueCard.click();
     await expect(page.locator(".detail-panel")).toBeVisible();
 
@@ -175,7 +176,7 @@ test.describe("Board", () => {
     await page.getByRole("heading", { name: "Yes Kanban" }).click();
 
     // Should be back on board view
-    await expect(page.locator(".column-name").first()).toBeVisible();
+    await expect(page.getByTestId("column-name").first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Board", exact: true })).toHaveClass(/active/);
   });
 
@@ -192,7 +193,7 @@ test.describe("Board", () => {
     await ensureBoardWithIssue(page);
 
     // Open issue detail
-    const issueCard = page.locator(".issue-card").first();
+    const issueCard = page.getByTestId("issue-card").first();
     await issueCard.click();
     await expect(page.locator(".detail-panel")).toBeVisible();
 
@@ -216,32 +217,34 @@ test.describe("Board", () => {
     await page.goto("/");
     await page.waitForTimeout(1500);
 
-    const addBtn = page.locator(".project-sidebar-add");
+    const addBtn = page.getByTestId("project-sidebar-add");
     if (await addBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
       await addBtn.click();
     } else {
       await page.getByRole("button", { name: "Create Project" }).click();
     }
 
-    await expect(page.locator(".dialog-overlay")).toBeVisible({ timeout: 5000 });
+    const projectDialogBackdrop = page.locator('[data-slot="dialog-overlay"]');
+    await expect(projectDialogBackdrop).toBeVisible({ timeout: 5000 });
     await page.keyboard.press("Escape");
-    await expect(page.locator(".dialog-overlay")).toBeHidden({ timeout: 5000 });
+    await expect(projectDialogBackdrop).toBeHidden({ timeout: 5000 });
   });
 
   test("ESC closes create issue dialog", async ({ page }) => {
     await ensureBoardWithIssue(page);
 
-    await page.locator(".column-add-btn").first().click();
-    await expect(page.locator(".dialog-overlay")).toBeVisible({ timeout: 5000 });
+    await page.getByTestId("column-add-btn").first().click();
+    const issueDialogBackdrop = page.locator('[data-slot="dialog-overlay"]');
+    await expect(issueDialogBackdrop).toBeVisible({ timeout: 5000 });
 
     await page.keyboard.press("Escape");
-    await expect(page.locator(".dialog-overlay")).toBeHidden({ timeout: 5000 });
+    await expect(issueDialogBackdrop).toBeHidden({ timeout: 5000 });
   });
 
   test("ESC closes issue detail panel", async ({ page }) => {
     await ensureBoardWithIssue(page);
 
-    await page.locator(".issue-card").first().click();
+    await page.getByTestId("issue-card").first().click();
     await expect(page.locator(".detail-panel")).toBeVisible({ timeout: 5000 });
 
     await page.keyboard.press("Escape");

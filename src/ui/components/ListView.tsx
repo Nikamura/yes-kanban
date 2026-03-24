@@ -94,7 +94,11 @@ export function ListView({ projectId, activeIssueSimpleId, activeWorkspaceId, on
           className="list-search"
           autoComplete="off"
         />
-        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+        <select
+          data-testid="list-status-filter"
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+        >
           <option value="">All Statuses</option>
           {colNames.map((n) => (
             <option key={n} value={n}>
@@ -108,7 +112,9 @@ export function ListView({ projectId, activeIssueSimpleId, activeWorkspaceId, on
         >
           {selectionMode ? "Cancel" : "Select"}
         </button>
-        <span className="list-count">{sorted.length} issues</span>
+        <span className="list-count" data-testid="list-count">
+          {sorted.length} issues
+        </span>
       </div>
       {workspaceStatuses && (
         <WorkspaceStatusFilters workspaceStatuses={workspaceStatuses} selected={filterWsStatuses} onSelectedChange={setFilterWsStatuses} />

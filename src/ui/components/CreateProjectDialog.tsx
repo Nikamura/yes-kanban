@@ -2,7 +2,17 @@ import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useState } from "react";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { useEscapeClose } from "../hooks/useEscapeClose";
+import { Button } from "@/ui/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/ui/components/ui/dialog";
+import { Input } from "@/ui/components/ui/input";
+import { Label } from "@/ui/components/ui/label";
 
 export function CreateProjectDialog({
   onClose,
@@ -15,7 +25,6 @@ export function CreateProjectDialog({
   const [name, setName] = useState("");
   const [prefix, setPrefix] = useState("");
   const [error, setError] = useState("");
-  useEscapeClose(onClose);
 
   const slug = name
     .toLowerCase()
@@ -38,13 +47,25 @@ export function CreateProjectDialog({
   };
 
   return (
-    <div className="dialog-overlay" onClick={onClose}>
-      <div className="dialog" onClick={(e) => e.stopPropagation()}>
-        <h2>Create Project</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="form-field">
-            <label>Name</label>
-            <input
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="sm:max-w-md" showCloseButton>
+        <DialogHeader>
+          <DialogTitle>Create Project</DialogTitle>
+          <DialogDescription className="sr-only">
+            Create a new project with a display name and an issue ID prefix for this
+            workspace.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="create-project-name">Name</Label>
+            <Input
+              id="create-project-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -53,28 +74,33 @@ export function CreateProjectDialog({
               autoFocus
             />
           </div>
-          <div className="form-field">
-            <label>ID Prefix</label>
-            <input
+          <div className="grid gap-2">
+            <Label htmlFor="create-project-prefix">ID Prefix</Label>
+            <Input
+              id="create-project-prefix"
               type="text"
               value={prefix}
               onChange={(e) => setPrefix(e.target.value)}
               placeholder={slug.toUpperCase().slice(0, 4) || "TASK"}
               autoComplete="off"
             />
-            <small>Used for issue IDs like {prefix || "TASK"}-1</small>
+            <p className="text-muted-foreground text-xs">
+              Used for issue IDs like {prefix || "TASK"}-1
+            </p>
           </div>
-          {error && <div className="form-error">{error}</div>}
-          <div className="dialog-actions">
-            <button type="button" className="btn" onClick={onClose}>
+          {error ? (
+            <p className="text-destructive text-sm" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
-            </button>
-            <button type="submit" className="btn btn-primary">
-              Create
-            </button>
-          </div>
+            </Button>
+            <Button type="submit">Create</Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -347,7 +347,7 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
         })}
       </div>
 
-      <div className="board-columns">
+      <div className="board-columns" data-testid="board-columns">
         {visibleColumns.map((col, idx) => {
           const colIssues = issuesByColumn.get(col.name) ?? [];
           const isActive = idx === activeColumnIdx;
@@ -362,7 +362,9 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
             >
               <div className="column-header" style={{ borderTopColor: col.color }}>
                 <div className="column-header-color" style={{ backgroundColor: col.color }} />
-                <span className="column-name">{col.name}</span>
+                <span className="column-name" data-testid="column-name">
+                  {col.name}
+                </span>
                 <span className="column-count">{colIssues.length}</span>
                 {selectionMode && (
                   <button
@@ -375,6 +377,8 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
                 )}
                 {(TERMINAL_COLUMN_NAMES as readonly string[]).includes(col.name) && colIssues.length > 0 && (
                   <button
+                    type="button"
+                    data-testid="column-archive-btn"
                     className="column-add-btn"
                     onClick={() => bulkArchive({ ids: colIssues.map((i) => i._id) })}
                     title={`Archive all ${col.name} issues`}
@@ -385,6 +389,8 @@ export function BoardView({ projectId, activeIssueSimpleId, activeWorkspaceId, o
                 )}
                 {(CREATABLE_COLUMNS as readonly string[]).includes(col.name) && (
                 <button
+                  type="button"
+                  data-testid="column-add-btn"
                   className="column-add-btn"
                   onClick={() => {
                     setCreateInColumn(col.name);

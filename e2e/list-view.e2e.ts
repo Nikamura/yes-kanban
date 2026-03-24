@@ -26,7 +26,7 @@ test.describe("List View", () => {
 
     // Should filter to matching issues
     await expect(page.getByRole("cell", { name: "Implement user authentication" })).toBeVisible();
-    const count = page.locator(".list-count");
+    const count = page.getByTestId("list-count");
     await expect(count).toContainText("1");
   });
 
@@ -37,12 +37,12 @@ test.describe("List View", () => {
     await expect(page.getByRole("table")).toBeVisible();
     await expect(page.getByRole("cell", { name: "Implement user authentication" })).toBeVisible();
 
-    await page.locator(".list-filters select").first().selectOption("In Progress");
+    await page.getByTestId("list-status-filter").selectOption("In Progress");
 
-    const count = page.locator(".list-count");
+    const count = page.getByTestId("list-count");
     await expect(count).toContainText("0");
 
-    await page.locator(".list-filters select").first().selectOption("To Do");
+    await page.getByTestId("list-status-filter").selectOption("To Do");
     await expect(count).toContainText("1");
     await expect(page.getByRole("cell", { name: "Implement user authentication" })).toBeVisible();
   });
@@ -70,6 +70,6 @@ test.describe("List View", () => {
 
     // Go back to board
     await page.getByRole("button", { name: "Board", exact: true }).click();
-    await expect(page.locator(".board-columns")).toBeVisible();
+    await expect(page.getByTestId("board-columns")).toBeVisible();
   });
 });

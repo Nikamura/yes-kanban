@@ -2,7 +2,16 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { useEscapeClose } from "../hooks/useEscapeClose";
+import { Button } from "@/ui/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/ui/components/ui/dialog";
+import { cn } from "@/ui/lib/utils";
 import { formatFileSize, getFileIcon } from "../utils/fileUtils";
 import { ImageLightbox } from "./ImageLightbox";
 interface PendingFile {
@@ -65,7 +74,6 @@ export function CreateIssueDialog({
     url: string;
     filename: string;
   } | null>(null);
-  useEscapeClose(onClose);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
 
@@ -220,169 +228,196 @@ export function CreateIssueDialog({
   };
 
   return (
-    <div className="dialog-overlay" onClick={onClose}>
-      <div
-        className={`dialog${dragging ? " dialog-drag-active" : ""}`}
-        onClick={(e) => e.stopPropagation()}
-        onDragEnter={handleDragEnter}
-        onDragLeave={handleDragLeave}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-        onPaste={handlePaste}
+    <>
+      <Dialog
+        open
+        onOpenChange={(open) => {
+          if (!open) onClose();
+        }}
       >
-        <h2>Create Issue</h2>
-        <form onSubmit={handleSubmit}>
-          {templates && templates.length > 0 && (
-            <div className="form-field">
-              <label>Template</label>
-              <select
-                onChange={(e) => {
-                  if (e.target.value) applyTemplate(e.target.value);
-                }}
-                defaultValue=""
-              >
-                <option value="">No template</option>
-                {templates.map((t) => (
-                  <option key={t._id} value={t._id}>
-                    {t.name}{t.category ? ` (${t.category})` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
+        <DialogContent
+          showCloseButton
+          data-testid="create-issue-dialog"
+          className={cn(
+            "max-h-[90vh] max-w-lg overflow-y-auto sm:max-w-lg",
+            dragging && "dialog-drag-active"
           )}
-          <div className="form-field">
-            <label>Title</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="What needs to be done?"
-              autoComplete="off"
-              autoFocus
-            />
-          </div>
-          <div className="form-field">
-            <label>Description</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Detailed description (Markdown)"
-              rows={4}
-            />
-          </div>
-          <div className="form-field">
-            <label>Tags</label>
-            <input
-              type="text"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="tag1, tag2"
-              autoComplete="off"
-            />
-          </div>
-          <div className="form-field">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={deepResearch}
-                onChange={(e) => setDeepResearch(e.target.checked)}
-              />
-              Deep research (web search during planning)
-            </label>
-          </div>
-          <div className="form-field">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={grillMe}
-                onChange={(e) => setGrillMe(e.target.checked)}
-              />
-              Grill me (before planning — interview to stress-test the design)
-            </label>
-          </div>
-          <div className="form-field">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={autoMerge}
-                onChange={(e) => setAutoMerge(e.target.checked)}
-              />
-              Auto-merge after review
-            </label>
-          </div>
-          <div className="form-field">
-            <label>Attachments</label>
-            <div
-              className={`drop-zone${dragging ? " drop-zone-active" : ""}`}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                onChange={handleFileSelect}
-                style={{ display: "none" }}
-              />
-              {dragging
-                ? "Drop files here"
-                : "Drop files, paste (\u2318V), or click to attach"}
-            </div>
-            {pendingFiles.length > 0 && (
-              <div className="pending-files">
-                {pendingFiles.map((pf) => (
-                  <div key={pf.id} className="attachment-row attachment-row-with-preview">
-                    <FilePreview
-                      file={pf.file}
-                      previewUrl={pf.previewUrl}
-                      onClick={
-                        pf.previewUrl && isImageFile(pf.file)
-                          ? () => {
-                              const url = pf.previewUrl;
-                              if (url) {
-                                setLightboxImage({ url, filename: pf.file.name });
-                              }
-                            }
-                          : undefined
-                      }
-                    />
-                    <div className="attachment-info">
-                      <span className="attachment-name" title={pf.file.name}>
-                        {pf.file.name}
-                      </span>
-                      <span className="attachment-size">
-                        {formatFileSize(pf.file.size)}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-danger"
-                      onClick={() => removeFile(pf.id)}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          onPaste={handlePaste}
+        >
+          <DialogHeader>
+            <DialogTitle>Create Issue</DialogTitle>
+            <DialogDescription className="sr-only">
+              Add a new issue with title, description, tags, optional flags, and file
+              attachments.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="grid gap-4">
+            {templates && templates.length > 0 && (
+              <div className="form-field">
+                <label>Template</label>
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) applyTemplate(e.target.value);
+                  }}
+                  defaultValue=""
+                >
+                  <option value="">No template</option>
+                  {templates.map((t) => (
+                    <option key={t._id} value={t._id}>
+                      {t.name}{t.category ? ` (${t.category})` : ""}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
-          </div>
-          {submitError && <div className="form-error">{submitError}</div>}
-          <div className="dialog-actions">
-            <button type="button" className="btn" onClick={onClose} disabled={submitting}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
-              {submitting ? "Creating..." : "Create"}
-            </button>
-          </div>
-        </form>
-      </div>
-      {lightboxImage && (
+            <div className="form-field">
+              <label>Title</label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="What needs to be done?"
+                autoComplete="off"
+                autoFocus
+              />
+            </div>
+            <div className="form-field">
+              <label>Description</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Detailed description (Markdown)"
+                rows={4}
+              />
+            </div>
+            <div className="form-field">
+              <label>Tags</label>
+              <input
+                type="text"
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                placeholder="tag1, tag2"
+                autoComplete="off"
+              />
+            </div>
+            <div className="form-field">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={deepResearch}
+                  onChange={(e) => setDeepResearch(e.target.checked)}
+                />
+                Deep research (web search during planning)
+              </label>
+            </div>
+            <div className="form-field">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={grillMe}
+                  onChange={(e) => setGrillMe(e.target.checked)}
+                />
+                Grill me (before planning — interview to stress-test the design)
+              </label>
+            </div>
+            <div className="form-field">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={autoMerge}
+                  onChange={(e) => setAutoMerge(e.target.checked)}
+                />
+                Auto-merge after review
+              </label>
+            </div>
+            <div className="form-field">
+              <label>Attachments</label>
+              <div
+                className={`drop-zone${dragging ? " drop-zone-active" : ""}`}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <input
+                  ref={fileInputRef}
+                  data-testid="create-issue-file-input"
+                  type="file"
+                  multiple
+                  onChange={handleFileSelect}
+                  style={{ display: "none" }}
+                />
+                {dragging
+                  ? "Drop files here"
+                  : "Drop files, paste (\u2318V), or click to attach"}
+              </div>
+              {pendingFiles.length > 0 && (
+                <div className="pending-files">
+                  {pendingFiles.map((pf) => (
+                    <div key={pf.id} className="attachment-row attachment-row-with-preview">
+                      <FilePreview
+                        file={pf.file}
+                        previewUrl={pf.previewUrl}
+                        onClick={
+                          pf.previewUrl && isImageFile(pf.file)
+                            ? () => {
+                                const url = pf.previewUrl;
+                                if (url) {
+                                  setLightboxImage({ url, filename: pf.file.name });
+                                }
+                              }
+                            : undefined
+                        }
+                      />
+                      <div className="attachment-info">
+                        <span className="attachment-name" title={pf.file.name}>
+                          {pf.file.name}
+                        </span>
+                        <span className="attachment-size">
+                          {formatFileSize(pf.file.size)}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-danger"
+                        onClick={() => removeFile(pf.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {submitError ? (
+              <div className="form-error" role="alert">
+                {submitError}
+              </div>
+            ) : null}
+            <DialogFooter className="gap-2 sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Creating..." : "Create"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      {lightboxImage ? (
         <ImageLightbox
           url={lightboxImage.url}
           filename={lightboxImage.filename}
           onClose={() => setLightboxImage(null)}
         />
-      )}
-    </div>
+      ) : null}
+    </>
   );
 }

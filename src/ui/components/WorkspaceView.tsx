@@ -88,10 +88,18 @@ export function WorkspaceView({
 
   return (
     <div className="panel-overlay workspace-overlay" onClick={onClose}>
-      <div className="workspace-panel" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="workspace-panel"
+        data-testid="workspace-panel"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="panel-header">
           <div className="ws-header-info">
-            <span className={`ws-status ws-status-${workspace.status}`}>
+            <span
+              className={`ws-status ws-status-${workspace.status}`}
+              data-testid="ws-status"
+              data-status={workspace.status}
+            >
               {workspace.status === "awaiting_feedback" ? "awaiting feedback" : workspace.status === "waiting_for_answer" ? "waiting for answer" : workspace.status === "changes_requested" ? "changes requested" : workspace.status === "plan_reviewing" ? "plan reviewing" : workspace.status === "grilling" ? "grilling" : workspace.status}
             </span>
             {workspace.experimentNumber && workspace.experimentNumber > 0 && (
@@ -488,7 +496,12 @@ export function WorkspaceView({
                 <div className="ws-questions-section">
                   <h3>Agent Questions</h3>
                   {questions.map((q) => (
-                    <div key={q._id} className={`ws-question ${q.status}`}>
+                    <div
+                      key={q._id}
+                      className={`ws-question ${q.status}`}
+                      data-testid="ws-question"
+                      data-status={q.status}
+                    >
                       <div className="ws-question-text log-markdown">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{q.question}</ReactMarkdown>
                       </div>
@@ -499,7 +512,9 @@ export function WorkspaceView({
                               {q.suggestedAnswers.map((suggestion, i) => (
                                 <button
                                   key={i}
+                                  type="button"
                                   className="btn btn-sm ws-question-suggestion"
+                                  data-testid="ws-question-suggestion"
                                   onClick={() =>
                                     setAnswerDrafts((prev) => ({ ...prev, [q._id]: suggestion }))
                                   }
@@ -512,6 +527,7 @@ export function WorkspaceView({
                           )}
                           <textarea
                             className="ws-question-input"
+                            data-testid="ws-question-input"
                             placeholder="Type your answer..."
                             value={answerDrafts[q._id] ?? ""}
                             onChange={(e) => setAnswerDrafts((prev) => ({ ...prev, [q._id]: e.target.value }))}

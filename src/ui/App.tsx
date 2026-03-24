@@ -1,6 +1,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useState, useEffect, useCallback } from "react";
+import { Button } from "@/ui/components/ui/button";
 import { BoardView } from "./components/BoardView";
 import { ProjectSelector } from "./components/ProjectSelector";
 import { CreateProjectDialog } from "./components/CreateProjectDialog";
@@ -238,9 +239,7 @@ export function App() {
             <div className="empty-state">
               <h2>No project selected</h2>
               <p>Create a project to get started.</p>
-              <button className="btn btn-primary" onClick={() => setShowCreateProject(true)}>
-                Create Project
-              </button>
+              <Button onClick={() => setShowCreateProject(true)}>Create Project</Button>
             </div>
           ) : view === "board" ? (
             <BoardView

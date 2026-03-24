@@ -2,6 +2,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { App } from "./App";
+import { ThemeProvider } from "./components/ThemeProvider";
+import "./globals.css";
 import "./styles.css";
 
 const convex = new ConvexReactClient(
@@ -13,7 +15,9 @@ if (!rootEl) throw new Error("Missing root element");
 createRoot(rootEl).render(
   <StrictMode>
     <ConvexProvider client={convex}>
-      <App />
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
     </ConvexProvider>
   </StrictMode>
 );

@@ -190,7 +190,7 @@ export async function ensureBoardWithIssue(page: Page) {
   // Wait for app to load
   await page.waitForTimeout(1500);
 
-  const hasBoard = await page.locator(".column-name").first().isVisible({ timeout: 2000 }).catch(() => false);
+  const hasBoard = await page.getByTestId("column-name").first().isVisible({ timeout: 2000 }).catch(() => false);
 
   if (!hasBoard) {
     // Fresh DB — create a project first
@@ -198,22 +198,22 @@ export async function ensureBoardWithIssue(page: Page) {
     if (await createBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
       await createBtn.click();
     } else {
-      await page.locator(".project-sidebar-add").click();
+      await page.getByTestId("project-sidebar-add").click();
     }
 
     await expect(page.getByRole("heading", { name: "Create Project" })).toBeVisible({ timeout: 5000 });
-    await page.locator(".dialog input[type='text']").first().fill("Test Project");
+    await page.getByLabel("Name").fill("Test Project");
     await page.getByRole("button", { name: "Create", exact: true }).click();
-    await expect(page.locator(".column-name").first()).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId("column-name").first()).toBeVisible({ timeout: 5000 });
   }
 
   // Check if any issues exist
-  const issueCards = page.locator(".issue-card");
+  const issueCards = page.getByTestId("issue-card");
   const count = await issueCards.count();
 
   if (count === 0) {
     // Create a seed issue
-    await page.locator(".column-add-btn").first().click();
+    await page.getByTestId("column-add-btn").first().click();
     await page.getByRole("textbox", { name: /needs to be done/i }).fill("Implement user authentication");
     await page.getByRole("textbox", { name: /description/i }).fill("Add login/logout flow");
     await page.getByRole("textbox", { name: /tag/i }).fill("backend, auth");

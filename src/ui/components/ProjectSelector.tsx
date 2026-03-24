@@ -29,6 +29,8 @@ export function ProjectSelector({
         );
       })}
       <button
+        type="button"
+        data-testid="project-sidebar-add"
         className="project-sidebar-item project-sidebar-add"
         onClick={onCreateNew}
         title="New Project"

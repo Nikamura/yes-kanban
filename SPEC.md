@@ -56,7 +56,7 @@ Yes Kanban has three components:
 
 2. **Worker** — A Bun/TypeScript process that manages git worktrees, launches agent subprocesses, and streams output into Convex. By default runs on the same machine as Convex. Can optionally run on a separate machine connected to the Convex instance.
 
-3. **Web UI** — React single-page application using the Convex React client. Kanban board, issue detail panel, workspace/diff viewer, agent log stream. All reads are real-time subscriptions — no polling or manual refresh needed.
+3. **Web UI** — React single-page application using the Convex React client. Kanban board, issue detail panel, workspace/diff viewer, agent log stream. All reads are real-time subscriptions — no polling or manual refresh needed. The UI uses **Tailwind CSS v4** and **shadcn/ui** (Base UI primitives under `src/ui/components/ui/`; add new primitives with `bunx shadcn@latest add <name>` only when needed). Theme tokens live in `src/ui/globals.css`; class-based dark/light mode is applied on `<html>` via an inline first-paint script plus `ThemeProvider`. Legacy layout rules may still live in `src/ui/styles.css` while migrating remaining views. E2E tests prefer `data-testid` where present; some flows still target legacy CSS classes until those surfaces migrate.
 
 ```
 ┌─────────────────────────────────────────────────────┐

@@ -38,7 +38,7 @@ Built for solo developers. Mobile-first. Convention over configuration.
 
 - **Convex** -- Reactive database. Single source of truth for projects, issues, columns, workspaces, agent logs, and configs.
 - **Worker** -- Bun process that polls for dispatched work, manages git worktrees, spawns agent subprocesses, and streams output into Convex.
-- **Web UI** -- React 19 SPA with Convex real-time subscriptions. Hash-based routing (`#/<slug>/<view>/<issueId>/ws/<workspaceId>`).
+- **Web UI** -- React 19 SPA with Convex real-time subscriptions. Hash-based routing (`#/<slug>/<view>/<issueId>/ws/<workspaceId>`). Styling uses Tailwind CSS v4 and shadcn/ui (`components.json`, `src/ui/globals.css`); add components with `bunx shadcn@latest add <name>` when needed rather than vendoring unused primitives.
 
 ## Quick start
 

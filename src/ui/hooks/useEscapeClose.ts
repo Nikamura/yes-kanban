@@ -10,12 +10,18 @@ export type UseEscapeCloseOptions = {
 /**
  * Registers a document keydown listener for Escape. Uses a ref for the callback so the listener
  * stays registered once per options tuple and always invokes the latest handler (no stale closures).
+ *
+ * Used for non-Dialog overlays (e.g. issue detail sheet, shortcuts help). Shadcn `Dialog` handles
+ * Escape internally; do not use this hook alongside a Base UI Dialog for the same surface.
  */
 export function useEscapeClose(
   onClose: () => void,
   options?: UseEscapeCloseOptions,
 ) {
   const onCloseRef = useRef(onClose);
+  // Sync latest callback synchronously on every render so Escape before the first effect paint
+  // still sees the current handler (eslint react-hooks/refs disallows this; intentional here).
+  // eslint-disable-next-line react-hooks/refs -- ref-as-stable-callback pattern; not used for render output
   onCloseRef.current = onClose;
   const capture = options?.capture ?? false;
   const stopPropagation = options?.stopPropagation ?? false;

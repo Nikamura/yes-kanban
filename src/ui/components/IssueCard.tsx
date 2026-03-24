@@ -1,4 +1,5 @@
 import type { Doc } from "../../../convex/_generated/dataModel";
+import { cn } from "@/ui/lib/utils";
 
 export function IssueCard({
   issue,
@@ -33,7 +34,13 @@ export function IssueCard({
 }) {
   return (
     <div
-      className={`issue-card ${selected ? "selected" : ""} ${isDragging ? "dragging" : ""} ${focused ? "focused" : ""}`}
+      data-testid="issue-card"
+      className={cn(
+        "issue-card",
+        selected && "selected",
+        isDragging && "dragging",
+        focused && "focused"
+      )}
       draggable={!selectionMode}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
