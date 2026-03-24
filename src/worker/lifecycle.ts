@@ -942,6 +942,9 @@ export async function runLifecycle(
       return;
     }
 
+    /** Latest planning session for replanning — must not use DB `previousPlanningSessionId` (stale). YES-250 */
+    let currentPlanningSessionId: string | undefined = planResult.sessionId;
+
     // Mark feedback as delivered only after the agent has successfully processed it.
     // Only mark if there was an existing plan — without one, feedback is not surfaced
     // in the prompt and should remain pending for the next planning cycle.
@@ -997,6 +1000,8 @@ export async function runLifecycle(
 
       if (!retryResult.success) {
         console.log(`[lifecycle] workspace=${workspaceId} submit_plan retry failed`);
+      } else {
+        currentPlanningSessionId = retryResult.sessionId;
       }
     }
 
@@ -1045,19 +1050,46 @@ export async function runLifecycle(
           const verdict = extractPlanReviewVerdict(reviewResult.events);
           console.log(`[lifecycle] workspace=${workspaceId} plan review verdict: ${verdict}`);
 
-          if (verdict === "APPROVE") {
+          let effectiveVerdict = verdict;
+          let effectiveEvents = reviewResult.events;
+
+          if (verdict !== "APPROVE" && verdict !== "REQUEST_CHANGES" && verdict !== "RESTART") {
+            console.log(`[lifecycle] workspace=${workspaceId} unknown plan review verdict, asking agent to clarify`);
+            const clarifyPrompt =
+              "Your plan review is missing a verdict. You MUST end your response with exactly one of:\n\n" +
+              "FINAL_VERDICT: APPROVE\n" +
+              "FINAL_VERDICT: REQUEST_CHANGES — <reason>\n" +
+              "FINAL_VERDICT: RESTART — <reason>\n\n" +
+              "Please provide your FINAL_VERDICT now.";
+            const clarifyResult = await runAgent(
+              convex, config, executor, workspaceId, reviewConfig, agentCwd,
+              clarifyPrompt, "plan_review", abortSignal,
+              {
+                mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: reviewResult.sessionId,
+                settingsPath, disableSlashCommands, allowedTools: READ_ONLY_TOOLS,
+              },
+            );
+            if (abortSignal.aborted) return; // eslint-disable-line @typescript-eslint/no-unnecessary-condition
+            if (clarifyResult.success) {
+              effectiveVerdict = extractPlanReviewVerdict(clarifyResult.events);
+              effectiveEvents = clarifyResult.events;
+              console.log(`[lifecycle] workspace=${workspaceId} clarified plan review verdict: ${effectiveVerdict}`);
+            }
+          }
+
+          if (effectiveVerdict === "APPROVE") {
             planAutoApproved = true;
             break;
           }
 
-          if (verdict === "RESTART") {
+          if (effectiveVerdict === "RESTART") {
             console.log(`[lifecycle] workspace=${workspaceId} plan review: RESTART, falling back to user`);
             break;
           }
 
-          if (verdict === "REQUEST_CHANGES") {
+          if (effectiveVerdict === "REQUEST_CHANGES") {
             planReviewCycles++;
-            const feedback = extractAssistantText(reviewResult.events);
+            const feedback = extractAssistantText(effectiveEvents);
 
             if (planReviewCycles >= maxCycles) {
               console.log(`[lifecycle] workspace=${workspaceId} max plan review cycles reached`);
@@ -1085,13 +1117,15 @@ export async function runLifecycle(
             const replanResult = await runAgent(
               convex, config, executor, workspaceId, planningAgentConfig, agentCwd,
               replanPrompt, "planning", abortSignal,
-              { mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: previousPlanningSessionId, settingsPath, disableSlashCommands, allowedTools: planningTools },
+              { mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: currentPlanningSessionId, settingsPath, disableSlashCommands, allowedTools: planningTools },
             );
 
             if (!replanResult.success) {
               if (abortSignal.aborted) return; // eslint-disable-line @typescript-eslint/no-unnecessary-condition
               break; // planning agent failed, fall through to user review
             }
+
+            currentPlanningSessionId = replanResult.sessionId;
 
             if (abortSignal.aborted) return; // eslint-disable-line @typescript-eslint/no-unnecessary-condition
 

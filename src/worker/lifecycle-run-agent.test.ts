@@ -586,6 +586,31 @@ describe("extractPlanReviewVerdict", () => {
     ];
     expect(extractPlanReviewVerdict(events)).toBe("REQUEST_CHANGES");
   });
+
+  test("FINAL_VERDICT line takes precedence (YES-250 clarification response)", () => {
+    const events = [
+      adapterEvent(
+        "The plan is thorough but missing edge cases.\n\nFINAL_VERDICT: REQUEST_CHANGES — add error handling",
+      ),
+    ];
+    expect(extractPlanReviewVerdict(events)).toBe("REQUEST_CHANGES");
+  });
+
+  test("FINAL_VERDICT APPROVE at end overrides ambiguous first line (YES-250)", () => {
+    const events = [
+      adapterEvent(
+        "REQUEST_CHANGES might be needed for section 3\n\nAfter reconsidering, the plan is acceptable.\n\nFINAL_VERDICT: APPROVE",
+      ),
+    ];
+    expect(extractPlanReviewVerdict(events)).toBe("APPROVE");
+  });
+
+  test("FINAL_VERDICT RESTART is respected (YES-250)", () => {
+    const events = [
+      adapterEvent("Wrong scope entirely.\n\nFINAL_VERDICT: RESTART — wrong issue"),
+    ];
+    expect(extractPlanReviewVerdict(events)).toBe("RESTART");
+  });
 });
 
 describe("extractAssistantText", () => {
