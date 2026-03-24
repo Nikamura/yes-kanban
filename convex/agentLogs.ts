@@ -19,10 +19,7 @@ export const list = query({
       })
       .order("asc");
 
-    if (args.limit) {
-      return await q.take(args.limit);
-    }
-    return await q.collect();
+    return await q.take(args.limit ?? 500);
   },
 });
 
