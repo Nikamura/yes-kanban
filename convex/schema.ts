@@ -53,11 +53,6 @@ export default defineSchema({
     deepResearch: v.optional(v.boolean()),
     grillMe: v.optional(v.boolean()),
     autoMerge: v.optional(v.boolean()),
-    checklist: v.optional(v.array(v.object({
-      id: v.string(),
-      text: v.string(),
-      completed: v.boolean(),
-    }))),
     archivedAt: v.optional(v.number()),
     position: v.number(),
     createdAt: v.number(),

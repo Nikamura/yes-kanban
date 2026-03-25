@@ -68,9 +68,9 @@ describe("McpServer", () => {
     expect(response.result.serverInfo.name).toBe("yes-kanban");
   });
 
-  test("tools/list returns all 21 tools when no allowlist", async () => {
+  test("tools/list returns all 18 tools when no allowlist", async () => {
     const response = await sendJsonRpc(port, "tools/list", {});
-    expect(response.result.tools.length).toBe(21);
+    expect(response.result.tools.length).toBe(18);
     const names = response.result.tools.map((t: any) => t.name);
     expect(names).toContain("create_issue");
     expect(names).toContain("list_attachments");

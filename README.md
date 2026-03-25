@@ -16,7 +16,7 @@ Built for solo developers. Mobile-first. Convention over configuration.
 
 ## Features
 
-**Board** -- Fixed four-column flow with drag-and-drop; tags, blockers, checklists, comments, issue templates. Hash-based routing so every view is a bookmarkable URL.
+**Board** -- Fixed four-column flow with drag-and-drop; tags, blockers, comments, issue templates. Hash-based routing so every view is a bookmarkable URL.
 
 **Agent dispatch** -- Supports Claude Code, Codex, and Cursor via pluggable adapters. Configurable concurrency limits, timeouts, and retry with exponential backoff. Plan mode and dangerously-skip mode.
 

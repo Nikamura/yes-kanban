@@ -7,7 +7,6 @@ import { AttachmentsSection } from "./AttachmentsSection";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useEscapeClose } from "../hooks/useEscapeClose";
-import { ChecklistSection } from "./ChecklistSection";
 import { formatHistoryEntry } from "../formatHistoryEntry";
 import { TERMINAL_STATUSES } from "../utils/constants";
 import { isSupportedAgentAdapterType } from "@/lib/agentTypes";
@@ -535,8 +534,6 @@ export function IssueDetailPanel({
               </div>
             )}
           </div>
-
-          <ChecklistSection issueId={issueId} checklist={issue.checklist ?? []} />
 
           {activeWorkspaceId && (
             <WorkspaceView

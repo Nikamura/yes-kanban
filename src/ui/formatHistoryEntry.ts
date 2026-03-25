@@ -87,27 +87,6 @@ export function formatHistoryEntry(entry: {
     return "Attachment updated";
   }
 
-  if (entry.field === "checklist") {
-    const detail = newVal as { action?: string; text?: string } | null;
-    if (detail && typeof detail === "object") {
-      switch (detail.action) {
-        case "add": return `Checklist: added "${detail.text}"`;
-        case "remove": return `Checklist: removed "${detail.text}"`;
-        case "check": return `Checklist: checked "${detail.text}"`;
-        case "uncheck": return `Checklist: unchecked "${detail.text}"`;
-        case "reorder": return `Checklist: reordered`;
-        case "edit": {
-          const oldDetail = oldVal as { text?: string } | null;
-          if (oldDetail && typeof oldDetail === "object" && oldDetail.text) {
-            return `Checklist: "${oldDetail.text}" → "${detail.text}"`;
-          }
-          return `Checklist: edited "${detail.text}"`;
-        }
-      }
-    }
-    return `Checklist updated`;
-  }
-
   if (entry.field === "blockedBy") {
     return `Blockers updated`;
   }

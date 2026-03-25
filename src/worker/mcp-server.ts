@@ -40,11 +40,6 @@ interface BlockerArgs {
   blockedByIssueId: Id<"issues">;
 }
 
-interface ChecklistItemArgs extends IssueIdentifierArgs {
-  text?: string;
-  itemId?: string;
-}
-
 /** Payload for `get_test_results` — null fields when no test run exists yet. */
 interface TestResultsResponse {
   status: string | null;
@@ -295,12 +290,6 @@ client.on("error", () => process.exit(1));
         return this.addBlocker(args as unknown as BlockerArgs);
       case "remove_blocker":
         return this.removeBlocker(args as unknown as BlockerArgs);
-      case "add_checklist_item":
-        return this.addChecklistItem(args as unknown as ChecklistItemArgs);
-      case "toggle_checklist_item":
-        return this.toggleChecklistItem(args as unknown as ChecklistItemArgs);
-      case "remove_checklist_item":
-        return this.removeChecklistItem(args as unknown as ChecklistItemArgs);
       case "list_attachments":
         return this.listAttachments(args as unknown as IssueIdentifierArgs);
       case "get_current_issue":
@@ -435,39 +424,6 @@ client.on("error", () => process.exit(1));
     if (args.issueId || args.simpleId) return this.resolveIssueId(args);
     if (this.issueId) return this.issueId;
     throw new Error("Either issueId or simpleId is required");
-  }
-
-  private async addChecklistItem(args: ChecklistItemArgs) {
-    const id = await this.resolveIssueIdWithFallback(args);
-    if (!args.text) throw new Error("text is required");
-    const itemId = await this.convex.mutation(api.checklists.addItem, {
-      issueId: id,
-      text: args.text,
-      actor: "agent",
-    });
-    return { itemId };
-  }
-
-  private async toggleChecklistItem(args: ChecklistItemArgs) {
-    const id = await this.resolveIssueIdWithFallback(args);
-    if (!args.itemId) throw new Error("itemId is required");
-    await this.convex.mutation(api.checklists.toggleItem, {
-      issueId: id,
-      itemId: args.itemId,
-      actor: "agent",
-    });
-    return { toggled: true };
-  }
-
-  private async removeChecklistItem(args: ChecklistItemArgs) {
-    const id = await this.resolveIssueIdWithFallback(args);
-    if (!args.itemId) throw new Error("itemId is required");
-    await this.convex.mutation(api.checklists.removeItem, {
-      issueId: id,
-      itemId: args.itemId,
-      actor: "agent",
-    });
-    return { removed: true };
   }
 
   private async listAttachments(args: IssueIdentifierArgs) {
@@ -664,45 +620,6 @@ client.on("error", () => process.exit(1));
             blockedByIssueId: { type: "string" },
           },
           required: ["issueId", "blockedByIssueId"],
-        },
-      },
-      {
-        name: "add_checklist_item",
-        description: "Add a checklist item to an issue. Defaults to the current workspace issue.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            issueId: { type: "string" },
-            simpleId: { type: "string" },
-            text: { type: "string", description: "Checklist item text" },
-          },
-          required: ["text"],
-        },
-      },
-      {
-        name: "toggle_checklist_item",
-        description: "Toggle a checklist item's completed state. Defaults to the current workspace issue.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            issueId: { type: "string" },
-            simpleId: { type: "string" },
-            itemId: { type: "string", description: "ID of the checklist item to toggle" },
-          },
-          required: ["itemId"],
-        },
-      },
-      {
-        name: "remove_checklist_item",
-        description: "Remove a checklist item from an issue. Defaults to the current workspace issue.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            issueId: { type: "string" },
-            simpleId: { type: "string" },
-            itemId: { type: "string", description: "ID of the checklist item to remove" },
-          },
-          required: ["itemId"],
         },
       },
       {

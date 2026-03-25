@@ -107,9 +107,6 @@ export function IssueCard({
           </div>
         </div>
         <div className="text-[13px] leading-snug font-medium">{issue.title}</div>
-        {issue.checklist && issue.checklist.length > 0 && (
-          <ChecklistProgress checklist={issue.checklist} />
-        )}
         {issue.tags.length > 0 && (
           <div className="mt-1.5 flex flex-wrap gap-1">
             {issue.tags.map((tag) => (
@@ -124,25 +121,6 @@ export function IssueCard({
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function ChecklistProgress({ checklist }: { checklist: { completed: boolean }[] }) {
-  const done = checklist.filter((i) => i.completed).length;
-  const total = checklist.length;
-  const complete = done === total;
-  return (
-    <div className="mt-1 flex items-center gap-1.5">
-      <div className="h-1 flex-1 overflow-hidden rounded-sm bg-secondary">
-        <div
-          className={cn("h-full rounded-sm bg-primary transition-[width]", complete && "bg-emerald-600")}
-          style={{ width: `${(done / total) * 100}%` }}
-        />
-      </div>
-      <span className="shrink-0 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
-        {done}/{total}
-      </span>
     </div>
   );
 }

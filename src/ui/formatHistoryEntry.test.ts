@@ -200,84 +200,14 @@ describe("formatHistoryEntry", () => {
     expect(formatHistoryEntry({ action: "updated", field: "foo" })).toBe("foo updated");
   });
 
-  it("formats checklist item added", () => {
+  it("formats legacy checklist history field with generic fallback", () => {
     expect(
       formatHistoryEntry({
         action: "updated",
         field: "checklist",
         newValue: JSON.stringify({ action: "add", text: "Buy milk" }),
       })
-    ).toBe('Checklist: added "Buy milk"');
-  });
-
-  it("formats checklist item removed", () => {
-    expect(
-      formatHistoryEntry({
-        action: "updated",
-        field: "checklist",
-        newValue: JSON.stringify({ action: "remove", text: "Buy milk" }),
-      })
-    ).toBe('Checklist: removed "Buy milk"');
-  });
-
-  it("formats checklist item checked", () => {
-    expect(
-      formatHistoryEntry({
-        action: "updated",
-        field: "checklist",
-        newValue: JSON.stringify({ action: "check", text: "Buy milk" }),
-      })
-    ).toBe('Checklist: checked "Buy milk"');
-  });
-
-  it("formats checklist item unchecked", () => {
-    expect(
-      formatHistoryEntry({
-        action: "updated",
-        field: "checklist",
-        newValue: JSON.stringify({ action: "uncheck", text: "Buy milk" }),
-      })
-    ).toBe('Checklist: unchecked "Buy milk"');
-  });
-
-  it("formats checklist reorder", () => {
-    expect(
-      formatHistoryEntry({
-        action: "updated",
-        field: "checklist",
-        newValue: JSON.stringify({ action: "reorder" }),
-      })
-    ).toBe("Checklist: reordered");
-  });
-
-  it("formats checklist item text edit with old value", () => {
-    expect(
-      formatHistoryEntry({
-        action: "updated",
-        field: "checklist",
-        oldValue: JSON.stringify({ text: "Buy milk" }),
-        newValue: JSON.stringify({ action: "edit", text: "Buy oat milk" }),
-      })
-    ).toBe('Checklist: "Buy milk" → "Buy oat milk"');
-  });
-
-  it("formats checklist item text edit without old value", () => {
-    expect(
-      formatHistoryEntry({
-        action: "updated",
-        field: "checklist",
-        newValue: JSON.stringify({ action: "edit", text: "Buy oat milk" }),
-      })
-    ).toBe('Checklist: edited "Buy oat milk"');
-  });
-
-  it("formats checklist with no detail as generic", () => {
-    expect(
-      formatHistoryEntry({
-        action: "updated",
-        field: "checklist",
-      })
-    ).toBe("Checklist updated");
+    ).toBe("checklist updated");
   });
 
   it("formats archived action", () => {
