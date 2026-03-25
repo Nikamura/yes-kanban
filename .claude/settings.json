@@ -11,6 +11,30 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bunx eslint --fix \"$CLAUDE_FILE_PATH\" 2>/dev/null || true",
+            "timeout": 15000
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_FILE_PATH\" | grep -qE '(_generated/|bun\\.lock|node_modules/)' && echo 'BLOCK: Do not edit generated, lock, or node_modules files' && exit 1 || exit 0",
+            "timeout": 5000
+          }
+        ]
+      }
     ]
   }
 }
