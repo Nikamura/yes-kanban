@@ -45,11 +45,20 @@ export const backfillTokenUsageDaily = migrations.define({
   },
 });
 
+export const removeChecklistFromIssues = migrations.define({
+  table: "issues",
+  migrateOne: async (_ctx, doc) => {
+    if (doc.checklist === undefined) return;
+    return { checklist: undefined };
+  },
+});
+
 /** Serial order for `runAll`. `backfillTokenUsageDaily` requires `projectId` on runAttempts. */
 export function runAllSerialMigrations() {
   return [
     internal.migrations.backfillRunAttemptsProjectId,
     internal.migrations.backfillTokenUsageDaily,
+    internal.migrations.removeChecklistFromIssues,
   ] as const;
 }
 
