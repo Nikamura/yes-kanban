@@ -268,26 +268,23 @@ export const tokenUsage = query({
 
       if (fullDayInWindow) {
         const rows = dailyByDay.get(dayStr) ?? [];
-        const raw = await ctx.db
-          .query("runAttempts")
-          .withIndex("by_project_started", (q) =>
-            q.eq("projectId", args.projectId).gte("startedAt", dayStart).lte("startedAt", dayEnd)
-          )
-          .collect();
-        const notInDaily = raw.filter((a) => !a.tokenUsageDailyBackfilled);
-        // During rollout, daily rows may only cover a subset of attempts; merge unbackfilled raw
-        // so we never drop runs that are not yet reflected in tokenUsageDaily.
-        if (rows.length > 0 && notInDaily.length === 0) {
+        if (rows.length > 0) {
+          // Trust pre-aggregated daily rows — avoids fetching all raw attempts per day
+          // which can exceed the 16 MiB read limit on active projects.
           addDailyRows(rows, acc);
-        } else if (rows.length === 0) {
+        } else {
+          // No daily aggregate yet — fall back to raw run attempts for this day.
+          const raw = await ctx.db
+            .query("runAttempts")
+            .withIndex("by_project_started", (q) =>
+              q.eq("projectId", args.projectId).gte("startedAt", dayStart).lte("startedAt", dayEnd)
+            )
+            .collect();
           await ensureConfigsForAttempts(raw);
           mergeAggregateIntoAcc(aggregateFromRunAttempts(raw, wsMap, agentConfigCache), acc);
-        } else {
-          addDailyRows(rows, acc);
-          await ensureConfigsForAttempts(notInDaily);
-          mergeAggregateIntoAcc(aggregateFromRunAttempts(notInDaily, wsMap, agentConfigCache), acc);
         }
       } else {
+        // Partial day (edge of window) — always use raw attempts for precision.
         const raw = await ctx.db
           .query("runAttempts")
           .withIndex("by_project_started", (q) =>

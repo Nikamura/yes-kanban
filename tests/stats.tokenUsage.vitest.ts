@@ -269,7 +269,7 @@ describe("stats.tokenUsage", () => {
     expect(result.totalInputTokens).toBe(11);
   });
 
-  test("full UTC day merges tokenUsageDaily with unbackfilled runAttempts", async () => {
+  test("full UTC day trusts tokenUsageDaily when present (skips raw for perf)", async () => {
     const t = convexTest(schema, modules);
     const { projectId, workspaceA, agentConfigId } = await t.run((ctx) => seedProjectWithTwoWorkspaces(ctx));
 
@@ -293,6 +293,8 @@ describe("stats.tokenUsage", () => {
         timedOutRuns: 0,
         abandonedRuns: 0,
       });
+      // This unbackfilled attempt is intentionally NOT merged — daily aggregates
+      // are trusted to avoid reading all raw attempts per day (16 MiB limit).
       await insertAttempt(ctx, {
         projectId,
         workspaceId: workspaceA,
@@ -308,8 +310,10 @@ describe("stats.tokenUsage", () => {
       endTime: Date.UTC(2024, 5, 2) - 1,
     });
 
-    expect(result.totalTokens).toBe(30);
-    expect(result.totalRuns).toBe(2);
+    // Only the daily aggregate row is counted (20), not the raw attempt (10).
+    // The daily cron will pick up the unbackfilled attempt on its next run.
+    expect(result.totalTokens).toBe(20);
+    expect(result.totalRuns).toBe(1);
   });
 
   test("abandonRunning writes tokenUsageDaily with abandonedRuns", async () => {

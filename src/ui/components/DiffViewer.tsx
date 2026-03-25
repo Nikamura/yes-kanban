@@ -24,15 +24,19 @@ import {
 } from "../diffParse";
 import { cn } from "@/ui/lib/utils";
 import { Button } from "@/ui/components/ui/button";
-import {
-  diffBinaryNoteClass,
-  diffFileStatusTextClass,
-  diffHunkHeaderClass,
-  diffLineContentClass,
-  diffLineNumClass,
-  diffUnifiedPreClass,
-  diffVirtSectionClass,
-} from "@/ui/lib/diffUi";
+import { diffFileStatusTextClass, diffVirtSectionClass } from "@/ui/lib/diffUi";
+
+// Inlined from diffUi.ts so Tailwind v4 eagerly scans the class names.
+// The @tailwindcss/vite plugin only scans files in the module graph; if this
+// component is lazily loaded, classes from a separate .ts utility file may
+// arrive after HMR, causing a flash of unstyled diff content.
+const diffUnifiedPreClass = "m-0 font-mono text-[12px] leading-snug";
+const diffHunkHeaderClass =
+  "border-b border-border bg-card px-2 py-1.5 text-[12px] whitespace-pre-wrap break-all text-muted-foreground";
+const diffLineNumClass =
+  "border-r border-border bg-card px-1.5 py-0 text-right text-[11px] tabular-nums text-muted-foreground select-none overflow-hidden text-ellipsis";
+const diffLineContentClass = "min-w-0 overflow-x-auto whitespace-pre px-2 py-0";
+const diffBinaryNoteClass = "m-0 px-4 py-3 text-[12px] text-muted-foreground";
 
 const VIRTUALIZED_DIFF_THRESHOLD = 500;
 const DIFF_VIEW_MODE_KEY = "yk-diff-view-mode";
@@ -542,7 +546,7 @@ function UnifiedRowView({ row }: { row: UnifiedRow }) {
     <div className={lineClass} data-testid="diff-line">
       <span className={diffLineNumClass}>{row.oldNum ?? ""}</span>
       <span className={diffLineNumClass}>{row.newNum ?? ""}</span>
-      <span className={diffLineContentClass}>{row.text}</span>
+      <span className={diffLineContentClass} data-testid="diff-line-content">{row.text}</span>
     </div>
   );
 }

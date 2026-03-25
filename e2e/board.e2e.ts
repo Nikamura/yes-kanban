@@ -81,7 +81,7 @@ test.describe("Board", () => {
 
     await page.getByRole("button", { name: "Create", exact: true }).click();
 
-    await expect(page.locator('[data-slot="dialog-overlay"]')).toBeHidden({
+    await expect(page.locator('[data-slot="dialog-content"]')).toBeHidden({
       timeout: 15000,
     });
 
@@ -207,21 +207,21 @@ test.describe("Board", () => {
       await page.getByRole("button", { name: "Create Project" }).click();
     }
 
-    const projectDialogBackdrop = page.locator('[data-slot="dialog-overlay"]');
-    await expect(projectDialogBackdrop).toBeVisible({ timeout: 5000 });
+    const projectDialogContent = page.locator('[data-slot="dialog-content"]');
+    await expect(projectDialogContent).toBeVisible({ timeout: 5000 });
     await page.keyboard.press("Escape");
-    await expect(projectDialogBackdrop).toBeHidden({ timeout: 5000 });
+    await expect(projectDialogContent).toBeHidden({ timeout: 5000 });
   });
 
   test("ESC closes create issue dialog", async ({ page }) => {
     await ensureBoardWithIssue(page);
 
     await page.getByTestId("column-add-btn").first().click();
-    const issueDialogBackdrop = page.locator('[data-slot="dialog-overlay"]');
-    await expect(issueDialogBackdrop).toBeVisible({ timeout: 5000 });
+    const issueDialogContent = page.locator('[data-slot="dialog-content"]');
+    await expect(issueDialogContent).toBeVisible({ timeout: 5000 });
 
     await page.keyboard.press("Escape");
-    await expect(issueDialogBackdrop).toBeHidden({ timeout: 5000 });
+    await expect(issueDialogContent).toBeHidden({ timeout: 5000 });
   });
 
   test("ESC closes issue detail panel", async ({ page }) => {

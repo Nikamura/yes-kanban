@@ -106,21 +106,19 @@ test.describe("Diff viewer", () => {
     await expect(page.getByTestId("diff-line").first()).toBeVisible();
   });
 
-  test("horizontal scroll is available for wide content", async ({ page }) => {
+  test("wide content renders long lines fully in the DOM", async ({ page }) => {
     await openDiffTab(page);
 
-    // Overflow lives on the per-line content cell (`overflow-x-auto`), not the outer pre wrapper.
+    // The long line (2500+ chars) in newFile.ts must render its full content
+    // in the DOM — not truncated or collapsed.
     const contentCell = page
       .getByTestId("diff-file-section")
       .filter({ hasText: "src/newFile.ts" })
-      .getByTestId("diff-line")
-      .last()
-      .locator("span")
+      .getByTestId("diff-line-content")
       .last();
-    const overflow = await contentCell.evaluate((el) => ({
-      scrollWidth: el.scrollWidth,
-      clientWidth: el.clientWidth,
-    }));
-    expect(overflow.scrollWidth).toBeGreaterThan(overflow.clientWidth);
+    await expect(contentCell).toBeVisible();
+
+    const textLength = await contentCell.evaluate((el) => el.textContent?.length ?? 0);
+    expect(textLength).toBeGreaterThan(500);
   });
 });

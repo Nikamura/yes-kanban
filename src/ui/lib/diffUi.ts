@@ -21,14 +21,7 @@ export function diffVirtSectionClass(item: FlatDiffItem, totalFiles: number): st
   );
 }
 
-export const diffUnifiedPreClass = "m-0 font-mono text-[12px] leading-snug";
-
-export const diffHunkHeaderClass =
-  "border-b border-border bg-card px-2 py-1.5 text-[12px] whitespace-pre-wrap break-all text-muted-foreground";
-
-export const diffLineNumClass =
-  "border-r border-border bg-card px-1.5 py-0 text-right text-[11px] tabular-nums text-muted-foreground select-none overflow-hidden text-ellipsis";
-
-export const diffLineContentClass = "min-w-0 overflow-x-auto whitespace-pre px-2 py-0";
-
-export const diffBinaryNoteClass = "m-0 px-4 py-3 text-[12px] text-muted-foreground";
+// NOTE: diffUnifiedPreClass, diffHunkHeaderClass, diffLineNumClass,
+// diffLineContentClass, and diffBinaryNoteClass are inlined directly in
+// DiffViewer.tsx so Tailwind v4's @tailwindcss/vite plugin eagerly generates
+// their utility classes (it only scans files in the Vite module graph).

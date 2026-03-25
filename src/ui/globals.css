@@ -135,6 +135,14 @@
 }
 
 @layer base {
+  /* Base UI's modal InternalBackdrop (position:fixed inset:0) can sit above the
+     dialog popup in the stacking order, blocking pointer events.  Making it
+     transparent to hit-testing lets clicks reach the dialog content while the
+     user-facing Backdrop (DialogOverlay) still receives outside-clicks. */
+  div[data-base-ui-inert][role="presentation"] {
+    pointer-events: none;
+  }
+
   * {
     @apply border-border outline-ring/50;
   }

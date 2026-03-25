@@ -94,7 +94,10 @@ export function TokenDashboard({ projectId }: { projectId: Id<"projects"> }) {
   }
   const cacheSavings = uncachedCost - totalCost;
 
-  const maxAgentTokens = Math.max(...data.byAgent.map((a) => a.totalTokens), 1);
+  const maxAgentTokens = Math.max(
+    ...data.byAgent.map((a) => a.inputTokens + a.outputTokens + a.cacheReadTokens),
+    1,
+  );
 
   const card = "rounded-lg border border-border bg-card p-3";
   const label = "text-xs font-medium text-muted-foreground";

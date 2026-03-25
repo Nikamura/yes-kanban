@@ -1291,23 +1291,12 @@ export async function runLifecycle(
     }
 
     if (noFileChanges) {
-      console.log(`[lifecycle] workspace=${workspaceId} no file changes, skipping tests/review/PR`);
-      await convex.mutation(api.workspaces.updateStatus, {
-        id: workspaceId, status: "completed", completedAt: Date.now(),
-      });
-      await convex.mutation(api.workspaces.updateStatus, {
-        id: workspaceId, status: "merged",
-      });
-      // Clean up worktrees immediately — nothing to preserve
-      try {
-        await removeWorktreesWithOptionalScriptLogs(
-          convex, worktreeManager, workspaceId, worktrees, repos,
-        );
-        await convex.mutation(api.workspaces.clearWorktrees, { id: workspaceId });
-        console.log(`[lifecycle] workspace=${workspaceId} worktrees cleaned up (no file changes)`);
-      } catch (cleanupErr) {
-        console.error(`[lifecycle] workspace=${workspaceId} worktree cleanup failed:`, cleanupErr);
-      }
+      console.log(`[lifecycle] workspace=${workspaceId} coding agent produced no file changes — treating as failure`);
+      stopDiffPolling();
+      await handleFailure(convex, config, workspaceId, agentConfig, {
+        exitCode: codingResult.exitCode,
+        errorOverride: "Coding agent finished without making any file changes",
+      }, worktrees, issue);
       return;
     }
   }
@@ -2318,7 +2307,7 @@ export async function handleFailure(
   _config: WorkerConfig,
   workspaceId: Id<"workspaces">,
   agentConfig: Doc<"agentConfigs">,
-  result: { exitCode?: number },
+  result: { exitCode?: number; errorOverride?: string },
   _worktrees: WorktreeEntry[],
   issue: Doc<"issues"> | undefined,
 ) {
@@ -2337,6 +2326,13 @@ export async function handleFailure(
     terminalStatuses,
   });
 
+  const error = result.errorOverride
+    ?? (result.exitCode !== undefined
+      ? `Agent exited with code ${result.exitCode}`
+      : "Agent failed");
+  const lastAttempt = attempts[attempts.length - 1];
+  const detailedError = lastAttempt?.error ?? error;
+
   if (canRetry) {
     const delay = computeBackoffDelay(
       agentConfig,
@@ -2344,13 +2340,6 @@ export async function handleFailure(
       "failure",
     );
     const dueAt = Date.now() + delay;
-    const error = result.exitCode !== undefined
-      ? `Agent exited with code ${result.exitCode}`
-      : "Agent failed";
-
-    // Use the more detailed error from the latest run attempt (includes stderr) if available
-    const lastAttempt = attempts[attempts.length - 1];
-    const detailedError = lastAttempt?.error ?? error;
 
     await convex.mutation(api.retries.schedule, {
       workspaceId,
@@ -2374,6 +2363,7 @@ export async function handleFailure(
       id: workspaceId,
       status: "failed",
       completedAt: Date.now(),
+      lastError: detailedError,
     });
     console.log(`[lifecycle] workspace=${workspaceId} failed, no retries remaining (attempt=${attemptNumber}, maxRetries=${agentConfig.maxRetries})`);
   }
