@@ -1,4 +1,23 @@
 import { useState } from "react";
+import { Badge } from "@/ui/components/ui/badge";
+import { cn } from "@/ui/lib/utils";
+import {
+  logBadgeClasses,
+  logBashCommandPreClass,
+  logDiffNewPreClass,
+  logDiffOldPreClass,
+  logDiffWrapClass,
+  logExpandToggleClass,
+  logResultBlockClass,
+  logResultHeaderClass,
+  logResultPreClass,
+  logTodoCountClass,
+  logTodoItemClass,
+  logToolCardHeaderClass,
+  logToolCardClass,
+  logToolCardSkillClass,
+  logToolInputPreClass,
+} from "@/ui/lib/logUi";
 
 // --- Shared helpers (also used by LogStream) ---
 
@@ -103,6 +122,14 @@ export function ToolUseLine({ data }: { data: any }) {
   }
 }
 
+const toolBadge = (
+  <Badge className={cn("font-mono text-[10px]", logBadgeClasses.tool)}>$</Badge>
+);
+
+const toolBadgeLabel = (label: string) => (
+  <Badge className={cn("font-mono text-[10px]", logBadgeClasses.tool)}>{label}</Badge>
+);
+
 // --- Individual Tool Renderers ---
 
 function BashToolLine({ data }: { data: any }) {
@@ -112,16 +139,16 @@ function BashToolLine({ data }: { data: any }) {
   const description = input?.description;
 
   return (
-    <div className="log-tool-card">
-      <div className="log-tool-card-header">
-        <span className="log-badge log-badge-tool">$</span>
-        {description && <span className="log-bash-desc">{description}</span>}
-        {!description && command && <span className="log-bash-desc">{truncate(command, 80)}</span>}
-        <button className="log-expandable log-expand-icon" onClick={() => setExpanded(!expanded)}>
+    <div className={logToolCardClass}>
+      <div className={logToolCardHeaderClass}>
+        {toolBadge}
+        {description && <span className="text-foreground">{description}</span>}
+        {!description && command && <span className="text-foreground">{truncate(command, 80)}</span>}
+        <button type="button" className={logExpandToggleClass} onClick={() => setExpanded(!expanded)}>
           {expanded ? "▾" : "▸"}
         </button>
       </div>
-      {expanded && <pre className="log-bash-command">{command}</pre>}
+      {expanded && <pre className={logBashCommandPreClass}>{command}</pre>}
     </div>
   );
 }
@@ -132,11 +159,11 @@ function ReadToolLine({ data }: { data: any }) {
   const range = formatLineRange(input?.offset, input?.limit);
 
   return (
-    <div className="log-tool-card">
-      <div className="log-tool-card-header">
-        <span className="log-badge log-badge-tool">Read</span>
-        <span className="log-tool-filepath">{shortenPath(filePath)}</span>
-        {range && <span className="log-tool-meta">{range}</span>}
+    <div className={logToolCardClass}>
+      <div className={logToolCardHeaderClass}>
+        {toolBadgeLabel("Read")}
+        <span className="text-violet-700 dark:text-violet-300">{shortenPath(filePath)}</span>
+        {range && <span className="text-muted-foreground">{range}</span>}
       </div>
     </div>
   );
@@ -161,21 +188,21 @@ function EditToolLine({ data }: { data: any }) {
       : null;
 
   return (
-    <div className="log-tool-card">
-      <div className="log-tool-card-header">
-        <span className="log-badge log-badge-tool">Edit</span>
-        <span className="log-tool-filepath">{shortenPath(filePath)}</span>
-        {lineCountMeta && <span className="log-tool-meta">{lineCountMeta}</span>}
+    <div className={logToolCardClass}>
+      <div className={logToolCardHeaderClass}>
+        {toolBadgeLabel("Edit")}
+        <span className="text-violet-700 dark:text-violet-300">{shortenPath(filePath)}</span>
+        {lineCountMeta && <span className="text-muted-foreground">{lineCountMeta}</span>}
         {hasDiff && (
-          <button className="log-expandable log-expand-icon" onClick={() => setExpanded(!expanded)}>
+          <button type="button" className={logExpandToggleClass} onClick={() => setExpanded(!expanded)}>
             {expanded ? "▾" : "▸"}
           </button>
         )}
       </div>
       {hasDiff && expanded && (
-        <div className="log-diff">
-          {oldStr && <pre className="log-diff-old">{oldStr}</pre>}
-          {newStr && <pre className="log-diff-new">{newStr}</pre>}
+        <div className={logDiffWrapClass}>
+          {oldStr && <pre className={logDiffOldPreClass}>{oldStr}</pre>}
+          {newStr && <pre className={logDiffNewPreClass}>{newStr}</pre>}
         </div>
       )}
     </div>
@@ -190,20 +217,18 @@ function WriteToolLine({ data }: { data: any }) {
   const lines = content.split("\n");
 
   return (
-    <div className="log-tool-card">
-      <div className="log-tool-card-header">
-        <span className="log-badge log-badge-tool">Write</span>
-        <span className="log-tool-filepath">{shortenPath(filePath)}</span>
-        <span className="log-tool-meta">{lines.length} lines</span>
+    <div className={logToolCardClass}>
+      <div className={logToolCardHeaderClass}>
+        {toolBadgeLabel("Write")}
+        <span className="text-violet-700 dark:text-violet-300">{shortenPath(filePath)}</span>
+        <span className="text-muted-foreground">{lines.length} lines</span>
         {content && (
-          <button className="log-expandable log-expand-icon" onClick={() => setExpanded(!expanded)}>
+          <button type="button" className={logExpandToggleClass} onClick={() => setExpanded(!expanded)}>
             {expanded ? "▾" : "▸"}
           </button>
         )}
       </div>
-      {expanded && content && (
-        <pre className="log-tool-input">{content}</pre>
-      )}
+      {expanded && content && <pre className={logToolInputPreClass}>{content}</pre>}
     </div>
   );
 }
@@ -215,12 +240,12 @@ function GrepToolLine({ data }: { data: any }) {
   const glob = input?.glob;
 
   return (
-    <div className="log-tool-card">
-      <div className="log-tool-card-header">
-        <span className="log-badge log-badge-tool">Grep</span>
-        <code className="log-tool-pattern">{pattern}</code>
-        {path && <span className="log-tool-meta">in {shortenPath(path)}</span>}
-        {glob && <span className="log-tool-meta">({glob})</span>}
+    <div className={logToolCardClass}>
+      <div className={logToolCardHeaderClass}>
+        {toolBadgeLabel("Grep")}
+        <code className="rounded bg-muted px-1 text-[11px] text-foreground">{pattern}</code>
+        {path && <span className="text-muted-foreground">in {shortenPath(path)}</span>}
+        {glob && <span className="text-muted-foreground">({glob})</span>}
       </div>
     </div>
   );
@@ -232,11 +257,11 @@ function GlobToolLine({ data }: { data: any }) {
   const path = input?.path;
 
   return (
-    <div className="log-tool-card">
-      <div className="log-tool-card-header">
-        <span className="log-badge log-badge-tool">Glob</span>
-        <code className="log-tool-pattern">{pattern}</code>
-        {path && <span className="log-tool-meta">in {shortenPath(path)}</span>}
+    <div className={logToolCardClass}>
+      <div className={logToolCardHeaderClass}>
+        {toolBadgeLabel("Glob")}
+        <code className="rounded bg-muted px-1 text-[11px] text-foreground">{pattern}</code>
+        {path && <span className="text-muted-foreground">in {shortenPath(path)}</span>}
       </div>
     </div>
   );
@@ -249,19 +274,17 @@ function AgentToolLine({ data }: { data: any }) {
   const desc = input?.description ?? "";
 
   return (
-    <div className="log-tool-card">
-      <div className="log-tool-card-header">
-        <span className="log-badge log-badge-tool">Agent</span>
-        {desc && <span className="log-tool-meta">{desc}</span>}
+    <div className={logToolCardClass}>
+      <div className={logToolCardHeaderClass}>
+        {toolBadgeLabel("Agent")}
+        {desc && <span className="text-muted-foreground">{desc}</span>}
         {prompt && (
-          <button className="log-expandable log-expand-icon" onClick={() => setExpanded(!expanded)}>
+          <button type="button" className={logExpandToggleClass} onClick={() => setExpanded(!expanded)}>
             {expanded ? "▾" : "▸"}
           </button>
         )}
       </div>
-      {expanded && prompt && (
-        <div className="log-text">{prompt}</div>
-      )}
+      {expanded && prompt && <div className="whitespace-pre-wrap break-words text-foreground">{prompt}</div>}
     </div>
   );
 }
@@ -272,11 +295,11 @@ function SkillToolLine({ data }: { data: any }) {
   const args = input?.args;
 
   return (
-    <div className="log-tool-card log-tool-card-skill">
-      <div className="log-tool-card-header">
-        <span className="log-badge log-badge-skill">Skill</span>
-        <span className="log-tool-name">{skill}</span>
-        {args && <span className="log-tool-meta">{args}</span>}
+    <div className={logToolCardSkillClass}>
+      <div className={logToolCardHeaderClass}>
+        <Badge className={cn("font-mono text-[10px]", logBadgeClasses.skill)}>Skill</Badge>
+        <span className="font-medium text-foreground">{skill}</span>
+        {args && <span className="text-muted-foreground">{args}</span>}
       </div>
     </div>
   );
@@ -290,20 +313,20 @@ function TodoWriteToolLine({ data }: { data: any }) {
   const pending = todos.filter((t: any) => t.status === "pending").length;
 
   return (
-    <div className="log-tool-card">
-      <div className="log-tool-card-header">
-        <span className="log-badge log-badge-tool">Tasks</span>
-        <span className="log-tool-meta">
-          {completed > 0 && <span className="log-todo-done">{completed} done</span>}
-          {inProgress > 0 && <span className="log-todo-active">{inProgress} active</span>}
-          {pending > 0 && <span className="log-todo-pending">{pending} pending</span>}
+    <div className={logToolCardClass}>
+      <div className={logToolCardHeaderClass}>
+        {toolBadgeLabel("Tasks")}
+        <span className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+          {completed > 0 && <span className={logTodoCountClass("done")}>{completed} done</span>}
+          {inProgress > 0 && <span className={logTodoCountClass("active")}>{inProgress} active</span>}
+          {pending > 0 && <span className={logTodoCountClass("pending")}>{pending} pending</span>}
         </span>
       </div>
       {todos.length > 0 && (
-        <div className="log-todo-list">
+        <div className="mt-1 flex flex-col gap-0.5">
           {todos.map((t: any, i: number) => (
-            <div key={i} className={`log-todo-item log-todo-${t.status}`}>
-              <span className="log-todo-icon">
+            <div key={i} className={logTodoItemClass(t.status)}>
+              <span className="w-3 shrink-0 text-center">
                 {t.status === "completed" ? "✓" : t.status === "in_progress" ? "→" : "○"}
               </span>
               <span>{t.status === "in_progress" ? (t.activeForm ?? t.content) : t.content}</span>
@@ -320,10 +343,10 @@ function WebFetchToolLine({ data }: { data: any }) {
   const url = input?.url ?? "unknown";
 
   return (
-    <div className="log-tool-card">
-      <div className="log-tool-card-header">
-        <span className="log-badge log-badge-tool">Fetch</span>
-        <span className="log-tool-filepath">{url}</span>
+    <div className={logToolCardClass}>
+      <div className={logToolCardHeaderClass}>
+        {toolBadgeLabel("Fetch")}
+        <span className="break-all text-violet-700 dark:text-violet-300">{url}</span>
       </div>
     </div>
   );
@@ -334,10 +357,10 @@ function WebSearchToolLine({ data }: { data: any }) {
   const query = input?.query ?? "";
 
   return (
-    <div className="log-tool-card">
-      <div className="log-tool-card-header">
-        <span className="log-badge log-badge-tool">Search</span>
-        <code className="log-tool-pattern">{query}</code>
+    <div className={logToolCardClass}>
+      <div className={logToolCardHeaderClass}>
+        {toolBadgeLabel("Search")}
+        <code className="rounded bg-muted px-1 text-[11px] text-foreground">{query}</code>
       </div>
     </div>
   );
@@ -350,12 +373,12 @@ function LSPToolLine({ data }: { data: any }) {
   const symbol = input?.symbol;
 
   return (
-    <div className="log-tool-card">
-      <div className="log-tool-card-header">
-        <span className="log-badge log-badge-tool">LSP</span>
-        <span className="log-tool-name">{action}</span>
-        {symbol && <code className="log-tool-pattern">{symbol}</code>}
-        {filePath && <span className="log-tool-filepath">{shortenPath(filePath)}</span>}
+    <div className={logToolCardClass}>
+      <div className={logToolCardHeaderClass}>
+        {toolBadgeLabel("LSP")}
+        <span className="font-medium">{action}</span>
+        {symbol && <code className="rounded bg-muted px-1 text-[11px]">{symbol}</code>}
+        {filePath && <span className="text-violet-700 dark:text-violet-300">{shortenPath(filePath)}</span>}
       </div>
     </div>
   );
@@ -367,11 +390,11 @@ function NotebookEditToolLine({ data }: { data: any }) {
   const command = input?.command ?? "edit";
 
   return (
-    <div className="log-tool-card">
-      <div className="log-tool-card-header">
-        <span className="log-badge log-badge-tool">Notebook</span>
-        <span className="log-tool-name">{command}</span>
-        <span className="log-tool-filepath">{shortenPath(notebook)}</span>
+    <div className={logToolCardClass}>
+      <div className={logToolCardHeaderClass}>
+        {toolBadgeLabel("Notebook")}
+        <span className="font-medium">{command}</span>
+        <span className="text-violet-700 dark:text-violet-300">{shortenPath(notebook)}</span>
       </div>
     </div>
   );
@@ -383,25 +406,31 @@ function GenericToolLine({ data }: { data: any }) {
   const input = data?.input;
 
   return (
-    <div className="log-tool-card">
-      <div className="log-tool-card-header">
-        <span className="log-badge log-badge-tool">{name}</span>
+    <div className={logToolCardClass}>
+      <div className={logToolCardHeaderClass}>
+        <Badge className={cn("font-mono text-[10px]", logBadgeClasses.tool)}>{name}</Badge>
         {input && (
-          <button className="log-expandable log-expand-icon" onClick={() => setExpanded(!expanded)}>
+          <button type="button" className={logExpandToggleClass} onClick={() => setExpanded(!expanded)}>
             {expanded ? "▾" : "▸"}
           </button>
         )}
       </div>
-      {expanded && input && (
-        <pre className="log-tool-input">{formatInput(input)}</pre>
-      )}
+      {expanded && input && <pre className={logToolInputPreClass}>{formatInput(input)}</pre>}
     </div>
   );
 }
 
 // --- Tool Result ---
 
-export function ToolResultLine({ data, line, toolIdMap }: { data: any; line: string; toolIdMap: Map<string, string> }) {
+export function ToolResultLine({
+  data,
+  line,
+  toolIdMap,
+}: {
+  data: any;
+  line: string;
+  toolIdMap: Map<string, string>;
+}) {
   const [expanded, setExpanded] = useState(false);
   const content = extractToolResultText(data) ?? line;
   const toolUseId = data?.tool_use_id;
@@ -412,20 +441,18 @@ export function ToolResultLine({ data, line, toolIdMap }: { data: any; line: str
   const isShort = contentLines.length === 1 && content.length <= 120;
 
   return (
-    <div className="log-result-block">
+    <div className={logResultBlockClass}>
       <div
-        className={`log-result-header ${isShort ? "" : "log-expandable"}`}
+        className={logResultHeaderClass(!isShort)}
         onClick={() => !isShort && setExpanded(!expanded)}
       >
-        {toolName && <span className="log-badge log-badge-result">{toolName}</span>}
-        <span className="log-result-summary">
-          {isShort ? content : fallbackSummary}
-        </span>
-        {!isShort && <span className="log-expand-icon">{expanded ? "▾" : "▸"}</span>}
+        {toolName && (
+          <Badge className={cn("font-mono text-[10px]", logBadgeClasses.result)}>{toolName}</Badge>
+        )}
+        <span className="min-w-0 flex-1 text-muted-foreground">{isShort ? content : fallbackSummary}</span>
+        {!isShort && <span className="text-[10px] text-muted-foreground">{expanded ? "▾" : "▸"}</span>}
       </div>
-      {expanded && (
-        <pre className="log-result-pre">{content}</pre>
-      )}
+      {expanded && <pre className={logResultPreClass}>{content}</pre>}
     </div>
   );
 }

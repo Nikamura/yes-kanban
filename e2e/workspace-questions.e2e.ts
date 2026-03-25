@@ -8,16 +8,16 @@ test.describe("Workspace agent questions", () => {
 
     await page.goto(`/#/${slug}/board/${issueSimpleId}/ws/${workspaceId}`);
 
-    await expect(page.locator(".workspace-panel")).toBeVisible({ timeout: 20_000 });
-    await expect(page.locator(".ws-question.pending")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("workspace-panel")).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('[data-testid="ws-question"][data-status="pending"]')).toBeVisible({ timeout: 20_000 });
 
-    const input = page.locator(".ws-question-input");
-    const suggestionA = page.locator(".ws-question-suggestion").filter({ hasText: a });
-    const suggestionB = page.locator(".ws-question-suggestion").filter({ hasText: b });
+    const input = page.getByTestId("ws-question-input");
+    const suggestionA = page.getByTestId("ws-question-suggestion").filter({ hasText: a });
+    const suggestionB = page.getByTestId("ws-question-suggestion").filter({ hasText: b });
 
     await suggestionA.click();
     await expect(input).toHaveValue(a);
-    await expect(page.locator(".ws-question.pending .ws-question-answer-form")).toBeVisible();
+    await expect(page.getByTestId("ws-question-answer-form")).toBeVisible();
 
     await input.fill(`${a} — user addition`);
     await expect(input).toHaveValue(`${a} — user addition`);
@@ -28,12 +28,10 @@ test.describe("Workspace agent questions", () => {
     await input.fill(`${b} — final`);
     await page.getByRole("button", { name: "Answer", exact: true }).click();
 
-    // Answering clears pending questions and may move the workspace off awaiting_feedback;
-    // the UI then defaults to Logs, so Plan content (including answered questions) is unmounted until Plan is opened.
-    await page.getByRole("button", { name: /Plan/ }).click();
+    await page.getByRole("tab", { name: /Plan/ }).click();
 
-    await expect(page.locator(".ws-question.pending")).toHaveCount(0);
-    await expect(page.locator(".ws-question.answered")).toBeVisible();
-    await expect(page.locator(".ws-question-answer-form")).toHaveCount(0);
+    await expect(page.locator('[data-testid="ws-question"][data-status="pending"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="ws-question"][data-status="answered"]')).toBeVisible();
+    await expect(page.getByTestId("ws-question-answer-form")).toHaveCount(0);
   });
 });

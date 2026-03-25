@@ -2,6 +2,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { Button } from "@/ui/components/ui/button";
 import { PromptTemplatesSection } from "./PromptTemplatesSection";
 import { IssueTemplatesSection } from "./IssueTemplatesSection";
 import { NotificationPrefsSection } from "./NotificationPrefsSection";
@@ -72,7 +73,7 @@ function PhaseLimitInput({
   const displayValue = focused ? draft : formatPhaseLimitDraft(value);
 
   return (
-    <div className="setting-item">
+    <div className="rounded-lg border border-border bg-card p-3">
       <label>{label}</label>
       <input
         type="number"
@@ -100,8 +101,8 @@ function AgentAdvancedFields({ form, setForm }: {
   setForm: (update: Partial<AgentAdvancedForm>) => void;
 }) {
   return (
-    <div className="settings-grid" style={{ gap: "0.5rem" }}>
-      <div className="setting-item" style={{ gridColumn: "1 / -1" }}>
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3" style={{ gap: "0.5rem" }}>
+      <div className="rounded-lg border border-border bg-card p-3" style={{ gridColumn: "1 / -1" }}>
         <label>Args (one per line)</label>
         <textarea
           placeholder={"--flag\nvalue"}
@@ -111,7 +112,7 @@ function AgentAdvancedFields({ form, setForm }: {
           style={{ fontFamily: "monospace", fontSize: "0.85rem" }}
         />
       </div>
-      <div className="setting-item">
+      <div className="rounded-lg border border-border bg-card p-3">
         <label>Timeout (minutes)</label>
         <input
           type="number"
@@ -121,7 +122,7 @@ function AgentAdvancedFields({ form, setForm }: {
           style={{ width: "6em" }}
         />
       </div>
-      <div className="setting-item">
+      <div className="rounded-lg border border-border bg-card p-3">
         <label>Max Retries</label>
         <input
           type="number"
@@ -131,7 +132,7 @@ function AgentAdvancedFields({ form, setForm }: {
           style={{ width: "5em" }}
         />
       </div>
-      <div className="setting-item">
+      <div className="rounded-lg border border-border bg-card p-3">
         <label>Retry Backoff (seconds)</label>
         <input
           type="number"
@@ -141,7 +142,7 @@ function AgentAdvancedFields({ form, setForm }: {
           style={{ width: "6em" }}
         />
       </div>
-      <div className="setting-item">
+      <div className="rounded-lg border border-border bg-card p-3">
         <label>Max Retry Backoff (seconds)</label>
         <input
           type="number"
@@ -151,7 +152,7 @@ function AgentAdvancedFields({ form, setForm }: {
           style={{ width: "6em" }}
         />
       </div>
-      <div className="setting-item" style={{ gridColumn: "1 / -1" }}>
+      <div className="rounded-lg border border-border bg-card p-3" style={{ gridColumn: "1 / -1" }}>
         <label>Environment Variables (KEY=VALUE, one per line)</label>
         <textarea
           placeholder={"API_KEY=abc123\nDEBUG=true"}
@@ -161,8 +162,8 @@ function AgentAdvancedFields({ form, setForm }: {
           style={{ fontFamily: "monospace", fontSize: "0.85rem" }}
         />
       </div>
-      <div className="setting-item">
-        <label className="toggle-label">
+      <div className="rounded-lg border border-border bg-card p-3">
+        <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
           <input
             type="checkbox"
             checked={form.mcpEnabled}
@@ -171,7 +172,7 @@ function AgentAdvancedFields({ form, setForm }: {
           MCP Enabled
         </label>
       </div>
-      <div className="setting-item">
+      <div className="rounded-lg border border-border bg-card p-3">
         <label>MCP Tools Filter (comma-separated, empty = all)</label>
         <input
           placeholder="tool1, tool2"
@@ -358,15 +359,20 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
   }, [mcpServerConfigs, mcpJsonDirty]);
 
   if (!project || !columns || !repos || !agentConfigs) {
-    return <div className="loading">Loading settings...</div>;
+    return (
+    <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
+      <div className="size-6 animate-spin rounded-full border-2 border-border border-t-primary" />
+      Loading settings...
+    </div>
+  );
   }
 
   return (
-    <div className="settings">
-      <section className="settings-section">
+    <div className="h-full overflow-y-auto p-6">
+      <section className="mb-8 max-w-[800px] space-y-3">
         <h2>Project</h2>
-        <div className="settings-grid">
-          <div className="setting-item">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
+          <div className="rounded-lg border border-border bg-card p-3">
             <label>Name</label>
             <input
               value={localName}
@@ -375,7 +381,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
               onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
             />
           </div>
-          <div className="setting-item">
+          <div className="rounded-lg border border-border bg-card p-3">
             <label>Slug</label>
             <input
               value={localSlug}
@@ -384,7 +390,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
               onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
             />
           </div>
-          <div className="setting-item">
+          <div className="rounded-lg border border-border bg-card p-3">
             <label>Issue ID Prefix</label>
             <input
               value={localPrefix}
@@ -394,7 +400,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
               style={{ width: "8em" }}
             />
           </div>
-          <div className="setting-item">
+          <div className="rounded-lg border border-border bg-card p-3">
             <label>Max Review Cycles</label>
             <input
               type="number"
@@ -408,7 +414,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
               style={{ width: "5em" }}
             />
           </div>
-          <div className="setting-item">
+          <div className="rounded-lg border border-border bg-card p-3">
             <label>Cleanup Delay (min)</label>
             <input
               type="number"
@@ -422,7 +428,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
               style={{ width: "5em" }}
             />
           </div>
-          <div className="setting-item">
+          <div className="rounded-lg border border-border bg-card p-3">
             <label>Planning Agent</label>
             <select
               value={project.planningAgentConfigId ?? ""}
@@ -442,7 +448,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
               ))}
             </select>
           </div>
-          <div className="setting-item">
+          <div className="rounded-lg border border-border bg-card p-3">
             <label>Auto-Archive (Done)</label>
             <select
               value={project.autoArchiveDelayMs ?? 0}
@@ -460,7 +466,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
               <option value={2592000000}>After 30 days</option>
             </select>
           </div>
-          <div className="setting-item">
+          <div className="rounded-lg border border-border bg-card p-3">
             <label>Review Agent</label>
             <select
               value={project.reviewAgentConfigId ?? ""}
@@ -483,11 +489,11 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
         </div>
       </section>
 
-      <section className="settings-section">
+      <section className="mb-8 max-w-[800px] space-y-3">
         <h2>Dispatch Status</h2>
         {dispatchStatus && (
-          <div className="settings-grid">
-            <div className="setting-item">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
+            <div className="rounded-lg border border-border bg-card p-3">
               <label>Worker</label>
               <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <span
@@ -505,21 +511,21 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                 {dispatchStatus.workerConnected ? "Connected" : "Disconnected"}
               </span>
             </div>
-            <div className="setting-item">
+            <div className="rounded-lg border border-border bg-card p-3">
               <label>Last Seen</label>
               <span>
                 <WorkerLastSeen lastPollAt={dispatchStatus.lastPollAt} />
               </span>
             </div>
-            <div className="setting-item">
+            <div className="rounded-lg border border-border bg-card p-3">
               <label>Running</label>
               <span>{dispatchStatus.runningCount}</span>
             </div>
-            <div className="setting-item">
+            <div className="rounded-lg border border-border bg-card p-3">
               <label>Queued</label>
               <span>{dispatchStatus.queuedCount}</span>
             </div>
-            <div className="setting-item">
+            <div className="rounded-lg border border-border bg-card p-3">
               <label>Max concurrent agents (worker)</label>
               <input
                 type="number"
@@ -532,7 +538,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                 style={{ width: "5em" }}
               />
             </div>
-            <div className="setting-item" style={{ gridColumn: "1 / -1" }}>
+            <div className="rounded-lg border border-border bg-card p-3" style={{ gridColumn: "1 / -1" }}>
               <label>Active workspaces by phase</label>
               <span style={{ fontSize: "0.9rem" }}>
                 {dispatchStatus.phaseCounts.planning} planning, {dispatchStatus.phaseCounts.coding} coding,{" "}
@@ -565,14 +571,14 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
 
       <NotificationPrefsSection />
 
-      <section className="settings-section">
+      <section className="mb-8 max-w-[800px] space-y-3">
         <h2>Workflow</h2>
         <p style={{ fontSize: "0.85rem", opacity: 0.85, marginBottom: "0.75rem" }}>
           Board columns are fixed (Backlog → To Do → In Progress → Done). Configure automation behavior per project.
         </p>
-        <div className="settings-grid">
-          <div className="setting-item">
-            <label className="toggle-label">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
+          <div className="rounded-lg border border-border bg-card p-3">
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
               <input
                 type="checkbox"
                 checked={project.skipPlanning === false}
@@ -587,8 +593,8 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
             </label>
           </div>
           {project.skipPlanning === false && (
-            <div className="setting-item">
-              <label className="toggle-label">
+            <div className="rounded-lg border border-border bg-card p-3">
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
                 <input
                   type="checkbox"
                   checked={project.autoPlanReview ?? false}
@@ -650,7 +656,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
               })
             }
           />
-          <div className="setting-item">
+          <div className="rounded-lg border border-border bg-card p-3">
             <label>Merge policy</label>
             <select
               value={project.mergePolicy ?? ""}
@@ -666,8 +672,8 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
               <option value="local_merge">Local merge</option>
             </select>
           </div>
-          <div className="setting-item">
-            <label className="toggle-label">
+          <div className="rounded-lg border border-border bg-card p-3">
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
               <input
                 type="checkbox"
                 checked={project.skipReview ?? false}
@@ -678,8 +684,8 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
               Skip review
             </label>
           </div>
-          <div className="setting-item">
-            <label className="toggle-label">
+          <div className="rounded-lg border border-border bg-card p-3">
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
               <input
                 type="checkbox"
                 checked={project.skipTests ?? false}
@@ -693,35 +699,35 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
         </div>
       </section>
 
-      <section className="settings-section">
+      <section className="mb-8 max-w-[800px] space-y-3">
         <h2>Board column colors</h2>
         <p style={{ fontSize: "0.85rem", opacity: 0.85, marginBottom: "0.75rem" }}>
           Column names and order cannot be changed. Adjust colors only.
         </p>
-        <div className="settings-table">
+        <div className="flex flex-col gap-1">
           {columns.map((col) => (
-            <div key={col._id} className="settings-row">
+            <div key={col._id} className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-secondary/40 p-2 px-3">
               <input
                 type="color"
                 value={col.color}
                 onChange={(e) => void updateColumn({ id: col._id, color: e.target.value })}
-                className="color-input"
+                className="size-8 cursor-pointer rounded border-0 bg-transparent p-0"
               />
-              <span className="col-name">{col.name}</span>
+              <span className="font-medium">{col.name}</span>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="settings-section">
+      <section className="mb-8 max-w-[800px] space-y-3">
         <h2>
           Repositories
-          <button className="btn btn-sm" onClick={() => setShowAddRepo(!showAddRepo)}>
+          <Button variant="outline" size="sm" onClick={() => setShowAddRepo(!showAddRepo)}>
             + Add
-          </button>
+          </Button>
         </h2>
         {repos.map((repo) => (
-          <div key={repo._id} className="settings-row">
+          <div key={repo._id} className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-secondary/40 p-2 px-3">
             {editingRepoId === repo._id ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", width: "100%" }}>
                 <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
@@ -788,8 +794,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                   </div>
                 </details>
                 <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button
-                    className="btn btn-primary btn-sm"
+                  <Button size="sm"
                     onClick={async () => {
                       await updateRepo({
                         id: repo._id,
@@ -806,19 +811,18 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                     }}
                   >
                     Save
-                  </button>
-                  <button className="btn btn-sm" onClick={() => setEditingRepoId(null)}>
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setEditingRepoId(null)}>
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
               <>
                 <span>{repo.name}</span>
-                <span className="meta-value">{repo.path}</span>
-                <span className="meta-value">{repo.defaultBranch}</span>
-                <button
-                  className="btn btn-sm"
+                <span className="font-mono text-xs text-muted-foreground">{repo.path}</span>
+                <span className="font-mono text-xs text-muted-foreground">{repo.defaultBranch}</span>
+                <Button variant="outline" size="sm"
                   onClick={() => {
                     setEditingRepoId(repo._id);
                     setEditRepoForm({
@@ -834,9 +838,8 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                   }}
                 >
                   Edit
-                </button>
-                <button
-                  className="btn btn-sm btn-danger"
+                </Button>
+                <Button variant="destructive" size="sm"
                   onClick={() => {
                     if (window.confirm(`Delete repository "${repo.name}"?`)) {
                       void removeRepo({ id: repo._id });
@@ -844,14 +847,14 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                   }}
                 >
                   Delete
-                </button>
+                </Button>
               </>
             )}
           </div>
         ))}
         {showAddRepo && (
           <form
-            className="inline-form"
+            className="mt-2 flex flex-wrap gap-2 items-center"
             onSubmit={async (e) => {
               e.preventDefault();
               await createRepo({
@@ -876,22 +879,22 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
               onChange={(e) => setRepoForm({ ...repoForm, path: e.target.value })}
               autoComplete="off"
             />
-            <button type="submit" className="btn btn-primary btn-sm">
+            <Button type="submit" size="sm">
               Add
-            </button>
+            </Button>
           </form>
         )}
       </section>
 
-      <section className="settings-section">
+      <section className="mb-8 max-w-[800px] space-y-3">
         <h2>
           Agent Configurations
-          <button className="btn btn-sm" onClick={() => setShowAddAgent(!showAddAgent)}>
+          <Button variant="outline" size="sm" onClick={() => setShowAddAgent(!showAddAgent)}>
             + Add
-          </button>
+          </Button>
         </h2>
         {agentConfigs.map((ac) => (
-          <div key={ac._id} className="settings-row">
+          <div key={ac._id} className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-secondary/40 p-2 px-3">
             {editingAgentConfigId === ac._id ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", width: "100%" }}>
                 <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
@@ -940,13 +943,12 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                     <option value="accept">Accept (require approval)</option>
                   </select>
                 </div>
-                <button
-                  className="btn btn-sm"
+                <Button variant="outline" size="sm"
                   style={{ alignSelf: "flex-start" }}
                   onClick={() => setShowEditAgentAdvanced(!showEditAgentAdvanced)}
                 >
                   {showEditAgentAdvanced ? "Hide" : "Show"} Advanced Settings
-                </button>
+                </Button>
                 {showEditAgentAdvanced && (
                   <AgentAdvancedFields
                     form={editAgentConfigForm}
@@ -954,8 +956,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                   />
                 )}
                 <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button
-                    className="btn btn-primary btn-sm"
+                  <Button size="sm"
                     onClick={async () => {
                       const error = validateAgentAdvanced(editAgentConfigForm);
                       if (error) { alert(error); return; }
@@ -984,17 +985,17 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                     }}
                   >
                     Save
-                  </button>
-                  <button className="btn btn-sm" onClick={() => { setEditingAgentConfigId(null); setShowEditAgentAdvanced(false); }}>
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => { setEditingAgentConfigId(null); setShowEditAgentAdvanced(false); }}>
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
               <>
                 <span>{ac.name}</span>
-                <span className="meta-value">{ac.agentType}</span>
-                <span className="meta-value">{ac.command}</span>
+                <span className="font-mono text-xs text-muted-foreground">{ac.agentType}</span>
+                <span className="font-mono text-xs text-muted-foreground">{ac.command}</span>
                 {ac.permissionMode === "accept" && (
                   <span className="badge badge-permission">accept</span>
                 )}
@@ -1002,15 +1003,13 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                   <span className="badge">Default</span>
                 )}
                 {project.defaultAgentConfigId !== ac._id && (
-                  <button
-                    className="btn btn-sm"
+                  <Button variant="outline" size="sm"
                     onClick={() => updateProject({ id: projectId, defaultAgentConfigId: ac._id })}
                   >
                     Set Default
-                  </button>
+                  </Button>
                 )}
-                <button
-                  className="btn btn-sm"
+                <Button variant="outline" size="sm"
                   onClick={() => {
                     setEditingAgentConfigId(ac._id);
                     setShowEditAgentAdvanced(false);
@@ -1033,10 +1032,9 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                   }}
                 >
                   Edit
-                </button>
+                </Button>
                 {project.defaultAgentConfigId !== ac._id && (
-                  <button
-                    className="btn btn-sm btn-danger"
+                  <Button variant="destructive" size="sm"
                     onClick={() => {
                       if (window.confirm(`Delete agent config "${ac.name}"?`)) {
                         void removeAgentConfig({ id: ac._id });
@@ -1044,16 +1042,18 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                     }}
                   >
                     Delete
-                  </button>
+                  </Button>
                 )}
                 {(ac.allowedToolPatterns ?? []).length > 0 && (
-                  <div className="allowed-tools-list">
-                    <span className="allowed-tools-label">Auto-approved:</span>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Auto-approved:</span>
                     {(ac.allowedToolPatterns ?? []).map((pattern) => (
-                      <span key={pattern} className="allowed-tool-chip">
+                      <span key={pattern} className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary px-2 py-0.5 font-mono text-[11px]">
                         {pattern}
-                        <button
-                          className="allowed-tool-remove"
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          className="h-5 min-w-5 px-1 text-muted-foreground hover:text-destructive"
                           title={`Revoke auto-approval for ${pattern}`}
                           onClick={() => {
                             if (window.confirm(`Revoke auto-approval for "${pattern}"? Future runs will require manual approval.`)) {
@@ -1062,7 +1062,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                           }}
                         >
                           ×
-                        </button>
+                        </Button>
                       </span>
                     ))}
                   </div>
@@ -1073,7 +1073,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
         ))}
         {showAddAgent && (
           <form
-            className="inline-form"
+            className="mt-2 flex flex-wrap gap-2 items-center"
             style={{ flexDirection: "column", alignItems: "stretch" }}
             onSubmit={async (e) => {
               e.preventDefault();
@@ -1158,33 +1158,31 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                 <option value="accept">Accept (require approval)</option>
               </select>
             </div>
-            <button
-              type="button"
-              className="btn btn-sm"
+            <Button type="button" variant="outline" size="sm"
               style={{ alignSelf: "flex-start" }}
               onClick={() => setShowAgentAdvanced(!showAgentAdvanced)}
             >
               {showAgentAdvanced ? "Hide" : "Show"} Advanced Settings
-            </button>
+            </Button>
             {showAgentAdvanced && (
               <AgentAdvancedFields
                 form={agentForm}
                 setForm={(update) => setAgentForm({ ...agentForm, ...update })}
               />
             )}
-            <button type="submit" className="btn btn-primary btn-sm" style={{ alignSelf: "flex-start" }}>
+            <Button type="submit" size="sm" style={{ alignSelf: "flex-start" }}>
               Add
-            </button>
+            </Button>
           </form>
         )}
       </section>
 
-      <section className="settings-section">
+      <section className="mb-8 max-w-[800px] space-y-3">
         <h2>MCP Servers</h2>
-        <p className="settings-hint" style={{ fontSize: "0.85rem", opacity: 0.7, marginBottom: "0.5rem" }}>
+        <p className="text-sm text-muted-foreground" style={{ fontSize: "0.85rem", opacity: 0.7, marginBottom: "0.5rem" }}>
           Configure external MCP servers in standard JSON format. Set <code>"enabled": false</code> to disable a server.
         </p>
-        <label className="toggle-label" style={{ marginBottom: "0.5rem" }}>
+        <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground" style={{ marginBottom: "0.5rem" }}>
           <input
             type="checkbox"
             checked={project.disableBuiltInMcp ?? false}
@@ -1193,7 +1191,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
           Disable built-in yes-kanban MCP (only use configured servers below)
         </label>
         <textarea
-          className="settings-mcp-json"
+          className="min-h-[200px] w-full rounded-md border border-input bg-background p-2 font-mono text-[13px]"
           spellCheck={false}
           rows={14}
           value={mcpJsonValue}
@@ -1208,8 +1206,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
           <p style={{ color: "var(--destructive)", fontSize: "0.85rem", marginTop: "0.25rem" }}>{mcpJsonError}</p>
         )}
         <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
-          <button
-            className="btn btn-primary btn-sm"
+          <Button size="sm"
             disabled={!mcpJsonDirty || mcpJsonSaving}
             onClick={async () => {
               try {
@@ -1241,9 +1238,8 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
             }}
           >
             {mcpJsonSaving ? "Saving..." : "Save"}
-          </button>
-          <button
-            className="btn btn-sm"
+          </Button>
+          <Button variant="outline" size="sm"
             disabled={!mcpJsonDirty}
             onClick={() => {
               setMcpJsonDirty(false);
@@ -1251,23 +1247,23 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
             }}
           >
             Reset
-          </button>
+          </Button>
         </div>
       </section>
 
-      <section className="settings-section">
+      <section className="mb-8 max-w-[800px] space-y-3">
         <h2>
           Skills
-          <button className="btn btn-sm" onClick={() => { setShowInstallSkill(!showInstallSkill); setInstallError(null); }}>
+          <Button variant="outline" size="sm" onClick={() => { setShowInstallSkill(!showInstallSkill); setInstallError(null); }}>
             + Install
-          </button>
+          </Button>
         </h2>
-        <p className="settings-hint" style={{ fontSize: "0.85rem", opacity: 0.7, marginBottom: "0.5rem" }}>
+        <p className="text-sm text-muted-foreground" style={{ fontSize: "0.85rem", opacity: 0.7, marginBottom: "0.5rem" }}>
           Install skills from remote sources. When no skills are configured, all slash commands are disabled.
         </p>
         {showInstallSkill && (
           <form
-            className="inline-form"
+            className="mt-2 flex flex-wrap gap-2 items-center"
             style={{ flexDirection: "column", alignItems: "stretch", marginBottom: "0.5rem" }}
             onSubmit={async (e) => {
               e.preventDefault();
@@ -1296,17 +1292,17 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
               <p style={{ color: "var(--destructive)", fontSize: "0.85rem", margin: 0 }}>{installError}</p>
             )}
             <div style={{ display: "flex", gap: "0.5rem" }}>
-              <button type="submit" className="btn btn-primary btn-sm" disabled={!installSource.trim() || installing}>
+              <Button type="submit" size="sm" disabled={!installSource.trim() || installing}>
                 {installing ? "Installing..." : "Install"}
-              </button>
-              <button type="button" className="btn btn-sm" onClick={() => { setShowInstallSkill(false); setInstallError(null); }} disabled={installing}>
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => { setShowInstallSkill(false); setInstallError(null); }} disabled={installing}>
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         )}
         {skills?.map((skill) => (
-          <div key={skill._id} className="settings-row" style={{ flexDirection: "column", alignItems: "stretch" }}>
+          <div key={skill._id} className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-secondary/40 p-2 px-3" style={{ flexDirection: "column", alignItems: "stretch" }}>
             {editingSkillId === skill._id ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                 <input
@@ -1329,8 +1325,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                   style={{ fontFamily: "monospace", fontSize: "0.85rem" }}
                 />
                 <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button
-                    className="btn btn-primary btn-sm"
+                  <Button size="sm"
                     onClick={async () => {
                       await updateSkill({
                         id: skill._id,
@@ -1342,10 +1337,10 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                     }}
                   >
                     Save
-                  </button>
-                  <button className="btn btn-sm" onClick={() => setEditingSkillId(null)}>
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setEditingSkillId(null)}>
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -1365,8 +1360,8 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                     {skill.source}
                   </span>
                 )}
-                <span className="meta-value" style={{ flex: 1 }}>{skill.description}</span>
-                <label className="toggle-label">
+                <span className="font-mono text-xs text-muted-foreground" style={{ flex: 1 }}>{skill.description}</span>
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
                     checked={skill.enabled}
@@ -1375,8 +1370,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                   Enabled
                 </label>
                 {skill.sourceUrl && (
-                  <button
-                    className="btn btn-sm"
+                  <Button variant="outline" size="sm"
                     disabled={updatingSkillId === skill._id}
                     onClick={async () => {
                       setUpdatingSkillId(skill._id);
@@ -1391,11 +1385,10 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                     }}
                   >
                     {updatingSkillId === skill._id ? "Updating..." : "Update"}
-                  </button>
+                  </Button>
                 )}
                 {!skill.sourceRef && (
-                  <button
-                    className="btn btn-sm"
+                  <Button variant="outline" size="sm"
                     onClick={() => {
                       setEditingSkillId(skill._id);
                       setEditSkillForm({
@@ -1406,10 +1399,9 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                     }}
                   >
                     Edit
-                  </button>
+                  </Button>
                 )}
-                <button
-                  className="btn btn-sm btn-danger"
+                <Button variant="destructive" size="sm"
                   onClick={() => {
                     if (window.confirm(`Delete skill "${skill.name}"?`)) {
                       void removeSkill({ id: skill._id });
@@ -1417,11 +1409,11 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                   }}
                 >
                   Delete
-                </button>
+                </Button>
               </div>
             )}
             {updateSkillError?.id === skill._id && (
-              <p style={{ color: "var(--destructive)", fontSize: "0.85rem", margin: "0.25rem 0 0" }}>{updateSkillError.message}</p>
+              <p className="mt-1 text-[0.85rem] text-destructive">{updateSkillError.message}</p>
             )}
           </div>
         ))}
@@ -1432,7 +1424,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
       <IssueTemplatesSection projectId={projectId} />
 
       <section
-        className="settings-section"
+        className="mb-8 max-w-[800px] space-y-3"
         style={{
           border: "1px solid #ef4444",
           borderRadius: "8px",
@@ -1442,17 +1434,16 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
       >
         <h2 style={{ color: "#ef4444" }}>Danger Zone</h2>
         {!showDeleteProject ? (
-          <div className="settings-row">
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-secondary/40 p-2 px-3">
             <span>Permanently delete this project and all its data.</span>
-            <button
-              className="btn btn-sm btn-danger"
+            <Button variant="destructive" size="sm"
               onClick={() => setShowDeleteProject(true)}
             >
               Delete Project
-            </button>
+            </Button>
           </div>
         ) : (
-          <div className="settings-row" style={{ flexDirection: "column", alignItems: "flex-start", gap: "0.5rem" }}>
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-secondary/40 p-2 px-3" style={{ flexDirection: "column", alignItems: "flex-start", gap: "0.5rem" }}>
             <p>
               Type <strong>{project.name}</strong> to confirm deletion. This action cannot be undone.
             </p>
@@ -1464,24 +1455,22 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
               autoFocus
             />
             <div style={{ display: "flex", gap: "0.5rem" }}>
-              <button
-                className="btn btn-sm btn-danger"
+              <Button variant="destructive" size="sm"
                 disabled={deleteConfirmName !== project.name}
                 onClick={async () => {
                   await removeProject({ id: projectId });
                 }}
               >
                 Confirm Delete
-              </button>
-              <button
-                className="btn btn-sm"
+              </Button>
+              <Button variant="outline" size="sm"
                 onClick={() => {
                   setShowDeleteProject(false);
                   setDeleteConfirmName("");
                 }}
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         )}

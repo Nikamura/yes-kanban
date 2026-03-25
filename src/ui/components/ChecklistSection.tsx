@@ -2,6 +2,8 @@ import { useState, useRef, useCallback } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { Input } from "@/ui/components/ui/input";
+import { cn } from "@/ui/lib/utils";
 
 interface ChecklistItem {
   id: string;
@@ -85,58 +87,69 @@ export function ChecklistSection({
   };
 
   return (
-    <div className="checklist-section">
-      <h3>
+    <div className="mb-4 border-b border-border pb-4">
+      <h3 className="mb-2 text-base font-semibold">
         Checklist
         {checklist.length > 0 && (
-          <span className="checklist-progress-label">
+          <span className="ml-2 font-mono text-xs font-normal text-muted-foreground">
             {completedCount}/{checklist.length}
           </span>
         )}
       </h3>
 
       {checklist.length > 0 && (
-        <div className="checklist-progress-bar-container">
+        <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
           <div
-            className={`checklist-progress-bar ${completedCount === checklist.length ? "complete" : ""}`}
+            className={cn(
+              "h-full rounded-full bg-primary transition-[width]",
+              completedCount === checklist.length && "bg-emerald-600",
+            )}
             style={{ width: `${(completedCount / checklist.length) * 100}%` }}
           />
         </div>
       )}
 
-      <div className="checklist-items">
+      <div className="space-y-1">
         {checklist.map((item) => (
           <div
             key={item.id}
-            className={`checklist-item ${dragId === item.id ? "dragging" : ""}`}
+            className={cn(
+              "flex items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-sm",
+              dragId === item.id && "opacity-50",
+            )}
             draggable
             onDragStart={() => handleDragStart(item.id)}
             onDragOver={(e) => handleDragOver(e, item.id)}
             onDrop={handleDrop}
             onDragEnd={() => setDragId(null)}
           >
-            <span className="checklist-drag-handle" title="Drag to reorder">&#8942;</span>
+            <span className="cursor-grab text-muted-foreground select-none" title="Drag to reorder">
+              &#8942;
+            </span>
             <input
               type="checkbox"
-              className="checklist-checkbox"
+              className="size-4 shrink-0 rounded border-input"
               checked={item.completed}
               onChange={() => toggleItem({ issueId, itemId: item.id })}
             />
             {editingId === item.id ? (
-              <input
-                className="checklist-edit-input"
+              <Input
+                className="h-8 flex-1"
                 value={editText}
                 onChange={(e) => setEditText(e.target.value)}
                 onBlur={handleSaveEdit}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSaveEdit();
+                  if (e.key === "Enter") void handleSaveEdit();
                   if (e.key === "Escape") setEditingId(null);
                 }}
                 autoFocus
               />
             ) : (
               <span
-                className={`checklist-item-text ${item.completed ? "completed" : ""}`}
+                className={cn(
+                  "min-w-0 flex-1 cursor-text",
+                  item.completed && "text-muted-foreground line-through",
+                )}
                 onClick={() => handleStartEdit(item)}
               >
                 {item.text}
@@ -144,7 +157,7 @@ export function ChecklistSection({
             )}
             <button
               type="button"
-              className="checklist-item-remove"
+              className="shrink-0 rounded px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
               onClick={() => removeItem({ issueId, itemId: item.id })}
               title="Remove item"
             >
@@ -154,14 +167,14 @@ export function ChecklistSection({
         ))}
       </div>
 
-      <input
-        className="checklist-add-input"
+      <Input
+        className="mt-2"
         placeholder="Add item..."
         value={newItemText}
         onChange={(e) => setNewItemText(e.target.value)}
         autoComplete="off"
         onKeyDown={(e) => {
-          if (e.key === "Enter") handleAdd();
+          if (e.key === "Enter") void handleAdd();
         }}
       />
     </div>

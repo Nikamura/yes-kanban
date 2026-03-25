@@ -2,7 +2,10 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useState } from "react";
 import type { Id } from "../../../convex/_generated/dataModel";
-
+import { Button } from "@/ui/components/ui/button";
+import { Badge } from "@/ui/components/ui/badge";
+import { Input } from "@/ui/components/ui/input";
+import { Textarea } from "@/ui/components/ui/textarea";
 const CATEGORIES = ["bug", "feature", "refactor", "docs"] as const;
 
 export function IssueTemplatesSection({ projectId }: { projectId: Id<"projects"> }) {
@@ -27,20 +30,20 @@ export function IssueTemplatesSection({ projectId }: { projectId: Id<"projects">
   });
 
   return (
-    <section className="settings-section">
-      <h2>
+    <section className="mb-8 max-w-[800px] space-y-3">
+      <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold">
         Issue Templates
-        <button className="btn btn-sm" onClick={() => setShowAdd(!showAdd)}>
+        <Button size="sm" variant="outline" onClick={() => setShowAdd(!showAdd)}>
           + Add
-        </button>
+        </Button>
       </h2>
-      <p className="settings-hint">
+      <p className="text-sm text-muted-foreground">
         Templates pre-fill issue fields when creating new issues.
       </p>
 
       {showAdd && (
         <form
-          className="inline-form template-form"
+          className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
           onSubmit={async (e) => {
             e.preventDefault();
             if (!form.name.trim()) return;
@@ -58,14 +61,16 @@ export function IssueTemplatesSection({ projectId }: { projectId: Id<"projects">
             setShowAdd(false);
           }}
         >
-          <div className="template-form-row">
-            <input
+          <div className="flex flex-wrap gap-2">
+            <Input
               placeholder="Template name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               autoComplete="off"
+              className="min-w-[150px] flex-1"
             />
             <select
+              className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
               value={form.category}
               onChange={(e) => setForm({ ...form, category: e.target.value })}
             >
@@ -75,44 +80,43 @@ export function IssueTemplatesSection({ projectId }: { projectId: Id<"projects">
               ))}
             </select>
           </div>
-          <textarea
-            className="template-textarea"
+          <Textarea
             placeholder="Description template (Markdown)"
             value={form.descriptionTemplate}
             onChange={(e) => setForm({ ...form, descriptionTemplate: e.target.value })}
             rows={4}
+            className="font-mono text-sm"
           />
-          <div className="template-form-row">
-            <input
-              placeholder="Default tags (comma separated)"
-              value={form.defaultTags}
-              onChange={(e) => setForm({ ...form, defaultTags: e.target.value })}
-              autoComplete="off"
-            />
-          </div>
-          <div className="template-form-row">
-            <button type="submit" className="btn btn-primary btn-sm" disabled={!form.name.trim()}>
+          <Input
+            placeholder="Default tags (comma separated)"
+            value={form.defaultTags}
+            onChange={(e) => setForm({ ...form, defaultTags: e.target.value })}
+            autoComplete="off"
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" size="sm" disabled={!form.name.trim()}>
               Add
-            </button>
-            <button type="button" className="btn btn-sm" onClick={() => setShowAdd(false)}>
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setShowAdd(false)}>
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       )}
 
       {templates?.map((t) => (
-        <div key={t._id} className="settings-row template-row">
+        <div key={t._id} className="rounded-lg border border-border bg-secondary/30 p-3">
           {editingId === t._id ? (
-            <div className="template-form">
-              <div className="template-form-row">
-                <input
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap gap-2">
+                <Input
                   placeholder="Name"
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                   autoComplete="off"
                 />
                 <select
+                  className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
                   value={editForm.category}
                   onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                 >
@@ -122,24 +126,22 @@ export function IssueTemplatesSection({ projectId }: { projectId: Id<"projects">
                   ))}
                 </select>
               </div>
-              <textarea
-                className="template-textarea"
+              <Textarea
                 placeholder="Description template"
                 value={editForm.descriptionTemplate}
                 onChange={(e) => setEditForm({ ...editForm, descriptionTemplate: e.target.value })}
                 rows={4}
+                className="font-mono text-sm"
               />
-              <div className="template-form-row">
-                <input
-                  placeholder="Default tags (comma separated)"
-                  value={editForm.defaultTags}
-                  onChange={(e) => setEditForm({ ...editForm, defaultTags: e.target.value })}
-                  autoComplete="off"
-                />
-              </div>
-              <div className="template-form-row">
-                <button
-                  className="btn btn-primary btn-sm"
+              <Input
+                placeholder="Default tags (comma separated)"
+                value={editForm.defaultTags}
+                onChange={(e) => setEditForm({ ...editForm, defaultTags: e.target.value })}
+                autoComplete="off"
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
                   onClick={async () => {
                     await updateTemplate({
                       id: t._id,
@@ -155,47 +157,51 @@ export function IssueTemplatesSection({ projectId }: { projectId: Id<"projects">
                   }}
                 >
                   Save
-                </button>
-                <button className="btn btn-sm" onClick={() => setEditingId(null)}>
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
                   Cancel
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
-            <div className="template-row-display">
-              <span>{t.name}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium">{t.name}</span>
               {t.category && (
-                <span className="template-category-badge">
+                <Badge variant="secondary" className="text-[10px] capitalize">
                   {t.category}
-                </span>
+                </Badge>
               )}
               {t.defaultTags.length > 0 && (
-                <span className="meta-value">{t.defaultTags.join(", ")}</span>
+                <span className="font-mono text-xs text-muted-foreground">{t.defaultTags.join(", ")}</span>
               )}
-              <button
-                className="btn btn-sm template-edit-btn"
-                onClick={() => {
-                  setEditingId(t._id);
-                  setEditForm({
-                    name: t.name,
-                    descriptionTemplate: t.descriptionTemplate,
-                    defaultTags: t.defaultTags.join(", "),
-                    category: t.category ?? "",
-                  });
-                }}
-              >
-                Edit
-              </button>
-              <button
-                className="btn btn-sm btn-danger"
-                onClick={() => {
-                  if (window.confirm(`Delete template "${t.name}"?`)) {
-                    void removeTemplate({ id: t._id });
-                  }
-                }}
-              >
-                Delete
-              </button>
+              <div className="ml-auto flex flex-wrap gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setEditingId(t._id);
+                    setEditForm({
+                      name: t.name,
+                      descriptionTemplate: t.descriptionTemplate,
+                      defaultTags: t.defaultTags.join(", "),
+                      category: t.category ?? "",
+                    });
+                  }}
+                >
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => {
+                    if (window.confirm(`Delete template "${t.name}"?`)) {
+                      void removeTemplate({ id: t._id });
+                    }
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
             </div>
           )}
         </div>

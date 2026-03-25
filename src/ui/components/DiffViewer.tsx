@@ -22,6 +22,17 @@ import {
   type SplitRow,
   type UnifiedRow,
 } from "../diffParse";
+import { cn } from "@/ui/lib/utils";
+import { Button } from "@/ui/components/ui/button";
+import {
+  diffBinaryNoteClass,
+  diffFileStatusTextClass,
+  diffHunkHeaderClass,
+  diffLineContentClass,
+  diffLineNumClass,
+  diffUnifiedPreClass,
+  diffVirtSectionClass,
+} from "@/ui/lib/diffUi";
 
 const VIRTUALIZED_DIFF_THRESHOLD = 500;
 const DIFF_VIEW_MODE_KEY = "yk-diff-view-mode";
@@ -66,17 +77,17 @@ export function DiffViewer({ worktrees, diffOutput }: DiffViewerProps) {
 
   if (!diffOutput) {
     return (
-      <div className="diff-viewer">
+      <div className="box-border flex h-full min-h-0 flex-1 flex-col overflow-y-auto p-3">
         {worktrees.map((wt) => (
-          <div key={wt.worktreePath} className="diff-worktree">
-            <div className="diff-worktree-header">
-              <code>{wt.branchName}</code>
-              <span className="meta-value">vs {wt.baseBranch}</span>
+          <div key={wt.worktreePath} className="mb-5">
+            <div className="mb-2 flex items-center gap-2 rounded-sm bg-secondary px-3 py-2">
+              <code className="font-mono text-[13px]">{wt.branchName}</code>
+              <span className="font-mono text-xs text-muted-foreground">vs {wt.baseBranch}</span>
             </div>
-            <div className="diff-placeholder">
+            <div className="px-6 py-8 text-center text-[13px] text-muted-foreground">
               <p>Diff will appear here as the agent makes changes.</p>
-              <p>
-                <code>
+              <p className="mt-2">
+                <code className="mt-2 block font-mono text-[12px]">
                   git diff {wt.baseBranch}..{wt.branchName}
                 </code>
               </p>
@@ -89,8 +100,8 @@ export function DiffViewer({ worktrees, diffOutput }: DiffViewerProps) {
 
   if (files.length === 0) {
     return (
-      <div className="diff-viewer">
-        <div className="diff-placeholder">
+      <div className="box-border flex h-full min-h-0 flex-1 flex-col overflow-y-auto p-3">
+        <div className="px-6 py-8 text-center text-[13px] text-muted-foreground">
           <p>No file changes detected.</p>
         </div>
       </div>
@@ -177,36 +188,50 @@ function DiffViewerLoaded({
   }, []);
 
   return (
-    <div className="diff-viewer diff-unified-wrap" ref={scrollRef}>
-      <div className="diff-toolbar" role="toolbar" aria-label="Diff view options">
-        <div className="diff-view-toggle" role="group" aria-label="Unified or split diff">
-          <button
+    <div
+      className="box-border flex min-h-0 flex-1 flex-col overflow-y-auto p-3"
+      ref={scrollRef}
+    >
+      <div
+        className="mb-2 flex flex-wrap items-center gap-2"
+        data-testid="diff-toolbar"
+        role="toolbar"
+        aria-label="Diff view options"
+      >
+        <div className="flex gap-1 rounded-md border border-border p-0.5" role="group" aria-label="Unified or split diff">
+          <Button
             type="button"
-            className={effectiveMode === "unified" ? "is-active" : undefined}
+            size="sm"
+            variant={effectiveMode === "unified" ? "default" : "outline"}
+            aria-pressed={effectiveMode === "unified"}
+            data-testid="diff-view-toggle-unified"
             onClick={() => setMode("unified")}
           >
             Unified
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className={effectiveMode === "split" ? "is-active" : undefined}
+            size="sm"
+            variant={effectiveMode === "split" ? "default" : "outline"}
+            aria-pressed={effectiveMode === "split"}
+            data-testid="diff-view-toggle-split"
             disabled={narrow}
             onClick={() => setMode("split")}
             title={narrow ? "Split view needs a wider panel (about 700px)" : undefined}
           >
             Split
-          </button>
+          </Button>
         </div>
-        <div className="diff-collapse-actions">
-          <button type="button" onClick={expandAll}>
+        <div className="flex flex-wrap gap-1">
+          <Button type="button" size="sm" variant="outline" onClick={expandAll}>
             Expand all
-          </button>
-          <button type="button" onClick={collapseAll}>
+          </Button>
+          <Button type="button" size="sm" variant="outline" onClick={collapseAll}>
             Collapse all
-          </button>
+          </Button>
         </div>
       </div>
-      <div className="diff-unified" role="region" aria-label="Diff">
+      <div className="min-h-0 flex-1" role="region" aria-label="Diff">
         {useVirtual ? (
           <VirtualizedDiff
             flatItems={flatItems}
@@ -247,41 +272,47 @@ function FileSection({
   const stats = computeFileStats(file);
 
   return (
-    <section className="diff-file-section">
+    <section className="mb-4 overflow-hidden rounded-sm border border-border bg-card" data-testid="diff-file-section">
       <header
-        className="diff-file-section-header"
+        className="flex cursor-pointer items-center gap-2 border-b border-border bg-secondary px-3 py-2 text-[13px]"
+        data-testid="diff-file-section-header"
         onClick={onToggle}
         onKeyDown={(e) => handleCollapsibleHeaderKeyDown(e, onToggle)}
         role="button"
         tabIndex={0}
         aria-expanded={!collapsed}
       >
-        <span className="diff-chevron" aria-hidden="true">
+        <span className="w-3 shrink-0 text-center text-muted-foreground" aria-hidden="true">
           {collapsed ? "▸" : "▾"}
         </span>
-        <span className={`diff-file-status diff-file-${file.status}`}>
+        <span
+          className={cn("w-[18px] shrink-0 text-center text-[11px] font-bold", diffFileStatusTextClass(file.status))}
+          data-testid="diff-file-status"
+        >
           {file.status === "added" ? "A" : file.status === "deleted" ? "D" : "M"}
         </span>
-        <code className="diff-file-section-path">{file.path}</code>
-        <span className="diff-file-stats">
+        <code className="min-w-0 flex-1 break-all font-mono text-[13px] text-foreground" data-testid="diff-file-section-path">
+          {file.path}
+        </code>
+        <span className="flex shrink-0 gap-2 font-mono text-xs">
           {stats.additions > 0 && (
-            <span className="diff-stat-add" title="Additions">
+            <span className="text-emerald-600 dark:text-emerald-400" title="Additions" data-testid="diff-stat-add">
               +{stats.additions}
             </span>
           )}
           {stats.deletions > 0 && (
-            <span className="diff-stat-del" title="Deletions">
+            <span className="text-red-600 dark:text-red-400" title="Deletions" data-testid="diff-stat-del">
               −{stats.deletions}
             </span>
           )}
         </span>
       </header>
       {!collapsed && file.isBinary ? (
-        <p className="diff-binary-note">Binary file (diff not shown)</p>
+        <p className={diffBinaryNoteClass}>Binary file (diff not shown)</p>
       ) : !collapsed && file.hunks.length === 0 ? (
-        <p className="diff-binary-note">No textual changes in diff output</p>
+        <p className={diffBinaryNoteClass}>No textual changes in diff output</p>
       ) : !collapsed ? (
-        <div className="diff-unified-pre">
+        <div className={diffUnifiedPreClass} data-testid="diff-unified-pre">
           {mode === "split"
             ? file.hunks.map((hunk, hi) => <HunkBlockSplit key={`${file.path}-s-${hi}`} hunk={hunk} />)
             : file.hunks.map((hunk, hi) => <HunkBlock key={`${file.path}-${hi}`} hunk={hunk} />)}
@@ -321,7 +352,7 @@ function VirtualizedDiff({
   const vItems = virtualizer.getVirtualItems();
 
   return (
-    <div className="diff-unified-pre">
+    <div className={diffUnifiedPreClass} data-testid="diff-unified-pre">
       <div
         style={{
           height: `${virtualizer.getTotalSize()}px`,
@@ -379,16 +410,6 @@ function estimateFlatItemSize(item: FlatDiffItem | undefined): number {
   }
 }
 
-function buildVirtSectionClass(item: FlatDiffItem, totalFiles: number): string {
-  const classes = ["diff-virt-row", "diff-virt-file-body"];
-  if (item.isFirstInFile) classes.push("diff-virt-file-first");
-  if (item.isLastInFile) {
-    classes.push("diff-virt-file-last");
-    if (item.fileIndex < totalFiles - 1) classes.push("diff-virt-file-gap-after");
-  }
-  return classes.join(" ");
-}
-
 const FlatItemRenderer = memo(function FlatItemRenderer({
   item,
   totalFiles,
@@ -401,34 +422,40 @@ const FlatItemRenderer = memo(function FlatItemRenderer({
   fileHeaderCollapsed: boolean;
   onToggleFile: (fileIndex: number) => void;
 }) {
-  const sectionClass = buildVirtSectionClass(item, totalFiles);
+  const sectionClass = diffVirtSectionClass(item, totalFiles);
 
   if (item.kind === "file-header") {
     return (
-      <div className={sectionClass}>
+      <div className={sectionClass} data-testid="diff-file-section">
         <header
-          className="diff-file-section-header"
+          className="flex cursor-pointer items-center gap-2 border-b border-border bg-secondary px-3 py-2 text-[13px]"
+          data-testid="diff-file-section-header"
           onClick={() => onToggleFile(item.fileIndex)}
           onKeyDown={(e) => handleCollapsibleHeaderKeyDown(e, () => onToggleFile(item.fileIndex))}
           role="button"
           tabIndex={0}
           aria-expanded={!fileHeaderCollapsed}
         >
-          <span className="diff-chevron" aria-hidden="true">
+          <span className="w-3 shrink-0 text-center text-muted-foreground" aria-hidden="true">
             {fileHeaderCollapsed ? "▸" : "▾"}
           </span>
-          <span className={`diff-file-status diff-file-${item.status}`}>
+          <span
+            className={cn("w-[18px] shrink-0 text-center text-[11px] font-bold", diffFileStatusTextClass(item.status))}
+            data-testid="diff-file-status"
+          >
             {item.status === "added" ? "A" : item.status === "deleted" ? "D" : "M"}
           </span>
-          <code className="diff-file-section-path">{item.path}</code>
-          <span className="diff-file-stats">
+          <code className="min-w-0 flex-1 break-all font-mono text-[13px]" data-testid="diff-file-section-path">
+            {item.path}
+          </code>
+          <span className="flex shrink-0 gap-2 font-mono text-xs">
             {item.additions > 0 && (
-              <span className="diff-stat-add" title="Additions">
+              <span className="text-emerald-600 dark:text-emerald-400" title="Additions" data-testid="diff-stat-add">
                 +{item.additions}
               </span>
             )}
             {item.deletions > 0 && (
-              <span className="diff-stat-del" title="Deletions">
+              <span className="text-red-600 dark:text-red-400" title="Deletions" data-testid="diff-stat-del">
                 −{item.deletions}
               </span>
             )}
@@ -441,7 +468,7 @@ const FlatItemRenderer = memo(function FlatItemRenderer({
   if (item.kind === "binary-note") {
     return (
       <div className={sectionClass}>
-        <p className="diff-binary-note">Binary file (diff not shown)</p>
+        <p className={diffBinaryNoteClass}>Binary file (diff not shown)</p>
       </div>
     );
   }
@@ -449,7 +476,7 @@ const FlatItemRenderer = memo(function FlatItemRenderer({
   if (item.kind === "no-changes-note") {
     return (
       <div className={sectionClass}>
-        <p className="diff-binary-note">No textual changes in diff output</p>
+        <p className={diffBinaryNoteClass}>No textual changes in diff output</p>
       </div>
     );
   }
@@ -457,7 +484,7 @@ const FlatItemRenderer = memo(function FlatItemRenderer({
   if (item.kind === "hunk-header") {
     return (
       <div className={sectionClass}>
-        <div className="diff-hunk-header">{item.text}</div>
+        <div className={diffHunkHeaderClass}>{item.text}</div>
       </div>
     );
   }
@@ -502,33 +529,32 @@ function HunkBlockSplit({ hunk }: { hunk: { header: string; lines: string[] } })
 
 function UnifiedRowView({ row }: { row: UnifiedRow }) {
   if (row.kind === "hunk-header") {
-    return <div className="diff-hunk-header">{row.text}</div>;
+    return <div className={diffHunkHeaderClass}>{row.text}</div>;
   }
-  const lineClass =
-    row.kind === "add"
-      ? "diff-line diff-line-add"
-      : row.kind === "del"
-        ? "diff-line diff-line-del"
-        : row.kind === "meta"
-          ? "diff-line diff-line-meta"
-          : "diff-line diff-line-context";
+  const lineClass = cn(
+    "grid grid-cols-[3.25rem_3.25rem_minmax(0,1fr)] items-stretch font-mono text-[12px] leading-snug",
+    row.kind === "add" && "bg-emerald-500/10 dark:bg-emerald-500/15",
+    row.kind === "del" && "bg-red-500/10 dark:bg-red-500/15",
+    row.kind === "meta" && "bg-card italic text-muted-foreground",
+    row.kind === "context" && "bg-transparent",
+  );
   return (
-    <div className={lineClass}>
-      <span className="diff-line-number diff-line-number-old">{row.oldNum ?? ""}</span>
-      <span className="diff-line-number diff-line-number-new">{row.newNum ?? ""}</span>
-      <span className="diff-line-content">{row.text}</span>
+    <div className={lineClass} data-testid="diff-line">
+      <span className={diffLineNumClass}>{row.oldNum ?? ""}</span>
+      <span className={diffLineNumClass}>{row.newNum ?? ""}</span>
+      <span className={diffLineContentClass}>{row.text}</span>
     </div>
   );
 }
 
 function SplitRowView({ row }: { row: SplitRow }) {
   if (row.kind === "hunk-header") {
-    return <div className="diff-hunk-header">{row.hunkText}</div>;
+    return <div className={diffHunkHeaderClass}>{row.hunkText}</div>;
   }
   if (row.kind === "meta") {
     return (
-      <div className="diff-split-meta-row">
-        <span className="diff-split-meta-text">{row.metaText}</span>
+      <div className="bg-card px-2 py-1 text-center text-[12px] italic text-muted-foreground">
+        <span>{row.metaText}</span>
       </div>
     );
   }
@@ -538,41 +564,46 @@ function SplitRowView({ row }: { row: SplitRow }) {
   if (left === undefined || right === undefined) {
     return null;
   }
-  const rowClass = ["diff-split-line"];
-  if (left.type === "context" && right.type === "context") rowClass.push("diff-split-pair-ctx");
-  if (left.type === "del") rowClass.push("diff-split-left-del");
-  if (right.type === "add") rowClass.push("diff-split-right-add");
-  if (left.type === "empty") rowClass.push("diff-split-left-empty");
-  if (right.type === "empty") rowClass.push("diff-split-right-empty");
+  const rowClass =
+    "grid grid-cols-[2.75rem_minmax(0,1fr)_6px_2.75rem_minmax(0,1fr)] items-stretch font-mono text-[12px] leading-snug";
 
   return (
-    <div className={rowClass.join(" ")}>
+    <div className={rowClass} data-testid="diff-split-line">
       <span
-        className={`diff-line-number diff-split-num-left ${
-          left.type === "del" ? "diff-split-num-del" : ""
-        } ${left.type === "empty" ? "diff-split-num-empty" : ""}`}
+        className={cn(
+          diffLineNumClass,
+          left.type === "del" && "text-red-600 dark:text-red-400",
+          left.type === "empty" && "text-muted-foreground/50",
+        )}
       >
         {left.num}
       </span>
       <span
-        className={`diff-line-content diff-split-content-left ${
-          left.type === "empty" ? "diff-split-empty-cell" : ""
-        }`}
+        className={cn(
+          diffLineContentClass,
+          "border-r border-border/60",
+          left.type === "del" && "bg-red-500/10 dark:bg-red-500/15",
+          left.type === "empty" && "bg-muted/40 text-muted-foreground/40",
+        )}
       >
         {left.text}
       </span>
-      <span className="diff-split-gutter" aria-hidden />
+      <span className="min-h-full bg-border/80" aria-hidden />
       <span
-        className={`diff-line-number diff-split-num-right ${
-          right.type === "add" ? "diff-split-num-add" : ""
-        } ${right.type === "empty" ? "diff-split-num-empty" : ""}`}
+        className={cn(
+          diffLineNumClass,
+          right.type === "add" && "text-emerald-600 dark:text-emerald-400",
+          right.type === "empty" && "text-muted-foreground/50",
+        )}
       >
         {right.num}
       </span>
       <span
-        className={`diff-line-content diff-split-content-right ${
-          right.type === "empty" ? "diff-split-empty-cell" : ""
-        }`}
+        className={cn(
+          diffLineContentClass,
+          right.type === "add" && "bg-emerald-500/10 dark:bg-emerald-500/15",
+          right.type === "empty" && "bg-muted/40 text-muted-foreground/40",
+        )}
       >
         {right.text}
       </span>

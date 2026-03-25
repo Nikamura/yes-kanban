@@ -38,13 +38,13 @@ test.describe("Board", () => {
     await addButtons.first().click();
 
     const uniqueTitle = `E2E issue ${Date.now()}`;
-    await page.getByRole("textbox", { name: /needs to be done/i }).fill(uniqueTitle);
+    await page.getByRole("textbox", { name: "Title" }).fill(uniqueTitle);
     await page.getByRole("textbox", { name: /description/i }).fill("Automated test description");
     await page.getByRole("textbox", { name: /tag/i }).fill("e2e, test");
     await page.getByRole("button", { name: "Create", exact: true }).click();
 
     await expect(page.getByText(uniqueTitle)).toBeVisible();
-    await expect(page.locator(".issue-tag").filter({ hasText: "e2e" }).first()).toBeVisible();
+    await expect(page.getByTestId("issue-tag").filter({ hasText: "e2e" }).first()).toBeVisible();
   });
 
   test("can create an issue with file attachment", async ({ page }) => {
@@ -54,13 +54,11 @@ test.describe("Board", () => {
     await expect(page.getByRole("heading", { name: "Create Issue" })).toBeVisible();
 
     const uniqueTitle = `Attachment issue ${Date.now()}`;
-    await page.getByRole("textbox", { name: /needs to be done/i }).fill(uniqueTitle);
+    await page.getByRole("textbox", { name: "Title" }).fill(uniqueTitle);
     await page.getByRole("textbox", { name: /description/i }).fill("Issue with attachment");
 
-    // Verify drop zone is visible
-    await expect(page.locator(".drop-zone")).toBeVisible();
+    await expect(page.getByTestId("create-issue-drop-zone")).toBeVisible();
 
-    // Attach a file via the hidden file input
     const fileInput = page.getByTestId("create-issue-file-input");
     await fileInput.setInputFiles({
       name: "test-file.txt",
@@ -68,30 +66,25 @@ test.describe("Board", () => {
       buffer: Buffer.from("Hello from E2E test"),
     });
 
-    // Verify the pending file appears in the list
-    await expect(page.locator(".pending-files .attachment-name").filter({ hasText: "test-file.txt" })).toBeVisible();
-    await expect(page.locator(".pending-files .attachment-size")).toHaveText("19 B");
+    await expect(page.getByTestId("pending-attachment-name").filter({ hasText: "test-file.txt" })).toBeVisible();
+    await expect(page.getByTestId("pending-attachment-size")).toHaveText("19 B");
 
-    // Can remove a pending file
-    await page.locator(".pending-files .btn-danger").click();
-    await expect(page.locator(".pending-files")).toBeHidden();
+    await page.getByRole("button", { name: "Remove" }).click();
+    await expect(page.getByTestId("pending-files")).toBeHidden();
 
-    // Re-attach for creation
     await fileInput.setInputFiles({
       name: "test-file.txt",
       mimeType: "text/plain",
       buffer: Buffer.from("Hello from E2E test"),
     });
-    await expect(page.locator(".pending-files .attachment-name").filter({ hasText: "test-file.txt" })).toBeVisible();
+    await expect(page.getByTestId("pending-attachment-name").filter({ hasText: "test-file.txt" })).toBeVisible();
 
     await page.getByRole("button", { name: "Create", exact: true }).click();
 
-    // Wait for dialog to close (uses allSettled so closes even if upload fails)
     await expect(page.locator('[data-slot="dialog-overlay"]')).toBeHidden({
       timeout: 15000,
     });
 
-    // Verify issue was created
     await expect(page.getByText(uniqueTitle)).toBeVisible();
   });
 
@@ -101,9 +94,9 @@ test.describe("Board", () => {
     const issueCard = page.getByTestId("issue-card").first();
     await issueCard.click();
 
-    await expect(page.locator(".detail-panel")).toBeVisible();
-    await expect(page.locator(".panel-header .issue-id")).toBeVisible();
-    await expect(page.locator(".detail-panel").getByText("Recurrence")).not.toBeVisible();
+    await expect(page.getByTestId("issue-detail-panel")).toBeVisible();
+    await expect(page.getByTestId("issue-detail-simple-id")).toBeVisible();
+    await expect(page.getByTestId("issue-detail-panel").getByText("Recurrence")).not.toBeVisible();
   });
 
   test("can navigate to settings", async ({ page }) => {
@@ -122,14 +115,14 @@ test.describe("Board", () => {
 
     const issueCard = page.getByTestId("issue-card").first();
     await issueCard.click();
-    await expect(page.locator(".detail-panel")).toBeVisible();
+    await expect(page.getByTestId("issue-detail-panel")).toBeVisible();
 
     const uniqueComment = `Comment ${Date.now()}`;
-    const commentBox = page.locator(".comment-form textarea");
+    const commentBox = page.getByTestId("comment-form").locator("textarea");
     await commentBox.fill(uniqueComment);
-    await page.locator(".comment-form .btn-primary").click();
+    await page.getByTestId("comment-form").getByRole("button", { name: "Comment" }).click();
 
-    await expect(page.locator(".comment-body").filter({ hasText: uniqueComment })).toBeVisible();
+    await expect(page.getByTestId("issue-detail-panel").getByText(uniqueComment)).toBeVisible();
   });
 
   test("shows dispatch status in settings", async ({ page }) => {
@@ -147,37 +140,32 @@ test.describe("Board", () => {
 
     await page.getByRole("button", { name: "Settings" }).click();
     await expect(page.getByText("Prompt Templates")).toBeVisible();
-    await expect(page.getByText("No custom templates")).toBeVisible({
+    await expect(page.getByText(/No custom templates/)).toBeVisible({
       timeout: 10_000,
     });
 
-    // Create a new template
-    const section = page.locator(".settings-section").filter({ hasText: "Prompt Templates" });
+    const section = page.getByTestId("prompt-templates-section");
     await section.getByRole("button", { name: "+ Add" }).click();
 
     await section.locator("input[placeholder='Template name']").fill("My Workflow");
-    const textarea = section.locator("textarea.import-textarea");
+    const textarea = section.locator("textarea").first();
     await textarea.fill("Custom instructions for {{issueId}}");
     await section.getByRole("button", { name: "Create" }).click();
 
-    // Verify template appears
     await expect(page.getByText("My Workflow")).toBeVisible();
-    await expect(page.locator(".badge").filter({ hasText: "Active" })).toBeVisible();
+    await expect(section.getByText("Active", { exact: true })).toBeVisible();
   });
 
   test("clicking Yes Kanban title navigates to board", async ({ page }) => {
     await ensureBoardWithIssue(page);
 
-    // Navigate away from board to settings
     await page.getByRole("button", { name: "Settings" }).click();
     await expect(page.getByRole("heading", { name: "Workflow" })).toBeVisible();
 
-    // Click the Yes Kanban title
     await page.getByRole("heading", { name: "Yes Kanban" }).click();
 
-    // Should be back on board view
     await expect(page.getByTestId("column-name").first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Board", exact: true })).toHaveClass(/active/);
+    await expect(page.getByRole("button", { name: "Board", exact: true })).toHaveClass(/bg-primary/);
   });
 
   test("can navigate to dashboard", async ({ page }) => {
@@ -185,32 +173,27 @@ test.describe("Board", () => {
 
     await page.getByRole("button", { name: "Dashboard" }).click();
 
-    await expect(page.locator(".dashboard-wrapper")).toBeVisible();
+    await expect(page.getByTestId("dashboard-wrapper")).toBeVisible();
     await expect(page.getByText("Cumulative Flow")).toBeVisible();
   });
 
   test("issue detail URL persists across page refresh", async ({ page }) => {
     await ensureBoardWithIssue(page);
 
-    // Open issue detail
     const issueCard = page.getByTestId("issue-card").first();
     await issueCard.click();
-    await expect(page.locator(".detail-panel")).toBeVisible();
+    await expect(page.getByTestId("issue-detail-panel")).toBeVisible();
 
-    // Get the issue simpleId from the panel header
-    const simpleId = await page.locator(".panel-header .issue-id").innerText();
+    const simpleId = await page.getByTestId("issue-detail-simple-id").innerText();
 
-    // Verify URL contains the issue simpleId
     const url = page.url();
     expect(url).toContain(simpleId);
 
-    // Refresh the page
     await page.reload();
     await page.waitForTimeout(1500);
 
-    // Issue detail should still be open after refresh
-    await expect(page.locator(".detail-panel")).toBeVisible();
-    await expect(page.locator(".panel-header .issue-id")).toHaveText(simpleId);
+    await expect(page.getByTestId("issue-detail-panel")).toBeVisible();
+    await expect(page.getByTestId("issue-detail-simple-id")).toHaveText(simpleId);
   });
 
   test("ESC closes create project dialog", async ({ page }) => {
@@ -245,33 +228,29 @@ test.describe("Board", () => {
     await ensureBoardWithIssue(page);
 
     await page.getByTestId("issue-card").first().click();
-    await expect(page.locator(".detail-panel")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId("issue-detail-panel")).toBeVisible({ timeout: 5000 });
 
     await page.keyboard.press("Escape");
-    await expect(page.locator(".detail-panel")).toBeHidden({ timeout: 5000 });
+    await expect(page.getByTestId("issue-detail-panel")).toBeHidden({ timeout: 5000 });
   });
 
   test("list view issue detail URL persists across page refresh", async ({ page }) => {
     await ensureBoardWithIssue(page);
 
-    // Switch to list view
     await page.getByRole("button", { name: "List" }).click();
-    await expect(page.locator(".list-view")).toBeVisible();
+    await expect(page.getByTestId("list-view")).toBeVisible();
 
-    // Click an issue in the table (desktop) or card (mobile)
-    const tableRow = page.locator(".list-table tbody tr").first();
+    const tableRow = page.getByTestId("list-table").locator("tbody tr").first();
     await tableRow.click();
-    await expect(page.locator(".detail-panel")).toBeVisible();
+    await expect(page.getByTestId("issue-detail-panel")).toBeVisible();
 
-    const simpleId = await page.locator(".panel-header .issue-id").innerText();
+    const simpleId = await page.getByTestId("issue-detail-simple-id").innerText();
     expect(page.url()).toContain(simpleId);
 
-    // Refresh
     await page.reload();
     await page.waitForTimeout(1500);
 
-    // Issue detail should still be open
-    await expect(page.locator(".detail-panel")).toBeVisible();
-    await expect(page.locator(".panel-header .issue-id")).toHaveText(simpleId);
+    await expect(page.getByTestId("issue-detail-panel")).toBeVisible();
+    await expect(page.getByTestId("issue-detail-simple-id")).toHaveText(simpleId);
   });
 });

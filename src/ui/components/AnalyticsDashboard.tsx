@@ -5,6 +5,8 @@ import {
 } from "recharts";
 import { useAnalyticsData } from "../hooks/useAnalyticsData";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { Button } from "@/ui/components/ui/button";
+import { Input } from "@/ui/components/ui/input";
 
 const PRESETS = [
   { label: "7d", days: 7 },
@@ -24,8 +26,12 @@ const CHART_THEME = {
 
 function formatWeekLabel(label: unknown): string {
   const week = String(label);
-  const [y, m, d] = week.split("-").map(Number);
-  const date = new Date(y!, m! - 1, d);
+  const parts = week.split("-").map(Number);
+  const y = parts[0];
+  const m = parts[1];
+  const d = parts[2];
+  if (y === undefined || m === undefined || d === undefined) return week;
+  const date = new Date(y, m - 1, d);
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
@@ -59,48 +65,59 @@ export function AnalyticsDashboard({ projectId }: { projectId: Id<"projects"> })
     tags: selectedTags.length > 0 ? selectedTags : undefined,
   });
 
-  if (isLoading) return <div className="loading">Loading analytics...</div>;
+  if (isLoading) {
+    return (
+      <div className="flex flex-1 items-center justify-center gap-2 p-8 text-muted-foreground">
+        <div className="size-6 animate-spin rounded-full border-2 border-border border-t-primary" />
+        Loading analytics...
+      </div>
+    );
+  }
 
   const hasData = summary.totalCreated > 0 || summary.totalCompleted > 0;
 
+  const statCard = "rounded-lg border border-border bg-card p-3";
+  const statLabel = "text-xs font-medium text-muted-foreground";
+  const statValue = "font-mono text-lg font-semibold text-foreground";
+  const statDetail = "mt-1 text-xs text-muted-foreground";
+
   return (
-    <div className="analytics">
-      {/* Filter bar */}
-      <div className="analytics-filters">
-        <div className="analytics-filter-group">
-          <label>Range:</label>
-          <div className="analytics-presets">
+    <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <div className="mb-4 flex flex-wrap items-end gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-muted-foreground">Range:</span>
+          <div className="flex flex-wrap gap-1">
             {PRESETS.map((p) => (
-              <button
+              <Button
                 key={p.label}
-                className={`analytics-preset-btn ${presetDays === p.days && !customStart && !customEnd ? "active" : ""}`}
+                type="button"
+                size="sm"
+                variant={presetDays === p.days && !customStart && !customEnd ? "default" : "outline"}
                 onClick={() => { setPresetDays(p.days); setCustomStart(""); setCustomEnd(""); }}
               >
                 {p.label}
-              </button>
+              </Button>
             ))}
           </div>
-          <input
+          <Input
             type="date"
-            className="analytics-date-input"
+            className="h-9 w-[140px]"
             value={customStart}
             onChange={(e) => setCustomStart(e.target.value)}
-            placeholder="Start"
           />
-          <span className="analytics-date-sep">-</span>
-          <input
+          <span className="text-muted-foreground">–</span>
+          <Input
             type="date"
-            className="analytics-date-input"
+            className="h-9 w-[140px]"
             value={customEnd}
             onChange={(e) => setCustomEnd(e.target.value)}
-            placeholder="End"
           />
         </div>
         {availableTags.length > 0 && (
-          <div className="analytics-filter-group">
-            <label>Tags:</label>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">Tags:</span>
             <select
-              className="analytics-select"
+              className="min-h-[120px] min-w-[160px] rounded-md border border-input bg-background px-2 py-1 text-sm"
               multiple
               value={selectedTags}
               onChange={(e) => setSelectedTags(Array.from(e.target.selectedOptions, (o) => o.value))}
@@ -112,46 +129,45 @@ export function AnalyticsDashboard({ projectId }: { projectId: Id<"projects"> })
       </div>
 
       {truncated && (
-        <div className="analytics-warning">
+        <div className="mb-4 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
           Results limited to 10,000 history records. Try narrowing the date range for complete data.
         </div>
       )}
 
       {!hasData ? (
-        <div className="dashboard-empty">
+        <div className="rounded-md border border-dashed border-border p-8 text-center text-muted-foreground">
           No issue data in the selected time range. Create and move issues through columns to see analytics.
         </div>
       ) : (
         <>
-          {/* Summary cards */}
-          <div className="dashboard-stats">
-            <div className="stat-card">
-              <div className="stat-label">Avg Cycle Time</div>
-              <div className="stat-value">
+          <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className={statCard}>
+              <div className={statLabel}>Avg Cycle Time</div>
+              <div className={statValue}>
                 {summary.avgCycleTime > 0 ? `${summary.avgCycleTime}d` : "-"}
               </div>
-              <div className="stat-detail">In Progress to Done</div>
+              <div className={statDetail}>In Progress to Done</div>
             </div>
-            <div className="stat-card">
-              <div className="stat-label">Throughput / Week</div>
-              <div className="stat-value">{summary.throughputPerWeek}</div>
-              <div className="stat-detail">cards completed</div>
+            <div className={statCard}>
+              <div className={statLabel}>Throughput / Week</div>
+              <div className={statValue}>{summary.throughputPerWeek}</div>
+              <div className={statDetail}>cards completed</div>
             </div>
-            <div className="stat-card">
-              <div className="stat-label">Total Created</div>
-              <div className="stat-value">{summary.totalCreated}</div>
+            <div className={statCard}>
+              <div className={statLabel}>Total Created</div>
+              <div className={statValue}>{summary.totalCreated}</div>
             </div>
-            <div className="stat-card">
-              <div className="stat-label">Total Completed</div>
-              <div className="stat-value">{summary.totalCompleted}</div>
+            <div className={statCard}>
+              <div className={statLabel}>Total Completed</div>
+              <div className={statValue}>{summary.totalCompleted}</div>
             </div>
           </div>
 
           {/* Cycle Time Trend */}
           {cycleTimeData.trend.length > 0 && (
-            <div className="dashboard-section">
-              <h3>Cycle Time Trend (days)</h3>
-              <div className="analytics-chart">
+            <div className="mb-8">
+              <h3 className="mb-2 text-base font-semibold">Cycle Time Trend (days)</h3>
+              <div className="h-[250px] w-full">
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={cycleTimeData.trend}>
                     <CartesianGrid strokeDasharray="3 3" stroke={CHART_THEME.grid} />
@@ -170,21 +186,25 @@ export function AnalyticsDashboard({ projectId }: { projectId: Id<"projects"> })
 
           {/* Throughput */}
           {(throughputData.weekly.length > 0 || throughputData.monthly.length > 0) && (
-            <div className="dashboard-section">
-              <h3>
+            <div className="mb-8">
+              <h3 className="mb-2 flex flex-wrap items-center gap-2 text-base font-semibold">
                 Throughput
-                <span className="analytics-toggle">
-                  <button
-                    className={throughputMode === "weekly" ? "active" : ""}
+                <span className="ml-2 inline-flex gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={throughputMode === "weekly" ? "default" : "outline"}
                     onClick={() => setThroughputMode("weekly")}
-                  >Weekly</button>
-                  <button
-                    className={throughputMode === "monthly" ? "active" : ""}
+                  >Weekly</Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={throughputMode === "monthly" ? "default" : "outline"}
                     onClick={() => setThroughputMode("monthly")}
-                  >Monthly</button>
+                  >Monthly</Button>
                 </span>
               </h3>
-              <div className="analytics-chart">
+              <div className="h-[250px] w-full">
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={
                     throughputMode === "weekly"
@@ -211,9 +231,9 @@ export function AnalyticsDashboard({ projectId }: { projectId: Id<"projects"> })
 
           {/* Cumulative Flow Diagram */}
           {cumulativeFlowData.length > 0 && columns.length > 0 && (
-            <div className="dashboard-section">
-              <h3>Cumulative Flow</h3>
-              <div className="analytics-chart">
+            <div className="mb-8">
+              <h3 className="mb-2 text-base font-semibold">Cumulative Flow</h3>
+              <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height={300}>
                   <AreaChart data={cumulativeFlowData}>
                     <CartesianGrid strokeDasharray="3 3" stroke={CHART_THEME.grid} />
@@ -241,9 +261,9 @@ export function AnalyticsDashboard({ projectId }: { projectId: Id<"projects"> })
 
           {/* Average Time per Column */}
           {avgTimePerColumn.some((c) => c.avgDays > 0) && (
-            <div className="dashboard-section">
-              <h3>Average Time per Column (days)</h3>
-              <div className="analytics-chart">
+            <div className="mb-8">
+              <h3 className="mb-2 text-base font-semibold">Average Time per Column (days)</h3>
+              <div className="w-full" style={{ height: Math.max(200, avgTimePerColumn.length * 40) }}>
                 <ResponsiveContainer width="100%" height={Math.max(200, avgTimePerColumn.length * 40)}>
                   <BarChart data={avgTimePerColumn} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke={CHART_THEME.grid} />
@@ -261,9 +281,9 @@ export function AnalyticsDashboard({ projectId }: { projectId: Id<"projects"> })
 
           {/* Created vs Completed */}
           {createdVsCompleted.length > 0 && (
-            <div className="dashboard-section">
-              <h3>Created vs Completed</h3>
-              <div className="analytics-chart">
+            <div className="mb-8">
+              <h3 className="mb-2 text-base font-semibold">Created vs Completed</h3>
+              <div className="h-[250px] w-full">
                 <ResponsiveContainer width="100%" height={250}>
                   <LineChart data={createdVsCompleted}>
                     <CartesianGrid strokeDasharray="3 3" stroke={CHART_THEME.grid} />

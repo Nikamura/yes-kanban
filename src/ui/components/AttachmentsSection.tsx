@@ -4,6 +4,8 @@ import { useState, useRef, useCallback } from "react";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { formatFileSize, getFileIcon } from "../utils/fileUtils";
 import { ImageLightbox } from "./ImageLightbox";
+import { Button, buttonVariants } from "@/ui/components/ui/button";
+import { cn } from "@/ui/lib/utils";
 
 function isImageMimeType(mimeType: string): boolean {
   return mimeType.startsWith("image/");
@@ -11,9 +13,17 @@ function isImageMimeType(mimeType: string): boolean {
 
 function AttachmentPreview({ url, mimeType, filename, onClick }: { url?: string | null; mimeType: string; filename: string; onClick?: () => void }) {
   if (url && isImageMimeType(mimeType)) {
-    return <img src={url} alt={filename} className="attachment-preview-thumb" onClick={onClick} style={onClick ? { cursor: "pointer" } : undefined} />;
+    return (
+      <img
+        src={url}
+        alt={filename}
+        className="size-10 shrink-0 rounded object-cover"
+        onClick={onClick}
+        style={onClick ? { cursor: "pointer" } : undefined}
+      />
+    );
   }
-  return <span className="attachment-preview-icon">{getFileIcon(mimeType)}</span>;
+  return <span className="flex size-10 shrink-0 items-center justify-center text-lg">{getFileIcon(mimeType)}</span>;
 }
 
 export function AttachmentsSection({ issueId }: { issueId: Id<"issues"> }) {
@@ -125,21 +135,21 @@ export function AttachmentsSection({ issueId }: { issueId: Id<"issues"> }) {
 
   return (
     <div
-      className="attachments-section"
+      className="mb-4"
       onPaste={handlePaste}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <h3>Attachments</h3>
+      <h3 className="mb-2 text-base font-semibold">Attachments</h3>
       {uploadError && (
-        <div className="form-error" role="alert">
+        <div className="mb-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
           {uploadError}
         </div>
       )}
       {attachments?.map((a) => (
-        <div key={a._id} className="attachment-row attachment-row-with-preview">
+        <div key={a._id} className="mb-2 flex flex-wrap items-center gap-3 rounded-md border border-border bg-secondary/30 px-3 py-2">
           <AttachmentPreview
             url={a.url}
             mimeType={a.mimeType}
@@ -153,36 +163,35 @@ export function AttachmentsSection({ issueId }: { issueId: Id<"issues"> }) {
                 : undefined
             }
           />
-          <div className="attachment-info">
-            <span className="attachment-name" title={a.filename}>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-medium" title={a.filename}>
               {a.filename}
-            </span>
-            <span className="attachment-size">{formatFileSize(a.size)}</span>
+            </div>
+            <div className="font-mono text-[11px] text-muted-foreground">{formatFileSize(a.size)}</div>
           </div>
-          <div className="attachment-actions">
+          <div className="flex shrink-0 flex-wrap gap-2">
             {a.url && (
               <a
                 href={a.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn btn-sm"
                 download={a.filename}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
               >
                 Download
               </a>
             )}
-            <button
-              className="btn btn-sm btn-danger"
-              onClick={() => handleDelete(a._id)}
-              disabled={deletingId === a._id}
-            >
+            <Button variant="destructive" size="sm" onClick={() => handleDelete(a._id)} disabled={deletingId === a._id}>
               {deletingId === a._id ? "..." : "Delete"}
-            </button>
+            </Button>
           </div>
         </div>
       ))}
       <div
-        className={`drop-zone${dragging ? " drop-zone-active" : ""}`}
+        className={cn(
+          "cursor-pointer rounded-md border-2 border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground transition-colors",
+          dragging && "border-primary bg-primary/5 text-foreground",
+        )}
         onClick={() => fileInputRef.current?.click()}
       >
         <input

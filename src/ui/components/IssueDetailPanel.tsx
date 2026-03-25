@@ -11,6 +11,12 @@ import { ChecklistSection } from "./ChecklistSection";
 import { formatHistoryEntry } from "../formatHistoryEntry";
 import { TERMINAL_STATUSES } from "../utils/constants";
 import { isSupportedAgentAdapterType } from "@/lib/agentTypes";
+import { Button } from "@/ui/components/ui/button";
+import { Badge } from "@/ui/components/ui/badge";
+import { Input } from "@/ui/components/ui/input";
+import { Textarea } from "@/ui/components/ui/textarea";
+import { cn } from "@/ui/lib/utils";
+import { wsWorkspaceStatusClass } from "@/ui/lib/wsUi";
 
 /** Markdown links in the description must not bubble to the click-to-edit wrapper. */
 const issueDescriptionMarkdownComponents: Partial<Components> = {
@@ -158,37 +164,39 @@ export function IssueDetailPanel({
   };
 
   return (
-    <div className="panel-overlay" onClick={onClose}>
-      <div className="detail-panel" onClick={(e) => e.stopPropagation()}>
-        <div className="panel-header">
-          <span className="issue-id">{issue.simpleId}</span>
-          {issue.archivedAt !== undefined ? (
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={async () => { await unarchiveIssue({ id: issueId }); }}
-            >
-              Restore
-            </button>
-          ) : (
-            <button
-              className="btn btn-sm"
-              onClick={async () => { await archiveIssue({ id: issueId }); onClose(); }}
-            >
-              Archive
-            </button>
-          )}
-          <button className="btn btn-danger btn-sm" onClick={handleDelete}>
-            Delete
-          </button>
-          <button className="close-btn" onClick={onClose}>
-            &times;
-          </button>
+    <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40 p-4" onClick={onClose} data-testid="issue-detail-overlay">
+      <div
+        className="flex max-h-[90vh] w-[95vw] max-w-[800px] flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl"
+        data-testid="issue-detail-panel"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-secondary px-3 py-2">
+          <span className="font-mono text-sm font-semibold" data-testid="issue-detail-simple-id">
+            {issue.simpleId}
+          </span>
+          <div className="flex flex-wrap items-center gap-1">
+            {issue.archivedAt !== undefined ? (
+              <Button size="sm" onClick={async () => { await unarchiveIssue({ id: issueId }); }}>
+                Restore
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" onClick={async () => { await archiveIssue({ id: issueId }); onClose(); }}>
+                Archive
+              </Button>
+            )}
+            <Button size="sm" variant="destructive" onClick={handleDelete}>
+              Delete
+            </Button>
+            <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={onClose} aria-label="Close">
+              &times;
+            </Button>
+          </div>
         </div>
 
-        <div className="panel-body">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {editing === "title" ? (
-            <input
-              className="edit-title"
+            <Input
+              className="mb-3 text-lg font-semibold"
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
               onBlur={saveEdit}
@@ -197,16 +205,16 @@ export function IssueDetailPanel({
               autoFocus
             />
           ) : (
-            <h2 className="issue-title" onClick={() => startEdit("title", issue.title)}>
+            <h2 className="mb-3 cursor-pointer text-lg font-semibold" onClick={() => startEdit("title", issue.title)}>
               {issue.title}
             </h2>
           )}
 
-          <div className="issue-meta">
-            <div className="meta-item">
-              <label>Status</label>
+          <div className="mb-4 grid gap-3 border-b border-border pb-4 md:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Status</label>
               <select
-                className="meta-select"
+                className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm"
                 value={issue.status}
                 onChange={(e) =>
                   moveIssue({ id: issueId, status: e.target.value, position: Date.now() })
@@ -219,10 +227,11 @@ export function IssueDetailPanel({
                 ))}
               </select>
             </div>
-            <div className="meta-item">
-              <label className="checkbox-label">
+            <div className="flex items-center gap-2">
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
                 <input
                   type="checkbox"
+                  className="size-4 rounded border-input"
                   checked={issue.deepResearch ?? false}
                   onChange={(e) =>
                     updateIssue({ id: issueId, deepResearch: e.target.checked })
@@ -231,10 +240,11 @@ export function IssueDetailPanel({
                 Deep research
               </label>
             </div>
-            <div className="meta-item">
-              <label className="checkbox-label">
+            <div className="flex items-center gap-2">
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
                 <input
                   type="checkbox"
+                  className="size-4 rounded border-input"
                   checked={issue.grillMe ?? false}
                   onChange={(e) =>
                     updateIssue({ id: issueId, grillMe: e.target.checked })
@@ -243,14 +253,15 @@ export function IssueDetailPanel({
                 Grill me (pre-planning interview)
               </label>
             </div>
-            <div className="meta-item meta-item-tags">
-              <label>Tags</label>
-              <div className="tag-chips">
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Tags</label>
+              <div className="mb-2 flex flex-wrap gap-1">
                 {issue.tags.map((tag) => (
-                  <span key={tag} className="tag-chip">
+                  <Badge key={tag} variant="secondary" className="gap-1 pr-0.5 font-normal">
                     {tag}
                     <button
-                      className="tag-chip-remove"
+                      type="button"
+                      className="rounded px-1 hover:bg-muted"
                       onClick={() =>
                         updateIssue({ id: issueId, tags: issue.tags.filter((t) => t !== tag) })
                       }
@@ -258,11 +269,10 @@ export function IssueDetailPanel({
                     >
                       &times;
                     </button>
-                  </span>
+                  </Badge>
                 ))}
               </div>
-              <input
-                className="tag-input"
+              <Input
                 placeholder="Add tag..."
                 value={newTag}
                 onChange={(e) => setNewTag(e.target.value)}
@@ -278,10 +288,11 @@ export function IssueDetailPanel({
                 }}
               />
             </div>
-            <div className="meta-item">
-              <label className="checkbox-label">
+            <div className="flex items-center gap-2">
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
                 <input
                   type="checkbox"
+                  className="size-4 rounded border-input"
                   checked={issue.autoMerge ?? false}
                   onChange={(e) =>
                     updateIssue({ id: issueId, autoMerge: e.target.checked })
@@ -293,44 +304,44 @@ export function IssueDetailPanel({
           </div>
 
           {/* Blocked By Section */}
-          <div className="blocked-by-section">
-            <h3>Blocked By</h3>
-            <div className="blocker-chips">
+          <div className="mb-4 border-b border-border pb-4">
+            <h3 className="mb-2 text-base font-semibold">Blocked By</h3>
+            <div className="mb-2 flex flex-wrap gap-1">
               {blockerIssues && blockerIssues.length > 0 ? (
                 blockerIssues.map((blocker) => (
-                  <span key={blocker._id} className="blocker-chip">
-                    <span className="blocker-chip-id">{blocker.simpleId}</span>
-                    <span className="blocker-chip-title">{blocker.title}</span>
+                  <Badge key={blocker._id} variant="outline" className="max-w-full gap-1 py-1 pr-0.5 font-normal">
+                    <span className="font-mono text-[11px]">{blocker.simpleId}</span>
+                    <span className="truncate">{blocker.title}</span>
                     <button
-                      className="blocker-chip-remove"
+                      type="button"
+                      className="rounded px-1 hover:bg-muted"
                       onClick={() => handleRemoveBlocker(blocker._id)}
                       title="Remove blocker"
                     >
                       &times;
                     </button>
-                  </span>
+                  </Badge>
                 ))
               ) : (
-                <span className="meta-value">No blockers</span>
+                <span className="font-mono text-xs text-muted-foreground">No blockers</span>
               )}
             </div>
-            <div className="blocker-search-container">
-              <input
-                className="blocker-search-input"
+            <div className="relative">
+              <Input
                 placeholder="Search issues to add as blocker..."
                 value={blockerSearch}
                 onChange={(e) => setBlockerSearch(e.target.value)}
                 autoComplete="off"
               />
               {blockerSearchResults.length > 0 && (
-                <div className="blocker-search-dropdown">
+                <div className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border border-border bg-popover p-1 shadow-md">
                   {blockerSearchResults.map((result) => (
                     <div
                       key={result._id}
-                      className="blocker-search-item"
+                      className="cursor-pointer rounded px-2 py-1.5 text-sm hover:bg-muted"
                       onMouseDown={() => handleAddBlocker(result._id)}
                     >
-                      <span className="issue-id">{result.simpleId}</span>
+                      <span className="font-mono text-xs">{result.simpleId}</span>{" "}
                       <span>{result.title}</span>
                     </div>
                   ))}
@@ -341,23 +352,25 @@ export function IssueDetailPanel({
 
           {((workspaces !== undefined && workspaces.length > 0) ||
             workspaceDeleteError !== null) && (
-            <div className="workspaces-section">
+            <div className="mb-4 border-b border-border pb-4">
               {workspaceDeleteError && (
-                <div className="ws-error-banner issue-workspace-error" role="alert">
+                <div className="mb-2 flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
                   {workspaceDeleteError}
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-sm"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2"
                     aria-label="Dismiss error"
                     onClick={() => setWorkspaceDeleteError(null)}
                   >
                     &times;
-                  </button>
+                  </Button>
                 </div>
               )}
               {workspaces && workspaces.length > 0 && (
                 <>
-                  <h3>Workspaces</h3>
+                  <h3 className="mb-2 text-base font-semibold">Workspaces</h3>
                   {workspaces.map((ws) => {
                     const isTerminal = TERMINAL_STATUSES.includes(ws.status);
                     const canAbandon =
@@ -365,21 +378,23 @@ export function IssueDetailPanel({
                     return (
                       <div
                         key={ws._id}
-                        className="workspace-item"
-                        style={{ cursor: "pointer" }}
+                        className="mb-2 flex cursor-pointer flex-wrap items-center gap-2 rounded-md border border-border bg-secondary/40 px-3 py-2 text-sm"
                         onClick={() => onOpenWorkspace(ws._id)}
                       >
-                        <span className={`ws-status ws-status-${ws.status}`}>
+                        <span className={cn("shrink-0", wsWorkspaceStatusClass(ws.status))}>
                           {ws.status}
                         </span>
-                        <span className="ws-date">
+                        <span className="text-xs text-muted-foreground">
                           {new Date(ws.createdAt).toLocaleString()}
                         </span>
                         {canAbandon && (
-                          <button
+                          <Button
                             type="button"
-                            className="btn btn-danger btn-sm workspace-item-abandon"
+                            size="sm"
+                            variant="destructive"
+                            className="ml-auto"
                             title="Abandon workspace and queue worktree cleanup"
+                            data-testid="workspace-item-abandon"
                             onClick={(e) => {
                               e.stopPropagation();
                               if (
@@ -401,12 +416,14 @@ export function IssueDetailPanel({
                             }}
                           >
                             Abandon
-                          </button>
+                          </Button>
                         )}
                         {isTerminal && !canAbandon && (
-                          <button
+                          <Button
                             type="button"
-                            className="workspace-item-delete"
+                            size="icon"
+                            variant="ghost"
+                            className="ml-auto size-7"
                             title="Delete workspace"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -429,7 +446,7 @@ export function IssueDetailPanel({
                             }}
                           >
                             ×
-                          </button>
+                          </Button>
                         )}
                       </div>
                     );
@@ -439,21 +456,17 @@ export function IssueDetailPanel({
             </div>
           )}
 
-          <div className="dispatch-section">
+          <div className="mb-4 border-b border-border pb-4">
             {!hasActiveWorkspace && !showDispatchForm && (
-              <button
-                className="btn btn-primary"
-                onClick={() => setShowDispatchForm(true)}
-              >
-                Start Workspace
-              </button>
+              <Button onClick={() => setShowDispatchForm(true)}>Start Workspace</Button>
             )}
             {showDispatchForm && (
-              <div className="dispatch-form">
-                <h4>Start Workspace</h4>
-                <div className="form-group">
-                  <label className="form-label">Agent Config</label>
+              <div className="space-y-3 rounded-md border border-border p-3">
+                <h4 className="font-semibold">Start Workspace</h4>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Agent Config</label>
                   <select
+                    className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm"
                     value={effectiveAgentConfigId ?? ""}
                     onChange={(e) =>
                       setSelectedAgentConfigId(
@@ -469,38 +482,35 @@ export function IssueDetailPanel({
                     ))}
                   </select>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Additional Instructions (optional)</label>
-                  <textarea
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Additional Instructions (optional)</label>
+                  <Textarea
                     value={additionalInstructions}
                     onChange={(e) => setAdditionalInstructions(e.target.value)}
                     placeholder="Any additional instructions for the agent..."
                     rows={3}
                   />
                 </div>
-                <div className="form-actions">
-                  <button
-                    className="btn btn-primary btn-sm"
-                    onClick={handleDispatch}
-                    disabled={!effectiveAgentConfigId}
-                  >
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={handleDispatch} disabled={!effectiveAgentConfigId}>
                     Start
-                  </button>
-                  <button
-                    className="btn btn-sm"
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
                     onClick={() => { setShowDispatchForm(false); setSelectedAgentConfigId(null); setAdditionalInstructions(""); }}
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="issue-description">
-            <h3>Description</h3>
+          <div className="mb-4 border-b border-border pb-4">
+            <h3 className="mb-2 text-base font-semibold">Description</h3>
             {editing === "description" ? (
-              <textarea
+              <Textarea
                 value={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
                 onBlur={saveEdit}
@@ -509,7 +519,7 @@ export function IssueDetailPanel({
               />
             ) : (
               <div
-                className="description-content markdown-content"
+                className="prose-log cursor-pointer rounded-md border border-dashed border-transparent p-2 text-sm hover:border-border"
                 onClick={() => startEdit("description", issue.description)}
               >
                 {issue.description ? (
@@ -535,57 +545,58 @@ export function IssueDetailPanel({
             />
           )}
 
-          <div className="comments-section">
-            <h3>Comments</h3>
+          <div className="mb-4 border-b border-border pb-4">
+            <h3 className="mb-2 text-base font-semibold">Comments</h3>
             {comments?.map((c) => (
-              <div key={c._id} className="comment">
-                <div className="comment-header">
-                  <span className="comment-author">{c.author}</span>
-                  <span className="comment-date">
-                    {new Date(c.createdAt).toLocaleString()}
-                  </span>
+              <div key={c._id} className="mb-3 rounded-md border border-border bg-secondary/30 p-3">
+                <div className="mb-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">{c.author}</span>
+                  <span>{new Date(c.createdAt).toLocaleString()}</span>
                 </div>
-                <div className="comment-body markdown-content">
+                <div className="prose-log text-sm">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{c.body}</ReactMarkdown>
                 </div>
               </div>
             ))}
-            <div className="comment-form">
-              <textarea
+            <div className="space-y-2" data-testid="comment-form">
+              <Textarea
                 value={commentBody}
                 onChange={(e) => setCommentBody(e.target.value)}
                 placeholder="Add a comment..."
                 rows={2}
               />
-              <button className="btn btn-primary btn-sm" onClick={handleAddComment}>
+              <Button size="sm" onClick={handleAddComment}>
                 Comment
-              </button>
+              </Button>
             </div>
           </div>
 
-          <div className="history-section">
+          <div className="mb-4">
             <h3
-              style={{ cursor: "pointer", userSelect: "none" }}
+              className="mb-2 cursor-pointer select-none text-base font-semibold"
               onClick={() => setShowHistory(!showHistory)}
             >
               History {showHistory ? "▾" : "▸"}
             </h3>
             {showHistory && history && (
-              <div className="history-entries">
+              <div className="space-y-2 text-sm">
                 {history.length === 0 ? (
-                  <span className="meta-value">No history</span>
+                  <span className="font-mono text-xs text-muted-foreground">No history</span>
                 ) : (
                   history.map((entry) => (
-                    <div key={entry._id} className="history-entry">
-                      <span className="history-date">
+                    <div key={entry._id} className="flex flex-col gap-0.5 rounded-md border border-border px-2 py-1.5 font-mono text-[11px] sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-2">
+                      <span className="text-muted-foreground">
                         {new Date(entry.timestamp).toLocaleString()}
                       </span>
-                      <span className={`history-actor history-actor-${entry.actor}`}>
+                      <span
+                        className={cn(
+                          "font-semibold",
+                          entry.actor === "user" ? "text-primary" : "text-muted-foreground",
+                        )}
+                      >
                         {entry.actor}
                       </span>
-                      <span className="history-description">
-                        {formatHistoryEntry(entry)}
-                      </span>
+                      <span className="text-foreground">{formatHistoryEntry(entry)}</span>
                     </div>
                   ))
                 )}

@@ -1,6 +1,9 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { Badge } from "@/ui/components/ui/badge";
+import { cn } from "@/ui/lib/utils";
+import { wsRunAttemptStatusClass } from "@/ui/lib/wsUi";
 
 // Pricing per million tokens by model family
 const MODEL_PRICING = {
@@ -67,9 +70,15 @@ function formatTime(ts: number): string {
 export function TokenDashboard({ projectId }: { projectId: Id<"projects"> }) {
   const data = useQuery(api.stats.tokenUsage, { projectId });
 
-  if (!data) return <div className="loading">Loading...</div>;
+  if (!data) {
+    return (
+      <div className="flex flex-1 items-center justify-center gap-2 p-8 text-muted-foreground">
+        <div className="size-6 animate-spin rounded-full border-2 border-border border-t-primary" />
+        Loading...
+      </div>
+    );
+  }
 
-  // Sum per-agent costs to respect model-specific pricing
   let totalCost = 0;
   let uncachedCost = 0;
   for (const agent of data.byAgent) {
@@ -87,73 +96,75 @@ export function TokenDashboard({ projectId }: { projectId: Id<"projects"> }) {
 
   const maxAgentTokens = Math.max(...data.byAgent.map((a) => a.totalTokens), 1);
 
-  return (
-    <div className="dashboard">
-      <h2 className="dashboard-title">Token Usage Dashboard</h2>
+  const card = "rounded-lg border border-border bg-card p-3";
+  const label = "text-xs font-medium text-muted-foreground";
+  const value = "font-mono text-lg font-semibold tracking-tight text-foreground";
+  const detail = "mt-1 text-xs text-muted-foreground";
 
-      {/* Summary stat cards */}
-      <div className="dashboard-stats">
-        <div className="stat-card">
-          <div className="stat-label">Total Tokens</div>
-          <div className="stat-value">{formatTokens(data.totalTokens)}</div>
-          <div className="stat-detail">
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <h2 className="mb-4 text-xl font-semibold">Token Usage Dashboard</h2>
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className={card}>
+          <div className={label}>Total Tokens</div>
+          <div className={value}>{formatTokens(data.totalTokens)}</div>
+          <div className={detail}>
             {formatTokens(data.totalInputTokens)} in / {formatTokens(data.totalOutputTokens)} out
           </div>
           {(data.totalCacheCreationTokens > 0 || data.totalCacheReadTokens > 0) && (
-            <div className="stat-detail">
+            <div className={detail}>
               {formatTokens(data.totalCacheCreationTokens)} cache write / {formatTokens(data.totalCacheReadTokens)} cache read
             </div>
           )}
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Estimated Cost</div>
-          <div className="stat-value">{formatCost(totalCost)}</div>
-          {/* Cost uses per-agent model pricing when available, falls back to Sonnet */}
-          <div className="stat-detail">
+        <div className={card}>
+          <div className={label}>Estimated Cost</div>
+          <div className={value}>{formatCost(totalCost)}</div>
+          <div className={detail}>
             across {data.totalRuns} runs
           </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Total Runs</div>
-          <div className="stat-value">{data.totalRuns}</div>
-          <div className="stat-detail">
+        <div className={card}>
+          <div className={label}>Total Runs</div>
+          <div className={value}>{data.totalRuns}</div>
+          <div className={detail}>
             {data.succeededRuns} succeeded
           </div>
         </div>
         {cacheSavings > 0 && (
-          <div className="stat-card stat-card-success">
-            <div className="stat-label">Cache Savings</div>
-            <div className="stat-value">{formatCost(cacheSavings)}</div>
-            <div className="stat-detail">
+          <div className={cn(card, "border-emerald-500/30 bg-emerald-500/5")}>
+            <div className={label}>Cache Savings</div>
+            <div className={value}>{formatCost(cacheSavings)}</div>
+            <div className={detail}>
               {formatTokens(data.totalCacheReadTokens)} tokens served from cache
             </div>
           </div>
         )}
-        <div className="stat-card stat-card-success">
-          <div className="stat-label">Succeeded</div>
-          <div className="stat-value">{data.succeededRuns}</div>
+        <div className={cn(card, "border-emerald-500/30 bg-emerald-500/5")}>
+          <div className={label}>Succeeded</div>
+          <div className={value}>{data.succeededRuns}</div>
         </div>
-        <div className="stat-card stat-card-failed">
-          <div className="stat-label">Failed</div>
-          <div className="stat-value">{data.failedRuns}</div>
+        <div className={cn(card, "border-destructive/30 bg-destructive/5")}>
+          <div className={label}>Failed</div>
+          <div className={value}>{data.failedRuns}</div>
         </div>
-        <div className="stat-card stat-card-timeout">
-          <div className="stat-label">Timed Out</div>
-          <div className="stat-value">{data.timedOutRuns}</div>
+        <div className={cn(card, "border-amber-500/30 bg-amber-500/5")}>
+          <div className={label}>Timed Out</div>
+          <div className={value}>{data.timedOutRuns}</div>
         </div>
         {data.abandonedRuns > 0 && (
-          <div className="stat-card">
-            <div className="stat-label">Abandoned</div>
-            <div className="stat-value">{data.abandonedRuns}</div>
+          <div className={card}>
+            <div className={label}>Abandoned</div>
+            <div className={value}>{data.abandonedRuns}</div>
           </div>
         )}
       </div>
 
-      {/* Usage by agent */}
       {data.byAgent.length > 0 && (
-        <div className="dashboard-section">
-          <h3>Usage by Agent</h3>
-          <div className="agent-bars">
+        <div className="mt-8">
+          <h3 className="mb-3 text-base font-semibold">Usage by Agent</h3>
+          <div className="space-y-4">
             {data.byAgent
               .sort((a, b) => b.totalTokens - a.totalTokens)
               .map((agent) => {
@@ -166,23 +177,23 @@ export function TokenDashboard({ projectId }: { projectId: Id<"projects"> }) {
                   pricing,
                 );
                 return (
-                  <div key={agent.agentConfigName} className="agent-bar-row">
-                    <div className="agent-bar-label">
-                      <span className="agent-bar-name">{agent.agentConfigName}</span>
-                      <span className="agent-bar-meta">
+                  <div key={agent.agentConfigName} className="space-y-1">
+                    <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between">
+                      <span className="font-medium">{agent.agentConfigName}</span>
+                      <span className="text-xs text-muted-foreground">
                         {formatTokens(agent.totalTokens)} tokens / {agent.runCount} runs
                         {agent.cacheReadTokens > 0 && ` / ${formatTokens(agent.cacheReadTokens)} cached`}
                       </span>
                     </div>
-                    <div className="agent-bar-track">
+                    <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
                       <div
-                        className="agent-bar-fill agent-bar-input"
+                        className="absolute top-0 left-0 h-full rounded-l-full bg-blue-500"
                         style={{
                           width: `${(agent.inputTokens / maxAgentTokens) * 100}%`,
                         }}
                       />
                       <div
-                        className="agent-bar-fill agent-bar-output"
+                        className="absolute top-0 h-full bg-violet-500"
                         style={{
                           width: `${(agent.outputTokens / maxAgentTokens) * 100}%`,
                           left: `${(agent.inputTokens / maxAgentTokens) * 100}%`,
@@ -190,7 +201,7 @@ export function TokenDashboard({ projectId }: { projectId: Id<"projects"> }) {
                       />
                       {agent.cacheReadTokens > 0 && (
                         <div
-                          className="agent-bar-fill agent-bar-cache"
+                          className="absolute top-0 h-full bg-emerald-500"
                           style={{
                             width: `${(agent.cacheReadTokens / maxAgentTokens) * 100}%`,
                             left: `${((agent.inputTokens + agent.outputTokens) / maxAgentTokens) * 100}%`,
@@ -198,68 +209,67 @@ export function TokenDashboard({ projectId }: { projectId: Id<"projects"> }) {
                         />
                       )}
                     </div>
-                    <div className="agent-bar-cost">
+                    <div className="text-right text-xs text-muted-foreground">
                       {formatCost(agentCost)}
                     </div>
                   </div>
                 );
               })}
-            <div className="agent-bar-legend">
-              <span className="legend-item">
-                <span className="legend-swatch legend-input" /> Input
+            <div className="flex flex-wrap gap-4 border-t border-border pt-3 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block size-2 rounded-sm bg-blue-500" /> Input
               </span>
-              <span className="legend-item">
-                <span className="legend-swatch legend-output" /> Output
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block size-2 rounded-sm bg-violet-500" /> Output
               </span>
-              <span className="legend-item">
-                <span className="legend-swatch legend-cache" /> Cache Read
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block size-2 rounded-sm bg-emerald-500" /> Cache Read
               </span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Recent runs table */}
       {data.recentRuns.length > 0 && (
-        <div className="dashboard-section">
-          <h3>Recent Runs</h3>
-          <div className="dashboard-table-wrap">
-            <table className="list-table dashboard-table">
-              <thead>
+        <div className="mt-8">
+          <h3 className="mb-3 text-base font-semibold">Recent Runs</h3>
+          <div className="overflow-x-auto rounded-md border border-border">
+            <table className="w-full min-w-[800px] border-collapse text-left text-sm" data-testid="dashboard-table">
+              <thead className="border-b border-border bg-secondary/50">
                 <tr>
-                  <th>#</th>
-                  <th>Status</th>
-                  <th>Agent</th>
-                  <th>Type</th>
-                  <th>Input</th>
-                  <th>Output</th>
-                  <th>Cache</th>
-                  <th>Total</th>
-                  <th>Duration</th>
-                  <th>Started</th>
+                  <th className="p-2 font-mono text-xs">#</th>
+                  <th className="p-2">Status</th>
+                  <th className="p-2">Agent</th>
+                  <th className="p-2">Type</th>
+                  <th className="p-2">Input</th>
+                  <th className="p-2">Output</th>
+                  <th className="p-2">Cache</th>
+                  <th className="p-2">Total</th>
+                  <th className="p-2">Duration</th>
+                  <th className="p-2">Started</th>
                 </tr>
               </thead>
               <tbody>
                 {data.recentRuns.map((run) => (
-                  <tr key={run._id}>
-                    <td className="mono-cell">{run.attemptNumber}</td>
-                    <td>
-                      <span className={`status-badge ws-status-${run.status}`}>
+                  <tr key={run._id} className="border-b border-border last:border-0">
+                    <td className="p-2 font-mono text-xs">{run.attemptNumber}</td>
+                    <td className="p-2">
+                      <Badge variant="secondary" className={cn("font-mono text-[10px]", wsRunAttemptStatusClass(run.status))}>
                         {run.status}
-                      </span>
+                      </Badge>
                     </td>
-                    <td>{run.agentConfigName}</td>
-                    <td>{run.type}</td>
-                    <td className="mono-cell">{formatTokens(run.inputTokens)}</td>
-                    <td className="mono-cell">{formatTokens(run.outputTokens)}</td>
-                    <td className="mono-cell">
+                    <td className="p-2">{run.agentConfigName}</td>
+                    <td className="p-2">{run.type}</td>
+                    <td className="p-2 font-mono text-xs">{formatTokens(run.inputTokens)}</td>
+                    <td className="p-2 font-mono text-xs">{formatTokens(run.outputTokens)}</td>
+                    <td className="p-2 font-mono text-xs">
                       {run.cacheReadTokens > 0 ? formatTokens(run.cacheReadTokens) : "-"}
                     </td>
-                    <td className="mono-cell">{formatTokens(run.totalTokens)}</td>
-                    <td className="mono-cell">
+                    <td className="p-2 font-mono text-xs">{formatTokens(run.totalTokens)}</td>
+                    <td className="p-2 font-mono text-xs">
                       {formatDuration(run.startedAt, run.finishedAt)}
                     </td>
-                    <td className="date-cell">{formatTime(run.startedAt)}</td>
+                    <td className="p-2 text-xs text-muted-foreground">{formatTime(run.startedAt)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -269,7 +279,7 @@ export function TokenDashboard({ projectId }: { projectId: Id<"projects"> }) {
       )}
 
       {data.totalRuns === 0 && (
-        <div className="dashboard-empty">
+        <div className="mt-8 rounded-md border border-dashed border-border p-8 text-center text-muted-foreground">
           No run data yet. Token usage will appear here once agents start running.
         </div>
       )}

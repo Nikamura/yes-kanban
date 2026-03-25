@@ -3,6 +3,9 @@ import { api } from "../../../convex/_generated/api";
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "@/ui/components/ui/button";
+import { Input } from "@/ui/components/ui/input";
+import { Textarea } from "@/ui/components/ui/textarea";
+import { Label } from "@/ui/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -38,13 +41,13 @@ function FilePreview({
       <img
         src={previewUrl}
         alt={file.name}
-        className="attachment-preview-thumb"
+        className="size-10 shrink-0 rounded object-cover"
         onClick={onClick}
         style={onClick ? { cursor: "pointer" } : undefined}
       />
     );
   }
-  return <span className="attachment-preview-icon">{getFileIcon(file.type)}</span>;
+  return <span className="flex size-10 shrink-0 items-center justify-center text-lg">{getFileIcon(file.type)}</span>;
 }
 
 export function CreateIssueDialog({
@@ -240,7 +243,7 @@ export function CreateIssueDialog({
           data-testid="create-issue-dialog"
           className={cn(
             "max-h-[90vh] max-w-lg overflow-y-auto sm:max-w-lg",
-            dragging && "dialog-drag-active"
+            dragging && "ring-2 ring-primary/50",
           )}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
@@ -257,9 +260,10 @@ export function CreateIssueDialog({
           </DialogHeader>
           <form onSubmit={handleSubmit} className="grid gap-4">
             {templates && templates.length > 0 && (
-              <div className="form-field">
-                <label>Template</label>
+              <div className="space-y-1.5">
+                <Label>Template</Label>
                 <select
+                  className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm"
                   onChange={(e) => {
                     if (e.target.value) applyTemplate(e.target.value);
                   }}
@@ -274,9 +278,10 @@ export function CreateIssueDialog({
                 </select>
               </div>
             )}
-            <div className="form-field">
-              <label>Title</label>
-              <input
+            <div className="space-y-1.5">
+              <Label htmlFor="create-issue-title">Title</Label>
+              <Input
+                id="create-issue-title"
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -285,18 +290,20 @@ export function CreateIssueDialog({
                 autoFocus
               />
             </div>
-            <div className="form-field">
-              <label>Description</label>
-              <textarea
+            <div className="space-y-1.5">
+              <Label htmlFor="create-issue-desc">Description</Label>
+              <Textarea
+                id="create-issue-desc"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Detailed description (Markdown)"
                 rows={4}
               />
             </div>
-            <div className="form-field">
-              <label>Tags</label>
-              <input
+            <div className="space-y-1.5">
+              <Label htmlFor="create-issue-tags">Tags</Label>
+              <Input
+                id="create-issue-tags"
                 type="text"
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
@@ -304,40 +311,50 @@ export function CreateIssueDialog({
                 autoComplete="off"
               />
             </div>
-            <div className="form-field">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={deepResearch}
-                  onChange={(e) => setDeepResearch(e.target.checked)}
-                />
+            <div className="flex items-center gap-2">
+              <input
+                id="create-issue-deep"
+                type="checkbox"
+                className="size-4 rounded border-input"
+                checked={deepResearch}
+                onChange={(e) => setDeepResearch(e.target.checked)}
+              />
+              <Label htmlFor="create-issue-deep" className="cursor-pointer font-normal">
                 Deep research (web search during planning)
-              </label>
+              </Label>
             </div>
-            <div className="form-field">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={grillMe}
-                  onChange={(e) => setGrillMe(e.target.checked)}
-                />
+            <div className="flex items-center gap-2">
+              <input
+                id="create-issue-grill"
+                type="checkbox"
+                className="size-4 rounded border-input"
+                checked={grillMe}
+                onChange={(e) => setGrillMe(e.target.checked)}
+              />
+              <Label htmlFor="create-issue-grill" className="cursor-pointer font-normal">
                 Grill me (before planning — interview to stress-test the design)
-              </label>
+              </Label>
             </div>
-            <div className="form-field">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={autoMerge}
-                  onChange={(e) => setAutoMerge(e.target.checked)}
-                />
+            <div className="flex items-center gap-2">
+              <input
+                id="create-issue-automerge"
+                type="checkbox"
+                className="size-4 rounded border-input"
+                checked={autoMerge}
+                onChange={(e) => setAutoMerge(e.target.checked)}
+              />
+              <Label htmlFor="create-issue-automerge" className="cursor-pointer font-normal">
                 Auto-merge after review
-              </label>
+              </Label>
             </div>
-            <div className="form-field">
-              <label>Attachments</label>
+            <div className="space-y-1.5">
+              <Label>Attachments</Label>
               <div
-                className={`drop-zone${dragging ? " drop-zone-active" : ""}`}
+                data-testid="create-issue-drop-zone"
+                className={cn(
+                  "cursor-pointer rounded-md border-2 border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground transition-colors",
+                  dragging && "border-primary bg-primary/5 text-foreground",
+                )}
                 onClick={() => fileInputRef.current?.click()}
               >
                 <input
@@ -353,9 +370,9 @@ export function CreateIssueDialog({
                   : "Drop files, paste (\u2318V), or click to attach"}
               </div>
               {pendingFiles.length > 0 && (
-                <div className="pending-files">
+                <div className="space-y-2" data-testid="pending-files">
                   {pendingFiles.map((pf) => (
-                    <div key={pf.id} className="attachment-row attachment-row-with-preview">
+                    <div key={pf.id} className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-secondary/30 px-3 py-2">
                       <FilePreview
                         file={pf.file}
                         previewUrl={pf.previewUrl}
@@ -370,28 +387,24 @@ export function CreateIssueDialog({
                             : undefined
                         }
                       />
-                      <div className="attachment-info">
-                        <span className="attachment-name" title={pf.file.name}>
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium" title={pf.file.name} data-testid="pending-attachment-name">
                           {pf.file.name}
                         </span>
-                        <span className="attachment-size">
+                        <span className="font-mono text-[11px] text-muted-foreground" data-testid="pending-attachment-size">
                           {formatFileSize(pf.file.size)}
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-danger"
-                        onClick={() => removeFile(pf.id)}
-                      >
+                      <Button type="button" variant="destructive" size="sm" onClick={() => removeFile(pf.id)}>
                         Remove
-                      </button>
+                      </Button>
                     </div>
                   ))}
                 </div>
               )}
             </div>
             {submitError ? (
-              <div className="form-error" role="alert">
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
                 {submitError}
               </div>
             ) : null}

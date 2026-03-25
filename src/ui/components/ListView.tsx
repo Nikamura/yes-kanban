@@ -6,6 +6,10 @@ import { filterIssues, sortIssues, type SortKey } from "../boardFilters";
 import { BulkActionBar } from "./BulkActionBar";
 import { WorkspaceStatusFilters } from "./WorkspaceStatusFilters";
 import { IssueDetailPanel } from "./IssueDetailPanel";
+import { Badge } from "@/ui/components/ui/badge";
+import { Button } from "@/ui/components/ui/button";
+import { Input } from "@/ui/components/ui/input";
+import { cn } from "@/ui/lib/utils";
 
 interface ListViewProps {
   projectId: Id<"projects">;
@@ -33,7 +37,14 @@ export function ListView({ projectId, activeIssueSimpleId, activeWorkspaceId, on
   const [selectedIds, setSelectedIds] = useState<Set<Id<"issues">>>(new Set());
   const lastClickedId = useRef<Id<"issues"> | null>(null);
 
-  if (!issues || !columns) return <div className="loading">Loading...</div>;
+  if (!issues || !columns) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
+        <div className="size-6 animate-spin rounded-full border-2 border-border border-t-primary" />
+        Loading...
+      </div>
+    );
+  }
 
   const filtered = filterIssues(issues, { search, filterStatus, searchDescription: true, filterWorkspaceStatuses: filterWsStatuses, workspaceStatuses: workspaceStatuses ?? undefined });
   const sorted = [...filtered].sort(sortIssues(sortKey, sortAsc));
@@ -83,19 +94,26 @@ export function ListView({ projectId, activeIssueSimpleId, activeWorkspaceId, on
 
   const colNames = columns.map((c) => c.name);
 
+  const checkboxClass = (checked: boolean) =>
+    cn(
+      "flex size-5 shrink-0 items-center justify-center rounded border-2 border-border bg-transparent transition-colors",
+      checked && "border-primary bg-primary text-primary-foreground",
+    );
+
   return (
-    <div className="list-view">
-      <div className="list-filters">
-        <input
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden" data-testid="list-view">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border bg-secondary/30 px-3 py-2">
+        <Input
           type="text"
           placeholder="Search issues..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="list-search"
+          className="min-h-11 max-w-[min(100%,280px)] flex-1 md:min-h-9"
           autoComplete="off"
         />
         <select
           data-testid="list-status-filter"
+          className="min-h-11 rounded-md border border-input bg-background px-2 py-1.5 text-sm md:min-h-9"
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
         >
@@ -106,13 +124,16 @@ export function ListView({ projectId, activeIssueSimpleId, activeWorkspaceId, on
             </option>
           ))}
         </select>
-        <button
-          className={`select-toggle ${selectionMode ? "active" : ""}`}
-          onClick={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
+        <Button
+          type="button"
+          variant={selectionMode ? "default" : "outline"}
+          size="sm"
+          className="min-h-11 rounded-md md:min-h-9"
+          onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
         >
           {selectionMode ? "Cancel" : "Select"}
-        </button>
-        <span className="list-count" data-testid="list-count">
+        </Button>
+        <span className="ml-auto font-mono text-xs text-muted-foreground" data-testid="list-count">
           {sorted.length} issues
         </span>
       </div>
@@ -121,35 +142,44 @@ export function ListView({ projectId, activeIssueSimpleId, activeWorkspaceId, on
       )}
 
       {/* Mobile: card list */}
-      <div className="list-cards">
+      <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-3 md:hidden">
         {sorted.map((issue) => (
           <div
             key={issue._id}
-            className={`list-card ${selectedIds.has(issue._id) ? "selected" : ""}`}
-            onClick={(e) => selectionMode ? toggleSelect(issue._id, e.shiftKey) : onOpenIssue(issue.simpleId)}
-          >
-            {selectionMode && (
-              <div
-                className={`issue-card-checkbox ${selectedIds.has(issue._id) ? "checked" : ""}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleSelect(issue._id, e.shiftKey);
-                }}
-              />
+            className={cn(
+              "rounded-md border border-border bg-card p-3",
+              selectedIds.has(issue._id) && "ring-2 ring-primary",
             )}
-            <div className="list-card-content">
-              <div className="list-card-header">
-                <span className="issue-id">{issue.simpleId}</span>
-                <span className="status-badge">{issue.status}</span>
-              </div>
-              <div className="list-card-title">{issue.title}</div>
-              <div className="list-card-meta">
-                {issue.tags.map((t) => (
-                  <span key={t} className="issue-tag">{t}</span>
-                ))}
-                <span className="date-cell">
-                  {new Date(issue.createdAt).toLocaleDateString()}
-                </span>
+            onClick={(e) => (selectionMode ? toggleSelect(issue._id, e.shiftKey) : onOpenIssue(issue.simpleId))}
+          >
+            <div className="flex gap-2">
+              {selectionMode && (
+                <div
+                  className={cn(checkboxClass(selectedIds.has(issue._id)))}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSelect(issue._id, e.shiftKey);
+                  }}
+                >
+                  {selectedIds.has(issue._id) ? "✓" : null}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-xs font-semibold">{issue.simpleId}</span>
+                  <Badge variant="secondary" className="font-mono text-[10px]">
+                    {issue.status}
+                  </Badge>
+                </div>
+                <div className="font-medium">{issue.title}</div>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  {issue.tags.map((t) => (
+                    <span key={t} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]" data-testid="issue-tag">
+                      {t}
+                    </span>
+                  ))}
+                  <span>{new Date(issue.createdAt).toLocaleDateString()}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -157,61 +187,70 @@ export function ListView({ projectId, activeIssueSimpleId, activeWorkspaceId, on
       </div>
 
       {/* Desktop: table */}
-      <table className="list-table">
-        <thead>
-          <tr>
-            {selectionMode && <th className="select-col" />}
-            <th onClick={() => toggleSort("simpleId")} className="sortable">
-              ID {sortKey === "simpleId" ? (sortAsc ? "↑" : "↓") : ""}
-            </th>
-            <th onClick={() => toggleSort("title")} className="sortable">
-              Title {sortKey === "title" ? (sortAsc ? "↑" : "↓") : ""}
-            </th>
-            <th onClick={() => toggleSort("status")} className="sortable">
-              Status {sortKey === "status" ? (sortAsc ? "↑" : "↓") : ""}
-            </th>
-            <th>Tags</th>
-            <th onClick={() => toggleSort("createdAt")} className="sortable">
-              Created {sortKey === "createdAt" ? (sortAsc ? "↑" : "↓") : ""}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((issue) => (
-            <tr
-              key={issue._id}
-              className={selectedIds.has(issue._id) ? "selected" : ""}
-              onClick={(e) => selectionMode ? toggleSelect(issue._id, e.shiftKey) : onOpenIssue(issue.simpleId)}
-              style={{ cursor: selectionMode ? undefined : "pointer" }}
-            >
-              {selectionMode && (
-                <td>
-                  <div
-                    className={`issue-card-checkbox ${selectedIds.has(issue._id) ? "checked" : ""}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleSelect(issue._id, e.shiftKey);
-                    }}
-                  />
-                </td>
-              )}
-              <td className="issue-id">{issue.simpleId}</td>
-              <td>{issue.title}</td>
-              <td>
-                <span className="status-badge">{issue.status}</span>
-              </td>
-              <td>
-                {issue.tags.map((t) => (
-                  <span key={t} className="issue-tag">
-                    {t}
-                  </span>
-                ))}
-              </td>
-              <td className="date-cell">{new Date(issue.createdAt).toLocaleDateString()}</td>
+      <div className="hidden min-h-0 flex-1 overflow-auto md:block">
+        <table className="w-full border-collapse text-left text-sm" data-testid="list-table">
+          <thead className="sticky top-0 z-[1] border-b border-border bg-card">
+            <tr>
+              {selectionMode && <th className="w-10 p-2" />}
+              <th className="cursor-pointer p-2 font-mono text-xs hover:bg-muted/50" onClick={() => toggleSort("simpleId")}>
+                ID {sortKey === "simpleId" ? (sortAsc ? "↑" : "↓") : ""}
+              </th>
+              <th className="cursor-pointer p-2 hover:bg-muted/50" onClick={() => toggleSort("title")}>
+                Title {sortKey === "title" ? (sortAsc ? "↑" : "↓") : ""}
+              </th>
+              <th className="cursor-pointer p-2 hover:bg-muted/50" onClick={() => toggleSort("status")}>
+                Status {sortKey === "status" ? (sortAsc ? "↑" : "↓") : ""}
+              </th>
+              <th className="p-2">Tags</th>
+              <th className="cursor-pointer p-2 hover:bg-muted/50" onClick={() => toggleSort("createdAt")}>
+                Created {sortKey === "createdAt" ? (sortAsc ? "↑" : "↓") : ""}
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {sorted.map((issue) => (
+              <tr
+                key={issue._id}
+                className={cn(
+                  "border-b border-border hover:bg-muted/30",
+                  selectedIds.has(issue._id) && "bg-primary/5",
+                )}
+                onClick={(e) => (selectionMode ? toggleSelect(issue._id, e.shiftKey) : onOpenIssue(issue.simpleId))}
+                style={{ cursor: selectionMode ? undefined : "pointer" }}
+              >
+                {selectionMode && (
+                  <td className="p-2">
+                    <div
+                      className={cn(checkboxClass(selectedIds.has(issue._id)))}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSelect(issue._id, e.shiftKey);
+                      }}
+                    >
+                      {selectedIds.has(issue._id) ? "✓" : null}
+                    </div>
+                  </td>
+                )}
+                <td className="p-2 font-mono text-xs">{issue.simpleId}</td>
+                <td className="p-2">{issue.title}</td>
+                <td className="p-2">
+                  <Badge variant="secondary" className="font-mono text-[10px]">
+                    {issue.status}
+                  </Badge>
+                </td>
+                <td className="p-2">
+                  {issue.tags.map((t) => (
+                    <span key={t} className="mr-1 inline-block rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]" data-testid="issue-tag">
+                      {t}
+                    </span>
+                  ))}
+                </td>
+                <td className="p-2 text-muted-foreground">{new Date(issue.createdAt).toLocaleDateString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <BulkActionBar
         projectId={projectId}

@@ -5,6 +5,18 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ToolUseLine, ToolResultLine } from "./ToolRenderers";
+import { Badge } from "@/ui/components/ui/badge";
+import { cn } from "@/ui/lib/utils";
+import {
+  logBadgeClasses,
+  logCompletionResultWrapClass,
+  logCompletionStatsClass,
+  logHookOutputClass,
+  logLineRootClass,
+  logPermissionCardClass,
+  logTextMutedClass,
+  logToolInputPreClass,
+} from "@/ui/lib/logUi";
 
 function truncate(str: string, maxLen: number): string {
   return str.length > maxLen ? str.slice(0, maxLen) + "…" : str;
@@ -27,12 +39,23 @@ function buildToolIdMap(logs: any[]): Map<string, string> {
 /** Map agentType to a display label for the assistant badge */
 function agentLabel(agentType?: string): string {
   switch (agentType) {
-    case "claude-code": return "Claude";
-    case "cursor": return "Cursor";
-    case "codex": return "Codex";
-    default: return agentType ?? "Agent";
+    case "claude-code":
+      return "Claude";
+    case "cursor":
+      return "Cursor";
+    case "codex":
+      return "Codex";
+    default:
+      return agentType ?? "Agent";
   }
 }
+
+const loadingSpinner = (
+  <div className="flex items-center gap-2 p-4 text-muted-foreground">
+    <div className="size-5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary" />
+    <span>Loading logs...</span>
+  </div>
+);
 
 export function LogStream({
   runAttemptId,
@@ -61,11 +84,21 @@ export function LogStream({
     autoScrollRef.current = scrollHeight - scrollTop - clientHeight < 50;
   };
 
-  if (!logs) return <div className="loading">Loading logs...</div>;
-  if (logs.length === 0) return <div className="empty-state">No output yet</div>;
+  if (!logs) return loadingSpinner;
+  if (logs.length === 0) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-8 text-center text-muted-foreground">
+        No output yet
+      </div>
+    );
+  }
 
   return (
-    <div className="log-stream" ref={containerRef} onScroll={handleScroll}>
+    <div
+      className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3 font-mono text-xs leading-relaxed"
+      ref={containerRef}
+      onScroll={handleScroll}
+    >
       {prompt && <PromptBlock prompt={prompt} />}
       {logs.map((log) => (
         <LogLine key={log._id} log={log} toolIdMap={toolIdMap} agentType={agentType} />
@@ -79,19 +112,23 @@ function PromptBlock({ prompt }: { prompt: string }) {
   const isLong = prompt.length > 300;
 
   return (
-    <div className="log-line log-prompt">
-      <span className="log-badge log-badge-prompt">Prompt</span>
-      <div className="log-prompt-content">
+    <div className={logLineRootClass("prompt")}>
+      <Badge className={cn("shrink-0 font-mono text-[10px]", logBadgeClasses.prompt)}>Prompt</Badge>
+      <div className="min-w-0 flex-1">
         <div
-          className={isLong ? "log-expandable" : ""}
+          className={cn(isLong && "cursor-pointer")}
           onClick={() => isLong && setExpanded(!expanded)}
         >
-          <div className="log-markdown">
+          <div className="prose-log text-xs">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {expanded || !isLong ? prompt : prompt.slice(0, 300) + "…"}
             </ReactMarkdown>
           </div>
-          {isLong && <span className="log-expand-icon">{expanded ? "▾" : "▸"}</span>}
+          {isLong && (
+            <span className="ml-1 inline text-[10px] text-muted-foreground">
+              {expanded ? "▾" : "▸"}
+            </span>
+          )}
         </div>
       </div>
     </div>
@@ -107,13 +144,17 @@ const SKIP_JSON_TYPES = new Set([
 ]);
 
 /** System subtypes that are noisy and should be hidden */
-const SKIP_SYSTEM_SUBTYPES = new Set([
-  "task_started",
-  "task_progress",
-  "task_completed",
-]);
+const SKIP_SYSTEM_SUBTYPES = new Set(["task_started", "task_progress", "task_completed"]);
 
-function LogLine({ log, toolIdMap, agentType }: { log: any; toolIdMap: Map<string, string>; agentType?: string }) {
+function LogLine({
+  log,
+  toolIdMap,
+  agentType,
+}: {
+  log: any;
+  toolIdMap: Map<string, string>;
+  agentType?: string;
+}) {
   if (log.structured) {
     const event = log.structured;
     switch (event.type) {
@@ -125,9 +166,9 @@ function LogLine({ log, toolIdMap, agentType }: { log: any; toolIdMap: Map<strin
         return <ToolResultLine data={event.data} line={log.line} toolIdMap={toolIdMap} />;
       case "mcp_tool_call":
         return (
-          <div className="log-line log-mcp">
-            <span className="log-badge log-badge-mcp">MCP</span>
-            <span className="log-tool-name">{event.data?.tool ?? event.tool}</span>
+          <div className={logLineRootClass("mcp")}>
+            <Badge className={cn("shrink-0 font-mono text-[10px]", logBadgeClasses.mcp)}>MCP</Badge>
+            <span className="font-medium text-foreground">{event.data?.tool ?? event.tool}</span>
           </div>
         );
       case "system":
@@ -148,9 +189,10 @@ function LogLine({ log, toolIdMap, agentType }: { log: any; toolIdMap: Map<strin
   if (!line) return null;
   if (isNoisyJson(line)) return null;
 
+  const stream = typeof log.stream === "string" ? log.stream : "tool";
   return (
-    <div className={`log-line log-${log.stream}`}>
-      <span className="log-text">{log.line}</span>
+    <div className={logLineRootClass(stream)}>
+      <span className="whitespace-pre-wrap break-words">{log.line}</span>
     </div>
   );
 }
@@ -167,10 +209,14 @@ function AssistantLine({ data, agentType }: { data: any; agentType?: string }) {
   if (!text) return null;
 
   return (
-    <div className="log-line log-assistant">
-      <span className="log-badge log-badge-assistant">{agentLabel(agentType)}</span>
-      <div className="log-assistant-content log-markdown">
-        <ReactMarkdown remarkPlugins={[remarkGfm]} components={noLinkComponents}>{text}</ReactMarkdown>
+    <div className={logLineRootClass("assistant")}>
+      <Badge className={cn("shrink-0 font-mono text-[10px]", logBadgeClasses.assistant)}>
+        {agentLabel(agentType)}
+      </Badge>
+      <div className={cn("min-w-0 flex-1 prose-log text-xs")}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={noLinkComponents}>
+          {text}
+        </ReactMarkdown>
       </div>
     </div>
   );
@@ -179,9 +225,7 @@ function AssistantLine({ data, agentType }: { data: any; agentType?: string }) {
 // --- System ---
 
 /** Codex system event types that are lifecycle noise and should be hidden */
-const SKIP_CODEX_SYSTEM_TYPES = new Set([
-  "turn.started",
-]);
+const SKIP_CODEX_SYSTEM_TYPES = new Set(["turn.started"]);
 
 function SystemLine({ data }: { data: any }) {
   if (!data) return null;
@@ -194,9 +238,9 @@ function SystemLine({ data }: { data: any }) {
 
   if (subtype === "init") {
     return (
-      <div className="log-line log-system">
-        <span className="log-badge log-badge-system">System</span>
-        <span className="log-text">
+      <div className={logLineRootClass("system")}>
+        <Badge className={cn("shrink-0 font-mono text-[10px]", logBadgeClasses.system)}>System</Badge>
+        <span className="text-foreground">
           Session started — model: {data.model ?? "unknown"}, mode: {data.permissionMode ?? "unknown"}
         </span>
       </div>
@@ -208,9 +252,9 @@ function SystemLine({ data }: { data: any }) {
   }
 
   return (
-    <div className="log-line log-system log-muted">
-      <span className="log-badge log-badge-system">System</span>
-      <span className="log-text">{subtype ?? "event"}</span>
+    <div className={cn(logLineRootClass("system"), logTextMutedClass)}>
+      <Badge className={cn("shrink-0 font-mono text-[10px]", logBadgeClasses.system)}>System</Badge>
+      <span>{subtype ?? "event"}</span>
     </div>
   );
 }
@@ -222,22 +266,18 @@ function HookResponseLine({ data }: { data: any }) {
   const isLong = output && output.length > 80;
 
   return (
-    <div className={`log-line log-system ${success ? "" : "log-error"}`}>
-      <span className="log-badge log-badge-system">Hook</span>
-      <div className="log-tool-content">
+    <div className={logLineRootClass("system", !success ? "text-destructive" : undefined)}>
+      <Badge className={cn("shrink-0 font-mono text-[10px]", logBadgeClasses.system)}>Hook</Badge>
+      <div className="min-w-0 flex-1">
         <span
-          className={isLong ? "log-text log-expandable" : "log-text"}
+          className={cn(isLong && "cursor-pointer")}
           onClick={() => isLong && setExpanded(!expanded)}
         >
           {data.hook_name}: {success ? "✓" : `✗ exit ${data.exit_code}`}
-          {output && !expanded && (
-            <span className="log-hook-output"> — {truncate(output, 80)}</span>
-          )}
-          {isLong && <span className="log-expand-icon">{expanded ? "▾" : "▸"}</span>}
+          {output && !expanded && <span className={logHookOutputClass}> — {truncate(output, 80)}</span>}
+          {isLong && <span className="ml-1 text-[10px] text-muted-foreground">{expanded ? "▾" : "▸"}</span>}
         </span>
-        {expanded && output && (
-          <pre className="log-tool-input">{output}</pre>
-        )}
+        {expanded && output && <pre className={logToolInputPreClass}>{output}</pre>}
       </div>
     </div>
   );
@@ -252,14 +292,12 @@ function PermissionRequestLine({ data }: { data: any }) {
   const inputStr = toolInput ? (typeof toolInput === "string" ? toolInput : JSON.stringify(toolInput)) : "";
 
   return (
-    <div className="log-tool-card log-permission-request">
-      <div className="log-tool-card-header">
-        <span className="log-badge log-badge-permission">Permission</span>
-        <span className="log-tool-name">{toolName}</span>
+    <div className={logPermissionCardClass}>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge className={cn("font-mono text-[10px]", logBadgeClasses.permission)}>Permission</Badge>
+        <span className="font-medium">{toolName}</span>
       </div>
-      {inputStr && (
-        <pre className="log-tool-input">{truncate(inputStr, 300)}</pre>
-      )}
+      {inputStr && <pre className={logToolInputPreClass}>{truncate(inputStr, 300)}</pre>}
     </div>
   );
 }
@@ -279,14 +317,12 @@ function CompletionLine({ data }: { data: any }) {
   ].filter(Boolean);
 
   return (
-    <div className="log-line log-completion">
-      <span className="log-badge log-badge-completion">Done</span>
-      <div className="log-completion-content">
-        {stats.length > 0 && (
-          <span className="log-completion-stats">{stats.join(" · ")}</span>
-        )}
+    <div className={logLineRootClass("completion")}>
+      <Badge className={cn("shrink-0 font-mono text-[10px]", logBadgeClasses.completion)}>Done</Badge>
+      <div className="min-w-0 flex-1">
+        {stats.length > 0 && <span className={logCompletionStatsClass}>{stats.join(" · ")}</span>}
         {result && (
-          <div className="log-completion-result log-markdown">
+          <div className={cn(logCompletionResultWrapClass, "prose-log text-xs")}>
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{result}</ReactMarkdown>
           </div>
         )}
@@ -298,9 +334,9 @@ function CompletionLine({ data }: { data: any }) {
 function ErrorLine({ data, line }: { data: any; line: string }) {
   const message = data?.error?.message ?? data?.message ?? extractContent(data) ?? line;
   return (
-    <div className="log-line log-error">
-      <span className="log-badge log-badge-error">Error</span>
-      <span className="log-text">{typeof message === "string" ? message : line}</span>
+    <div className={logLineRootClass("error")}>
+      <Badge className={cn("shrink-0 font-mono text-[10px]", logBadgeClasses.error)}>Error</Badge>
+      <span>{typeof message === "string" ? message : line}</span>
     </div>
   );
 }

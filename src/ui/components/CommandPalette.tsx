@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { Doc } from "../../../convex/_generated/dataModel";
+import { Input } from "@/ui/components/ui/input";
+import { cn } from "@/ui/lib/utils";
 
 interface CommandItem {
   id: string;
@@ -63,7 +65,6 @@ export function CommandPalette({
       )
     : commands;
 
-  // Use refs so the keydown effect doesn't need to re-register on every render
   const filteredRef = useRef(filtered);
   const selectedIndexRef = useRef(selectedIndex);
   const onCloseRef = useRef(onClose);
@@ -74,14 +75,9 @@ export function CommandPalette({
   });
 
   useEffect(() => {
-    setSelectedIndex(0);
-  }, [query]);
-
-  useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
-  // Scroll selected item into view
   useEffect(() => {
     const list = listRef.current;
     if (!list) return;
@@ -122,37 +118,46 @@ export function CommandPalette({
   }, []);
 
   return (
-    <div className="dialog-overlay command-palette-overlay" onClick={onClose}>
+    <div className="fixed inset-0 z-[300] flex items-start justify-center bg-black/40 p-4 pt-[15vh]" onClick={onClose}>
       <div
-        className="command-palette"
+        className="w-full max-w-lg overflow-hidden rounded-lg border border-border bg-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <input
+        <Input
           ref={inputRef}
           type="text"
-          className="command-palette-input"
+          className="rounded-none border-0 border-b border-border px-4 py-3 text-base focus-visible:ring-0"
           placeholder="Type a command or search issues..."
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setSelectedIndex(0);
+          }}
           autoComplete="off"
         />
-        <div className="command-palette-results" ref={listRef}>
+        <div className="max-h-[min(50vh,360px)] overflow-y-auto p-1" ref={listRef}>
           {filtered.length === 0 && (
-            <div className="command-palette-empty">No results found</div>
+            <div className="px-3 py-6 text-center text-sm text-muted-foreground">No results found</div>
           )}
           {filtered.map((item, i) => (
             <button
               key={item.id}
-              className={`command-palette-item ${i === selectedIndex ? "selected" : ""}`}
+              type="button"
+              className={cn(
+                "flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors",
+                i === selectedIndex ? "bg-muted text-foreground" : "hover:bg-muted/60",
+              )}
               onClick={() => {
                 onClose();
                 item.action();
               }}
               onMouseEnter={() => setSelectedIndex(i)}
             >
-              <span className="command-palette-item-label">{item.label}</span>
+              <span className="min-w-0 truncate">{item.label}</span>
               {item.shortcut && (
-                <kbd className="command-palette-item-shortcut">{item.shortcut}</kbd>
+                <kbd className="shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+                  {item.shortcut}
+                </kbd>
               )}
             </button>
           ))}

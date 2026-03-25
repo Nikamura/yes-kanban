@@ -2,6 +2,10 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useState } from "react";
 import type { Id, Doc } from "../../../convex/_generated/dataModel";
+import { Button } from "@/ui/components/ui/button";
+import { Badge } from "@/ui/components/ui/badge";
+import { Input } from "@/ui/components/ui/input";
+import { Textarea } from "@/ui/components/ui/textarea";
 
 const TEMPLATE_TYPES = [
   { value: "workflow", label: "Workflow", description: "Instructions for the coding agent" },
@@ -67,7 +71,6 @@ export function PromptTemplatesSection({ projectId }: { projectId: Id<"projects"
     return null;
   }
 
-  // Separate project-level and global templates
   const projectTemplates = templates.filter((t) => t.projectId === projectId);
   const inheritedGlobal = globalTemplates.filter(
     (t) => !t.projectId && !projectTemplates.some((pt) => pt.type === t.type && pt.isDefault)
@@ -107,37 +110,45 @@ export function PromptTemplatesSection({ projectId }: { projectId: Id<"projects"
     const typeInfo = TEMPLATE_TYPES.find((tt) => tt.value === t.type);
 
     return (
-      <div key={t._id} className="settings-row" style={{ flexDirection: "column", alignItems: "stretch", gap: "0.5rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-          <span className="badge" style={{ textTransform: "capitalize" }}>{typeInfo?.label ?? t.type}</span>
-          {isInherited && <span className="badge" style={{ opacity: 0.6 }}>Global</span>}
-          {t.isDefault && <span className="badge" style={{ background: "#10b981", color: "#fff" }}>Active</span>}
+      <div
+        key={t._id}
+        className="flex flex-col gap-2 rounded-lg border border-border bg-secondary/30 p-3"
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary" className="text-[10px] capitalize">
+            {typeInfo?.label ?? t.type}
+          </Badge>
+          {isInherited && (
+            <Badge variant="outline" className="text-[10px] opacity-80">
+              Global
+            </Badge>
+          )}
+          {t.isDefault && (
+            <Badge className="border-transparent bg-emerald-600 text-[10px] text-white hover:bg-emerald-600">
+              Active
+            </Badge>
+          )}
           {!isEditing && (
             <>
-              <span style={{ fontWeight: 500 }}>{t.name}</span>
-              <span className="meta-value" style={{ fontSize: "0.75rem" }}>
-                {typeInfo?.description}
-              </span>
-              <div style={{ marginLeft: "auto", display: "flex", gap: "0.25rem" }}>
-                <button
-                  className="btn btn-sm"
-                  onClick={() => setExpandedId(isExpanded ? null : t._id)}
-                >
+              <span className="font-medium">{t.name}</span>
+              <span className="text-xs text-muted-foreground">{typeInfo?.description}</span>
+              <div className="ml-auto flex flex-wrap gap-1">
+                <Button size="sm" variant="outline" onClick={() => setExpandedId(isExpanded ? null : t._id)}>
                   {isExpanded ? "Collapse" : "Preview"}
-                </button>
+                </Button>
                 {!isInherited && (
                   <>
-                    <button className="btn btn-sm" onClick={() => startEdit(t)}>Edit</button>
+                    <Button size="sm" variant="outline" onClick={() => startEdit(t)}>
+                      Edit
+                    </Button>
                     {!t.isDefault && (
-                      <button
-                        className="btn btn-sm"
-                        onClick={() => updateTemplate({ id: t._id, isDefault: true })}
-                      >
+                      <Button size="sm" variant="outline" onClick={() => updateTemplate({ id: t._id, isDefault: true })}>
                         Set Active
-                      </button>
+                      </Button>
                     )}
-                    <button
-                      className="btn btn-sm btn-danger"
+                    <Button
+                      size="sm"
+                      variant="destructive"
                       onClick={() => {
                         if (window.confirm(`Delete template "${t.name}"?`)) {
                           void removeTemplate({ id: t._id });
@@ -145,7 +156,7 @@ export function PromptTemplatesSection({ projectId }: { projectId: Id<"projects"
                       }}
                     >
                       Delete
-                    </button>
+                    </Button>
                   </>
                 )}
               </div>
@@ -153,34 +164,34 @@ export function PromptTemplatesSection({ projectId }: { projectId: Id<"projects"
           )}
         </div>
         {isEditing && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-            <input
+          <div className="flex flex-col gap-2">
+            <Input
               placeholder="Template name"
               value={editForm.name}
               onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
               autoComplete="off"
             />
-            <textarea
-              className="import-textarea"
+            <Textarea
               value={editForm.content}
               onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
               rows={12}
-              style={{ fontFamily: "monospace", fontSize: "0.85rem" }}
+              className="font-mono text-sm"
             />
-            <p className="meta-value" style={{ fontSize: "0.75rem", margin: 0 }}>
+            <p className="m-0 text-xs text-muted-foreground">
               Placeholders: {"{{issueId}}"}, {"{{title}}"}, {"{{baseBranch}}"}
             </p>
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <button className="btn btn-primary btn-sm" onClick={handleSave}>Save</button>
-              <button className="btn btn-sm" onClick={() => setEditingId(null)}>Cancel</button>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleSave}>
+                Save
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
+                Cancel
+              </Button>
             </div>
           </div>
         )}
         {isExpanded && !isEditing && (
-          <pre
-            className="max-h-[300px] overflow-auto rounded-md bg-secondary p-3 text-[0.8rem] whitespace-pre-wrap break-words"
-            style={{ margin: 0 }}
-          >
+          <pre className="max-h-[300px] overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted p-3 font-mono text-[0.8rem]">
             {t.content}
           </pre>
         )}
@@ -189,31 +200,38 @@ export function PromptTemplatesSection({ projectId }: { projectId: Id<"projects"
   };
 
   return (
-    <section className="settings-section">
-      <h2>
+    <section className="mb-8 max-w-[800px] space-y-3" data-testid="prompt-templates-section">
+      <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold">
         Prompt Templates
-        <button className="btn btn-sm" onClick={() => {
-          if (!showAdd) {
-            setAddForm({ name: "", type: "workflow", content: DEFAULT_TEMPLATES["workflow"] ?? "", scope: "project" });
-          }
-          setShowAdd(!showAdd);
-        }}>+ Add</button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            if (!showAdd) {
+              setAddForm({ name: "", type: "workflow", content: DEFAULT_TEMPLATES["workflow"] ?? "", scope: "project" });
+            }
+            setShowAdd(!showAdd);
+          }}
+        >
+          + Add
+        </Button>
       </h2>
-      <p className="meta-value" style={{ margin: "0 0 0.75rem", fontSize: "0.8rem" }}>
+      <p className="text-sm text-muted-foreground">
         Customize the prompts sent to agents. Project templates override global ones.
       </p>
 
       {showAdd && (
-        <form className="inline-form" onSubmit={handleCreate} style={{ flexDirection: "column", alignItems: "stretch", gap: "0.5rem" }}>
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            <input
+        <form className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4" onSubmit={handleCreate}>
+          <div className="flex flex-wrap gap-2">
+            <Input
               placeholder="Template name"
               value={addForm.name}
               onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
-              style={{ flex: 1, minWidth: "150px" }}
+              className="min-w-[150px] flex-1"
               autoComplete="off"
             />
             <select
+              className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
               value={addForm.type}
               onChange={(e) => {
                 const type = e.target.value as "workflow" | "review" | "rebase" | "planning" | "plan_review" | "grilling";
@@ -229,6 +247,7 @@ export function PromptTemplatesSection({ projectId }: { projectId: Id<"projects"
               ))}
             </select>
             <select
+              className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
               value={addForm.scope}
               onChange={(e) => setAddForm({ ...addForm, scope: e.target.value as "project" | "global" })}
             >
@@ -236,34 +255,31 @@ export function PromptTemplatesSection({ projectId }: { projectId: Id<"projects"
               <option value="global">Global</option>
             </select>
           </div>
-          <textarea
-            className="import-textarea"
+          <Textarea
             placeholder="Template content (markdown)..."
             value={addForm.content}
             onChange={(e) => setAddForm({ ...addForm, content: e.target.value })}
             rows={10}
-            style={{ fontFamily: "monospace", fontSize: "0.85rem" }}
+            className="font-mono text-sm"
           />
-          <p className="meta-value" style={{ fontSize: "0.75rem", margin: 0 }}>
+          <p className="m-0 text-xs text-muted-foreground">
             Placeholders: {"{{issueId}}"}, {"{{title}}"}, {"{{baseBranch}}"}
           </p>
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <button
-              type="submit"
-              className="btn btn-primary btn-sm"
-              disabled={!addForm.name.trim() || !addForm.content.trim()}
-            >
+          <div className="flex gap-2">
+            <Button type="submit" size="sm" disabled={!addForm.name.trim() || !addForm.content.trim()}>
               Create
-            </button>
-            <button type="button" className="btn btn-sm" onClick={() => setShowAdd(false)}>Cancel</button>
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setShowAdd(false)}>
+              Cancel
+            </Button>
           </div>
         </form>
       )}
 
-      <div className="settings-table">
+      <div className="flex flex-col gap-2">
         {projectTemplates.length === 0 && inheritedGlobal.length === 0 && (
-          <div className="settings-row">
-            <span className="meta-value">No custom templates. Using built-in defaults.</span>
+          <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+            No custom templates. Using built-in defaults.
           </div>
         )}
         {projectTemplates.map((t) => renderTemplate(t))}

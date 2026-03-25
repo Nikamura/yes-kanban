@@ -2,6 +2,9 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useState } from "react";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { Button } from "@/ui/components/ui/button";
+import { Input } from "@/ui/components/ui/input";
+import { cn } from "@/ui/lib/utils";
 
 export function BulkActionBar({
   projectId,
@@ -67,14 +70,21 @@ export function BulkActionBar({
   };
 
   return (
-    <div className={`bulk-action-bar ${count > 0 ? "visible" : ""}`}>
-      <span className="bulk-count">{count} selected</span>
+    <div
+      className={cn(
+        "fixed bottom-4 left-1/2 z-[85] flex max-w-[min(96vw,720px)] -translate-x-1/2 flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-2 py-2 shadow-xl transition-opacity md:px-4",
+        count === 0 && "pointer-events-none opacity-0",
+      )}
+    >
+      <span className="shrink-0 font-mono text-xs font-medium">{count} selected</span>
 
-      <div className="bulk-actions">
-        {/* Move to column */}
-        <div className="bulk-dropdown">
-          <button
-            className="bulk-btn"
+      <div className="flex flex-1 flex-wrap items-center gap-1">
+        <div className="relative">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9"
             onClick={() => {
               const wasOpen = showMoveMenu;
               closeAllMenus();
@@ -82,15 +92,16 @@ export function BulkActionBar({
             }}
           >
             Move to...
-          </button>
+          </Button>
           {showMoveMenu && columns && (
-            <div className="bulk-dropdown-menu">
+            <div className="absolute bottom-full left-0 z-10 mb-1 min-w-[10rem] rounded-md border border-border bg-popover py-1 shadow-md">
               {columns
                 .filter((c) => c.visible)
                 .map((col) => (
                   <button
                     key={col._id}
-                    className="bulk-dropdown-item"
+                    type="button"
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
                     onClick={() => handleMove(col.name)}
                   >
                     {col.name}
@@ -100,10 +111,12 @@ export function BulkActionBar({
           )}
         </div>
 
-        {/* Add tags */}
-        <div className="bulk-dropdown">
-          <button
-            className="bulk-btn"
+        <div className="relative">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9"
             onClick={() => {
               const wasOpen = showAddTagMenu;
               closeAllMenus();
@@ -111,32 +124,34 @@ export function BulkActionBar({
             }}
           >
             Add Tag...
-          </button>
+          </Button>
           {showAddTagMenu && (
-            <div className="bulk-dropdown-menu">
-              <div className="bulk-tag-input-row">
-                <input
-                  className="bulk-tag-input"
+            <div className="absolute bottom-full left-0 z-10 mb-1 min-w-[12rem] rounded-md border border-border bg-popover p-2 shadow-md">
+              <div className="flex gap-1">
+                <Input
                   placeholder="Tag name..."
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") handleAddTag();
+                    if (e.key === "Enter") void handleAddTag();
                   }}
                   autoFocus
+                  className="h-8 text-sm"
                 />
-                <button className="bulk-dropdown-item" onClick={handleAddTag}>
+                <Button type="button" size="sm" className="h-8 shrink-0" onClick={handleAddTag}>
                   Add
-                </button>
+                </Button>
               </div>
             </div>
           )}
         </div>
 
-        {/* Remove tags */}
-        <div className="bulk-dropdown">
-          <button
-            className="bulk-btn"
+        <div className="relative">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9"
             onClick={() => {
               const wasOpen = showRemoveTagMenu;
               closeAllMenus();
@@ -144,60 +159,71 @@ export function BulkActionBar({
             }}
           >
             Remove Tag...
-          </button>
+          </Button>
           {showRemoveTagMenu && (
-            <div className="bulk-dropdown-menu">
-              <div className="bulk-tag-input-row">
-                <input
-                  className="bulk-tag-input"
+            <div className="absolute bottom-full left-0 z-10 mb-1 min-w-[12rem] rounded-md border border-border bg-popover p-2 shadow-md">
+              <div className="flex gap-1">
+                <Input
                   placeholder="Tag name..."
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") handleRemoveTag();
+                    if (e.key === "Enter") void handleRemoveTag();
                   }}
                   autoFocus
+                  className="h-8 text-sm"
                 />
-                <button className="bulk-dropdown-item" onClick={handleRemoveTag}>
+                <Button type="button" size="sm" className="h-8 shrink-0" onClick={handleRemoveTag}>
                   Remove
-                </button>
+                </Button>
               </div>
             </div>
           )}
         </div>
 
-        {/* Archive */}
-        <button
-          className="bulk-btn"
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-9"
           onClick={async () => {
             await bulkArchive({ ids });
             onClearSelection();
           }}
         >
           Archive
-        </button>
+        </Button>
 
-        {/* Delete */}
         {!confirmDelete ? (
-          <button
-            className="bulk-btn bulk-btn-danger"
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            className="h-9"
             onClick={() => {
               closeAllMenus();
               setConfirmDelete(true);
             }}
           >
             Delete
-          </button>
+          </Button>
         ) : (
-          <button className="bulk-btn bulk-btn-danger" onClick={handleDelete}>
+          <Button type="button" variant="destructive" size="sm" className="h-9" onClick={handleDelete}>
             Confirm delete {count}?
-          </button>
+          </Button>
         )}
       </div>
 
-      <button className="bulk-deselect" onClick={onClearSelection} title="Clear selection">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-8 shrink-0"
+        onClick={onClearSelection}
+        title="Clear selection"
+      >
         ✕
-      </button>
+      </Button>
     </div>
   );
 }

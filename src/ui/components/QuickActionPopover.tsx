@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { cn } from "@/ui/lib/utils";
 
 interface QuickActionPopoverProps {
   columns: string[];
@@ -67,29 +68,36 @@ export function QuickActionPopover({
   };
 
   return (
-    <div className="dialog-overlay" onClick={onClose}>
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="dialog quick-action-popover"
+        className="w-full max-w-[280px] rounded-lg border border-border bg-card p-3 shadow-xl"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 280 }}
       >
-        <h3>Move to column</h3>
-        <div className="quick-action-list">
+        <h3 className="mb-2 text-sm font-semibold">Move to column</h3>
+        <div className="flex flex-col gap-0.5">
           {items.map((item, i) => (
             <button
               key={item.value}
-              className={`quick-action-item ${i === selectedIndex ? "selected" : ""} ${item.value === currentStatus ? "current" : ""}`}
+              type="button"
+              className={cn(
+                "flex w-full items-center justify-between rounded-md px-2 py-2 text-left text-sm transition-colors",
+                i === selectedIndex && "bg-muted",
+                item.value === currentStatus && "font-medium",
+              )}
               onClick={() => handleSelect(item.value)}
             >
               {item.label}
               {item.value === currentStatus && (
-                <span className="quick-action-current-badge">current</span>
+                <span className="rounded bg-primary/15 px-1.5 py-0.5 font-mono text-[10px] text-primary">current</span>
               )}
             </button>
           ))}
         </div>
-        <div className="quick-action-hint">
-          <kbd>j</kbd>/<kbd>k</kbd> navigate &middot; <kbd>Enter</kbd> select &middot; <kbd>Esc</kbd> cancel
+        <div className="mt-3 text-center text-[11px] text-muted-foreground">
+          <kbd className="rounded border border-border bg-muted px-1">j</kbd>/
+          <kbd className="rounded border border-border bg-muted px-1">k</kbd> navigate ·{" "}
+          <kbd className="rounded border border-border bg-muted px-1">Enter</kbd> select ·{" "}
+          <kbd className="rounded border border-border bg-muted px-1">Esc</kbd> cancel
         </div>
       </div>
     </div>

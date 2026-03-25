@@ -3,6 +3,8 @@ import { api } from "../../../convex/_generated/api";
 import { useState } from "react";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { formatHistoryEntry } from "../formatHistoryEntry";
+import { Button } from "@/ui/components/ui/button";
+import { cn } from "@/ui/lib/utils";
 
 const ACTION_ICONS: Record<string, string> = {
   created: "+",
@@ -16,59 +18,67 @@ export function ActivityFeed({ projectId, onOpenIssue }: { projectId: Id<"projec
   const entries = useQuery(api.activityFeed.recent, { projectId, limit: 50 });
   const [filterAction, setFilterAction] = useState<string>("");
 
-  if (!entries) return <div className="loading">Loading activity...</div>;
+  if (!entries) {
+    return (
+      <div className="flex items-center justify-center gap-2 p-8 text-muted-foreground">
+        <div className="size-6 animate-spin rounded-full border-2 border-border border-t-primary" />
+        Loading activity...
+      </div>
+    );
+  }
 
   const filtered = filterAction
     ? entries.filter((e) => e.action === filterAction)
     : entries;
 
   return (
-    <div className="activity-feed">
-      <div className="activity-feed-filters">
-        <button
-          className={`btn btn-sm ${filterAction === "" ? "btn-primary" : ""}`}
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
+      <div className="mb-3 flex flex-wrap gap-1">
+        <Button
+          type="button"
+          size="sm"
+          variant={filterAction === "" ? "default" : "outline"}
           onClick={() => setFilterAction("")}
         >
           All
-        </button>
+        </Button>
         {EVENT_TYPES.map((type) => (
-          <button
+          <Button
             key={type}
-            className={`btn btn-sm ${filterAction === type ? "btn-primary" : ""}`}
+            type="button"
+            size="sm"
+            variant={filterAction === type ? "default" : "outline"}
             onClick={() => setFilterAction(type)}
           >
             {type}
-          </button>
+          </Button>
         ))}
       </div>
 
       {filtered.length === 0 ? (
-        <div className="empty-state">No activity yet</div>
+        <div className="flex flex-1 items-center justify-center p-8 text-muted-foreground">No activity yet</div>
       ) : (
-        <div className="activity-timeline">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
           {filtered.map((entry) => (
-            <div key={entry._id} className="activity-entry">
-              <span className="activity-icon">
+            <div key={entry._id} className="flex gap-3 border-b border-border pb-3 last:border-0">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted font-mono text-sm">
                 {ACTION_ICONS[entry.action] ?? "·"}
               </span>
-              <div className="activity-content">
-                <span
-                  className="activity-issue-link"
+              <div className="min-w-0 flex-1 text-sm">
+                <button
+                  type="button"
+                  className="mr-1 font-mono text-xs font-semibold text-primary hover:underline"
                   onClick={() => onOpenIssue?.(entry.issueSimpleId)}
                 >
                   {entry.issueSimpleId}
-                </span>
-                <span className="activity-description">
-                  {formatHistoryEntry(entry)}
-                </span>
-                <span className="activity-meta">
-                  <span className={`history-actor history-actor-${entry.actor}`}>
+                </button>
+                <span className="text-foreground">{formatHistoryEntry(entry)}</span>
+                <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  <span className={cn("font-medium", entry.actor === "user" ? "text-primary" : "")}>
                     {entry.actor}
                   </span>
-                  <span className="activity-time">
-                    {formatRelativeTime(entry.timestamp)}
-                  </span>
-                </span>
+                  <span>{formatRelativeTime(entry.timestamp)}</span>
+                </div>
               </div>
             </div>
           ))}
@@ -80,9 +90,8 @@ export function ActivityFeed({ projectId, onOpenIssue }: { projectId: Id<"projec
 
 function formatRelativeTime(timestamp: number): string {
   const diff = Date.now() - timestamp;
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "just now";
   if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;

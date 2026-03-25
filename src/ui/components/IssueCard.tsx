@@ -115,6 +115,7 @@ export function IssueCard({
             {issue.tags.map((tag) => (
               <span
                 key={tag}
+                data-testid="issue-tag"
                 className="rounded-[10px] bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
               >
                 {tag}
