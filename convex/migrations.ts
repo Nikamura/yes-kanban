@@ -67,6 +67,15 @@ export const clearAllowedToolPatterns = migrations.define({
   migrateOne: () => ({ allowedToolPatterns: undefined }),
 });
 
+/** YES-258: Remove disableBuiltInMcp from projects (field was removed from code but left in DB). */
+export const removeDisableBuiltInMcp = migrations.define({
+  table: "projects",
+  migrateOne: (_ctx, doc) => {
+    if (doc.disableBuiltInMcp === undefined) return;
+    return { disableBuiltInMcp: undefined };
+  },
+});
+
 /** Serial order for `runAll`. `backfillTokenUsageDaily` requires `projectId` on runAttempts. */
 export function runAllSerialMigrations() {
   return [
@@ -75,6 +84,7 @@ export function runAllSerialMigrations() {
     internal.migrations.removeChecklistFromIssues,
     internal.migrations.deleteAllSkills,
     internal.migrations.clearAllowedToolPatterns,
+    internal.migrations.removeDisableBuiltInMcp,
   ] as const;
 }
 
