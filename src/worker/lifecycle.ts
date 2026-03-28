@@ -658,11 +658,15 @@ export async function runLifecycle(
     mcpConfigPath = mcpResult.configPath;
     console.log(`[lifecycle] MCP server started on port ${mcpResult.port} for workspace=${workspaceId}`);
 
-    // Clean up any stale .cursor/ dirs from previous runs (e.g., worktree reuse with different agent)
+    // Clean up any stale .cursor/ dirs and opencode.json from previous runs (e.g., worktree reuse with different agent)
     for (const wt of worktrees) {
       const cursorDir = join(wt.worktreePath, ".cursor");
       if (agentConfig.agentType !== "cursor" && existsSync(cursorDir)) {
         try { rmSync(cursorDir, { recursive: true, force: true }); } catch { /* best-effort */ }
+      }
+      const opencodeJsonPath = join(wt.worktreePath, "opencode.json");
+      if (agentConfig.agentType !== "opencode" && existsSync(opencodeJsonPath)) {
+        try { rmSync(opencodeJsonPath); } catch { /* best-effort */ }
       }
     }
 
@@ -699,6 +703,45 @@ export async function runLifecycle(
           console.log(`[lifecycle] wrote .cursor/mcp.json for workspace=${workspaceId}`);
         } catch (err) {
           console.warn(`[lifecycle] failed to write .cursor/mcp.json:`, err);
+        }
+      }
+    }
+
+    // OpenCode reads MCP from opencode.json in cwd (mcp key, not mcpServers).
+    if (agentConfig.agentType === "opencode" && mcpConfigPath && worktrees.length > 0) {
+      for (const wt of worktrees) {
+        try {
+          const raw = readFileSync(mcpConfigPath, "utf-8");
+          const bridge = JSON.parse(raw) as { mcpServers?: Record<string, unknown> };
+          if (!bridge.mcpServers || typeof bridge.mcpServers !== "object" || Array.isArray(bridge.mcpServers)) {
+            throw new Error("Missing or invalid 'mcpServers' in MCP config");
+          }
+          const opencodeMcp: Record<string, unknown> = {};
+          for (const [name, entry] of Object.entries(bridge.mcpServers)) {
+            opencodeMcp[name] = entry;
+          }
+          writeFileSync(join(wt.worktreePath, "opencode.json"), JSON.stringify({ mcp: opencodeMcp }, null, 2));
+
+          const dotGit = join(wt.worktreePath, ".git");
+          let excludePath = join(dotGit, "info", "exclude");
+          try {
+            const stat = statSync(dotGit);
+            if (stat.isFile()) {
+              const content = readFileSync(dotGit, "utf-8").trim();
+              if (content.startsWith("gitdir:")) {
+                const gitdir = resolve(wt.worktreePath, content.slice("gitdir:".length).trim());
+                excludePath = join(gitdir, "info", "exclude");
+              }
+            }
+          } catch { /* .git missing */ }
+          const excludeContent = existsSync(excludePath) ? readFileSync(excludePath, "utf-8") : "";
+          if (!excludeContent.includes("opencode.json")) {
+            mkdirSync(dirname(excludePath), { recursive: true });
+            appendFileSync(excludePath, "\nopencode.json\n");
+          }
+          console.log(`[lifecycle] wrote opencode.json for workspace=${workspaceId}`);
+        } catch (err) {
+          console.warn(`[lifecycle] failed to write opencode.json:`, err);
         }
       }
     }

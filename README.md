@@ -85,7 +85,7 @@ src/
     hooks/            Custom React hooks
     utils/            Analytics, date formatting, constants
   worker/
-    adapters/         Agent adapters (claude-code, codex, cursor)
+    adapters/         Agent adapters (claude-code, codex, cursor, opencode)
     forge/            Git forge integrations (GitHub, GitLab, Azure DevOps)
     importers/        Issue importers (Linear, GitHub, Jira, CSV)
     lifecycle.ts      Core agent orchestration

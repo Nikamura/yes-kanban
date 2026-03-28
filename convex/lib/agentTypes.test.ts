@@ -9,6 +9,7 @@ describe("agentTypes", () => {
     expect(isSupportedAgentAdapterType("claude-code")).toBe(true);
     expect(isSupportedAgentAdapterType("codex")).toBe(true);
     expect(isSupportedAgentAdapterType("cursor")).toBe(true);
+    expect(isSupportedAgentAdapterType("opencode")).toBe(true);
     expect(isSupportedAgentAdapterType("pi")).toBe(false);
     expect(isSupportedAgentAdapterType("nope")).toBe(false);
   });

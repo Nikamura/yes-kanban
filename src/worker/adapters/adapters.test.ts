@@ -3,6 +3,7 @@ import { getAdapter } from "./index";
 import { ClaudeCodeAdapter } from "./claude-code";
 import { CodexAdapter } from "./codex";
 import { CursorAdapter } from "./cursor";
+import { OpenCodeAdapter } from "./opencode";
 
 describe("getAdapter", () => {
   test("returns ClaudeCodeAdapter for claude-code", () => {
@@ -20,6 +21,11 @@ describe("getAdapter", () => {
     expect(adapter).toBeInstanceOf(CursorAdapter);
   });
 
+  test("returns OpenCodeAdapter for opencode", () => {
+    const adapter = getAdapter("opencode");
+    expect(adapter).toBeInstanceOf(OpenCodeAdapter);
+  });
+
   test("throws on unknown agent type", () => {
     expect(() => getAdapter("unknown-agent")).toThrow(/Unsupported agent type: unknown-agent/);
   });
@@ -29,7 +35,7 @@ describe("getAdapter", () => {
   });
 
   test("all adapters implement IAgentAdapter interface", () => {
-    for (const type of ["claude-code", "codex", "cursor"]) {
+    for (const type of ["claude-code", "codex", "cursor", "opencode"]) {
       const adapter = getAdapter(type);
       expect(typeof adapter.buildCommand).toBe("function");
       expect(typeof adapter.parseLine).toBe("function");

@@ -20,12 +20,21 @@ const AGENT_TYPES = [
   { value: "claude-code", label: "Claude Code" },
   { value: "codex", label: "Codex CLI" },
   { value: "cursor", label: "Cursor Agent" },
+  { value: "opencode", label: "OpenCode" },
 ] as const;
 
 const DEFAULT_COMMANDS: Record<string, string> = {
   "claude-code": "claude",
   codex: "codex",
   cursor: "agent",
+  opencode: "opencode",
+};
+
+const MODEL_PLACEHOLDERS: Record<string, string> = {
+  "claude-code": "e.g. sonnet",
+  codex: "e.g. o3",
+  cursor: "e.g. claude-sonnet-4-5",
+  opencode: "e.g. anthropic/claude-sonnet-4-5",
 };
 
 const SETTINGS_CONCURRENCY_DEBOUNCE_MS = 400;
@@ -886,7 +895,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                     autoComplete="off"
                   />
                   <input
-                    placeholder="Model (optional)"
+                    placeholder={MODEL_PLACEHOLDERS[editAgentConfigForm.agentType] ?? "Model (optional)"}
                     value={editAgentConfigForm.model}
                     onChange={(e) => setEditAgentConfigForm({ ...editAgentConfigForm, model: e.target.value })}
                     autoComplete="off"
@@ -1078,7 +1087,7 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                 autoComplete="off"
               />
               <input
-                placeholder="Model (optional)"
+                placeholder={MODEL_PLACEHOLDERS[agentForm.agentType] ?? "Model (optional)"}
                 value={agentForm.model}
                 onChange={(e) => setAgentForm({ ...agentForm, model: e.target.value })}
                 autoComplete="off"

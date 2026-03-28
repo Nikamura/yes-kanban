@@ -6,6 +6,7 @@ export const SUPPORTED_AGENT_ADAPTER_TYPES = [
   "claude-code",
   "codex",
   "cursor",
+  "opencode",
 ] as const;
 
 export type SupportedAgentAdapterType = (typeof SUPPORTED_AGENT_ADAPTER_TYPES)[number];
