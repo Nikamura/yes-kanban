@@ -44,6 +44,29 @@ function normalizeToolInput(tool: string, input: Record<string, unknown> | undef
   return input;
 }
 
+// eslint-disable-next-line no-control-regex -- intentional: stripping terminal escape sequences
+const RE_OSC_ESC = /\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g;
+// eslint-disable-next-line no-control-regex
+const RE_CSI = /\x1b\[[0-9;]*[A-Za-z]/g;
+// eslint-disable-next-line no-control-regex
+const RE_CHARSET = /\x1b[()][A-Z0-9]/g;
+// eslint-disable-next-line no-control-regex
+const RE_BARE_OSC = /\]0;[^\x07]*?(?:\x07|(?=\]0;|\{))/g;
+
+/**
+ * Strip ANSI escape sequences and OSC (Operating System Command) sequences
+ * that OpenCode's terminal emits (e.g. `\x1b]0;title\x07` or `]0;title`).
+ * These get prepended to JSON lines and prevent `JSON.parse` from succeeding.
+ */
+function stripTerminalEscapes(line: string): string {
+  return line
+    .replace(RE_OSC_ESC, "")
+    .replace(RE_CSI, "")
+    .replace(RE_CHARSET, "")
+    .replace(RE_BARE_OSC, "")
+    .trim();
+}
+
 /**
  * Adapter for OpenCode CLI (`opencode run --format json`).
  * JSONL event types: `step_start`, `text`, `tool_use`, `step_finish`, `error`.
@@ -89,8 +112,10 @@ export class OpenCodeAdapter implements IAgentAdapter {
   }
 
   parseLine(line: string): AgentEvent[] {
+    const cleaned = stripTerminalEscapes(line);
+    if (!cleaned) return [];
     try {
-      const parsed = JSON.parse(line) as Record<string, unknown>;
+      const parsed = JSON.parse(cleaned) as Record<string, unknown>;
       const eventType = parsed["type"] as string | undefined;
 
       if (eventType === "step_start") {

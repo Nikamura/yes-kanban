@@ -227,6 +227,36 @@ describe("OpenCodeAdapter", () => {
       expect(adapter.parseLine("not json")).toHaveLength(0);
       expect(adapter.parseLine("")).toHaveLength(0);
     });
+
+    test("strips OSC terminal escape sequences before parsing", () => {
+      const json = JSON.stringify({
+        type: "step_start",
+        sessionID: "ses_abc",
+        part: { type: "step-start" },
+      });
+      // Simulate OpenCode prepending OSC title-setting sequences
+      const lineWithEscapes = `\x1b]0;workspaceId: ready\x07\x1b]0;workspaceId: working\x07${json}`;
+      const events = adapter.parseLine(lineWithEscapes);
+      expect(events).toHaveLength(1);
+      expect(events[0]!.type).toBe("system");
+      expect((events[0]!.data as { sessionID?: string }).sessionID).toBe("ses_abc");
+    });
+
+    test("strips bare ]0; sequences (without ESC prefix)", () => {
+      const json = JSON.stringify({
+        type: "text",
+        part: { text: "Hello world" },
+      });
+      const lineWithBareOsc = `]0;abc: ready]0;abc: working${json}`;
+      const events = adapter.parseLine(lineWithBareOsc);
+      expect(events).toHaveLength(1);
+      expect(events[0]!.type).toBe("assistant_message");
+    });
+
+    test("pure escape sequences → empty array", () => {
+      const pureTitleLine = `\x1b]0;workspaceId: ready\x07`;
+      expect(adapter.parseLine(pureTitleLine)).toHaveLength(0);
+    });
   });
 
   describe("extractTokenUsage", () => {

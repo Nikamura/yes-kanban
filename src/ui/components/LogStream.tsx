@@ -45,6 +45,8 @@ function agentLabel(agentType?: string): string {
       return "Cursor";
     case "codex":
       return "Codex";
+    case "opencode":
+      return "OpenCode";
     default:
       return agentType ?? "Agent";
   }
@@ -141,6 +143,10 @@ const SKIP_JSON_TYPES = new Set([
   "content_block_delta",
   "content_block_start",
   "content_block_stop",
+  "step_start",
+  "step_finish",
+  "text",
+  "tool_use",
 ]);
 
 /** System subtypes that are noisy and should be hidden */
@@ -360,14 +366,24 @@ function extractContent(data: any): string | null {
 }
 
 function isNoisyJson(line: string): boolean {
-  if (!line.startsWith("{")) return false;
+  // Strip terminal escape sequences (OSC title-setting) that OpenCode prepends
+  // eslint-disable-next-line no-control-regex -- intentional: stripping terminal escape codes
+  const cleaned = line.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
+    // eslint-disable-next-line no-control-regex
+    .replace(/\]0;[^\x07]*?(?:\x07|(?=\]0;|\{))/g, "")
+    .trim();
+  if (!cleaned) return true; // pure escape sequences — skip
+
+  const target = cleaned.startsWith("{") ? cleaned : line.startsWith("{") ? line : null;
+  if (!target) return false;
   try {
-    const parsed = JSON.parse(line);
+    const parsed = JSON.parse(target);
     if (SKIP_JSON_TYPES.has(parsed.type)) return true;
     // Cursor echoes "user" messages as raw JSON — suppress them
     if (parsed.type === "user") return true;
     return false;
   } catch {
-    return false;
+    // If the cleaned version contains JSON-like content after escape sequences, suppress it
+    return cleaned.startsWith("{") && cleaned.includes('"type"');
   }
 }
