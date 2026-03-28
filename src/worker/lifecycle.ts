@@ -707,7 +707,9 @@ export async function runLifecycle(
       }
     }
 
-    // OpenCode reads MCP from opencode.json in cwd (mcp key, not mcpServers).
+    // OpenCode reads MCP from opencode.json in cwd. Uses "mcp" key with type "local"
+    // and command as an array (not separate command+args like Claude Code).
+    // See: https://opencode.ai/docs/mcp-servers
     if (agentConfig.agentType === "opencode" && mcpConfigPath && worktrees.length > 0) {
       for (const wt of worktrees) {
         try {
@@ -718,7 +720,10 @@ export async function runLifecycle(
           }
           const opencodeMcp: Record<string, unknown> = {};
           for (const [name, entry] of Object.entries(bridge.mcpServers)) {
-            opencodeMcp[name] = { type: "stdio", ...(entry as Record<string, unknown>) };
+            const e = entry as Record<string, unknown>;
+            const args = (e["args"] as string[] | undefined) ?? [];
+            const command = [e["command"] as string, ...args];
+            opencodeMcp[name] = { type: "local", command };
           }
           writeFileSync(join(wt.worktreePath, "opencode.json"), JSON.stringify({ mcp: opencodeMcp }, null, 2));
 

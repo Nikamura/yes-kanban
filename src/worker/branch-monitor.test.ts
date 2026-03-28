@@ -1,10 +1,20 @@
-import { describe, test, expect, spyOn, afterEach } from "bun:test";
+import { describe, test, expect, spyOn, afterEach, beforeEach } from "bun:test";
+import { mkdirSync, rmSync } from "node:fs";
 import type { ConvexClient } from "convex/browser";
 import { pullBaseBranches } from "./branch-monitor";
 
+const TEST_DIRS = ["/tmp/repo", "/tmp/wt", "/tmp/repo-one", "/tmp/wt1", "/tmp/repo-two", "/tmp/wt2"];
+
 describe("pullBaseBranches", () => {
+  beforeEach(() => {
+    for (const d of TEST_DIRS) mkdirSync(d, { recursive: true });
+  });
+
   afterEach(() => {
     spyOn(Bun, "spawnSync").mockRestore();
+    for (const d of TEST_DIRS) {
+      try { rmSync(d, { recursive: true }); } catch { /* ignore */ }
+    }
   });
 
   const wt = {
@@ -30,7 +40,7 @@ describe("pullBaseBranches", () => {
     });
 
     const convex = {
-      query: async () => [{ _id: "w1", worktrees: [wt] }],
+      query: () => [{ _id: "w1", worktrees: [wt] }],
     } as unknown as ConvexClient;
 
     await pullBaseBranches(convex);
@@ -58,7 +68,7 @@ describe("pullBaseBranches", () => {
     });
 
     const convex = {
-      query: async () => [{ _id: "w1", worktrees: [wt] }],
+      query: () => [{ _id: "w1", worktrees: [wt] }],
     } as unknown as ConvexClient;
 
     await pullBaseBranches(convex);
@@ -84,7 +94,7 @@ describe("pullBaseBranches", () => {
     });
 
     const convex = {
-      query: async () => [{ _id: "w1", worktrees: [wt] }],
+      query: () => [{ _id: "w1", worktrees: [wt] }],
     } as unknown as ConvexClient;
 
     await pullBaseBranches(convex);
@@ -124,7 +134,7 @@ describe("pullBaseBranches", () => {
     } as any;
 
     const convex = {
-      query: async () => [{ _id: "w1", worktrees: [wt1, wt2] }],
+      query: () => [{ _id: "w1", worktrees: [wt1, wt2] }],
     } as unknown as ConvexClient;
 
     await pullBaseBranches(convex);

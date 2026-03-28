@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import type { ConvexClient } from "convex/browser";
 import { api } from "../../convex/_generated/api";
 import { cleanGitEnv } from "./worktree-manager";
@@ -12,7 +13,7 @@ export async function checkBranchStatus(convex: ConvexClient): Promise<void> {
 
   for (const ws of workspaces) {
     const wt = ws.worktrees[0];
-    if (!wt) continue;
+    if (!wt || !existsSync(wt.repoPath)) continue;
 
     try {
       const env = cleanGitEnv();
@@ -57,6 +58,7 @@ export async function pullBaseBranches(convex: ConvexClient): Promise<void> {
 
   for (const ws of workspaces) {
     for (const wt of ws.worktrees) {
+      if (!existsSync(wt.repoPath)) continue;
       const key = `${wt.repoPath}:${wt.baseBranch}`;
       if (seen.has(key)) continue;
       seen.add(key);
