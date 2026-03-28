@@ -53,20 +53,6 @@ export const removeChecklistFromIssues = migrations.define({
   },
 });
 
-/** YES-255: Remove per-project skills; run before dropping the `skills` table from schema. */
-export const deleteAllSkills = migrations.define({
-  table: "skills",
-  migrateOne: async (ctx, doc) => {
-    await ctx.db.delete(doc._id);
-  },
-});
-
-/** YES-255: Remove tool-pattern sandboxing from agent configs. */
-export const clearAllowedToolPatterns = migrations.define({
-  table: "agentConfigs",
-  migrateOne: () => ({ allowedToolPatterns: undefined }),
-});
-
 /** YES-258: Remove disableBuiltInMcp from projects (field was removed from code but left in DB). */
 export const removeDisableBuiltInMcp = migrations.define({
   table: "projects",
@@ -86,8 +72,6 @@ export function runAllSerialMigrations() {
     internal.migrations.backfillRunAttemptsProjectId,
     internal.migrations.backfillTokenUsageDaily,
     internal.migrations.removeChecklistFromIssues,
-    internal.migrations.deleteAllSkills,
-    internal.migrations.clearAllowedToolPatterns,
     internal.migrations.removeDisableBuiltInMcp,
   ] as const;
 }

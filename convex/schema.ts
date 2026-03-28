@@ -94,8 +94,6 @@ export default defineSchema({
     mcpEnabled: v.boolean(),
     mcpTools: v.optional(v.array(v.string())),
     permissionMode: v.optional(v.union(v.literal("bypass"), v.literal("accept"))),
-    // TODO: remove after YES-255 `clearAllowedToolPatterns` migration has run
-    allowedToolPatterns: v.optional(v.array(v.string())),
   }).index("by_project", ["projectId"]),
 
   workspaces: defineTable({
@@ -284,20 +282,6 @@ export default defineSchema({
     .index("by_project", ["projectId"])
     .index("by_type", ["type"])
     .index("by_project_type", ["projectId", "type"]),
-
-  // TODO: remove after YES-255 `deleteAllSkills` migration has run
-  skills: defineTable({
-    projectId: v.id("projects"),
-    name: v.string(),
-    description: v.string(),
-    content: v.string(),
-    enabled: v.boolean(),
-    source: v.optional(v.string()),
-    sourceUrl: v.optional(v.string()),
-    sourceRef: v.optional(v.string()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }).index("by_project", ["projectId"]),
 
   retries: defineTable({
     workspaceId: v.id("workspaces"),
