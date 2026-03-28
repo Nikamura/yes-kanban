@@ -14,7 +14,6 @@ export default tseslint.config(
       "eslint.config.js",
       "vite.config.ts",
       "vitest.config.ts",
-      "playwright.config.ts",
       "playwright.test.config.ts",
     ],
   },

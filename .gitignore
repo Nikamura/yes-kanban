@@ -13,3 +13,6 @@ package-lock.json
 
 # Local Cursor MCP config (machine-specific; do not commit)
 .cursor/mcp.json
+
+# Local opencode MCP config (machine-specific; do not commit)
+opencode.json

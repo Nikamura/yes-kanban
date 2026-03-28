@@ -16,11 +16,19 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 
 /**
- * Convex HTTP URL for E2E seeding (must match the UI’s `VITE_CONVEX_URL`).
+ * Convex HTTP URL for E2E seeding (must match the UI's `VITE_CONVEX_URL`).
  * `scripts/test-e2e.sh` sets this to the isolated backend port.
+ * @throws Error if E2E_CONVEX_URL environment variable is not set
  */
 export function getE2eConvexUrl(): string {
-  return process.env["E2E_CONVEX_URL"] ?? "http://127.0.0.1:3210";
+  const url = process.env["E2E_CONVEX_URL"];
+  if (!url) {
+    throw new Error(
+      "E2E_CONVEX_URL environment variable is not set. " +
+        "Run E2E tests via './scripts/test-e2e.sh' or 'bun run test:e2e' to ensure proper isolation."
+    );
+  }
+  return url;
 }
 
 /**

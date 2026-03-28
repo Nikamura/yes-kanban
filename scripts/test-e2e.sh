@@ -1,25 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Optional: run only a specific unit test file
-# Usage: ./scripts/test-e2e.sh [--file src/worker/lifecycle.test.ts]
+# Optional flags:
+#   --file <path>     Run only a specific unit test file
+#   --e2e-only        Skip unit tests and run only E2E tests
+# Usage: ./scripts/test-e2e.sh [--file src/worker/lifecycle.test.ts] [--e2e-only]
 UNIT_FILE=""
+E2E_ONLY=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --file) UNIT_FILE="$2"; shift 2 ;;
+    --e2e-only) E2E_ONLY=true; shift ;;
     *) break ;;
   esac
 done
 
-# Run unit tests first
-echo "[test] Running unit tests..."
-if [ -n "$UNIT_FILE" ]; then
-  bun test --max-concurrency=1 "$UNIT_FILE"
-else
-  bun test --max-concurrency=1 src/
-  bun test --max-concurrency=1 convex/
-  echo "[test] Running Convex integration tests (vitest + convex-test)..."
-  bunx vitest run --config vitest.config.ts
+# Run unit tests first (unless --e2e-only)
+if [ "$E2E_ONLY" = false ]; then
+  echo "[test] Running unit tests..."
+  if [ -n "$UNIT_FILE" ]; then
+    bun test --max-concurrency=1 "$UNIT_FILE"
+  else
+    bun test --max-concurrency=1 src/
+    bun test --max-concurrency=1 convex/
+    echo "[test] Running Convex integration tests (vitest + convex-test)..."
+    bunx vitest run --config vitest.config.ts
+  fi
 fi
 
 # E2E test runner with isolated Convex instance and Vite port.
