@@ -700,6 +700,7 @@ describe("buildGrillingPrompt", () => {
     expect(prompt).toContain("Grill Me");
     expect(prompt).toContain("mcp__yes-kanban__ask_question");
     expect(prompt).toContain("explore the codebase");
+    expect(prompt).toContain("WebSearch");
     expect(prompt).toContain("submit_plan");
     expect(prompt).not.toContain("# Planning Phase");
   });

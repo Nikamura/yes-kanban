@@ -38,14 +38,16 @@ describe("MCP tool lists by phase", () => {
     expect(PLANNING_TOOLS).toContain("mcp__yes-kanban__get_plan");
   });
 
-  test("GRILLING_TOOLS is read-only tools plus ask_question only", () => {
+  test("GRILLING_TOOLS is read-only tools plus ask_question and web tools", () => {
     for (const tool of READ_ONLY_TOOLS) {
       expect(GRILLING_TOOLS).toContain(tool);
     }
     expect(GRILLING_TOOLS).toContain("mcp__yes-kanban__ask_question");
+    expect(GRILLING_TOOLS).toContain("WebSearch");
+    expect(GRILLING_TOOLS).toContain("WebFetch");
     expect(GRILLING_TOOLS).not.toContain("mcp__yes-kanban__submit_plan");
     expect(GRILLING_TOOLS).not.toContain("mcp__yes-kanban__get_plan");
-    expect(GRILLING_TOOLS).toHaveLength(READ_ONLY_TOOLS.length + 1);
+    expect(GRILLING_TOOLS).toHaveLength(READ_ONLY_TOOLS.length + 3);
   });
 
   test("PLANNING_RESEARCH_TOOLS includes all planning tools plus web tools", () => {

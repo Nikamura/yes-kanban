@@ -18,8 +18,13 @@ export const PLANNING_TOOLS = [
   "mcp__yes-kanban__get_plan",
 ];
 
-/** Pre-planning interview: explore via read-only tools and ask_question only (no submit_plan / get_plan). */
-export const GRILLING_TOOLS = [...READ_ONLY_TOOLS, "mcp__yes-kanban__ask_question"];
+/** Pre-planning interview: read-only tools, ask_question, and WebSearch/WebFetch (no submit_plan / get_plan). */
+export const GRILLING_TOOLS = [
+  ...READ_ONLY_TOOLS,
+  "mcp__yes-kanban__ask_question",
+  "WebSearch",
+  "WebFetch",
+];
 
 export const CODING_TOOLS = [
   ...READ_ONLY_TOOLS,

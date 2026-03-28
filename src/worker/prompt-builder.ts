@@ -406,6 +406,9 @@ export function buildGrillingPrompt(
     "If a question can be answered by exploring the codebase, explore the codebase instead of asking the user.",
   );
   parts.push(
+    "If a question can be answered by searching the web for domain knowledge or technical details, use WebSearch instead of asking the user.",
+  );
+  parts.push(
     "When the design is sufficiently explored and there are no unresolved branches, **finish** without calling `ask_question` again.",
   );
   parts.push(
