@@ -118,7 +118,10 @@ test.describe("Diff viewer", () => {
       .last();
     await expect(contentCell).toBeVisible();
 
-    const textLength = await contentCell.evaluate((el) => el.textContent?.length ?? 0);
-    expect(textLength).toBeGreaterThan(500);
+    await expect
+      .poll(() => contentCell.evaluate((el) => el.textContent?.length ?? 0), {
+        timeout: 10_000,
+      })
+      .toBeGreaterThan(500);
   });
 });

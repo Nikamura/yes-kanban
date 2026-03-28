@@ -18,8 +18,6 @@ export default defineSchema({
     skipTests: v.optional(v.boolean()),
     skipPlanning: v.optional(v.boolean()),
     autoPlanReview: v.optional(v.boolean()),
-    /** @deprecated — remove after running removeDisableBuiltInMcp migration */
-    disableBuiltInMcp: v.optional(v.boolean()),
     maxConcurrent: v.optional(v.union(v.number(), v.null())),
     maxConcurrentPlanning: v.optional(v.union(v.number(), v.null())),
     maxConcurrentCoding: v.optional(v.union(v.number(), v.null())),

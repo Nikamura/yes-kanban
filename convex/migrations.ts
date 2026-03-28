@@ -71,8 +71,12 @@ export const clearAllowedToolPatterns = migrations.define({
 export const removeDisableBuiltInMcp = migrations.define({
   table: "projects",
   migrateOne: (_ctx, doc) => {
-    if (doc.disableBuiltInMcp === undefined) return;
-    return { disableBuiltInMcp: undefined };
+    const legacy = doc as DataModel["projects"]["document"] & {
+      disableBuiltInMcp?: boolean;
+    };
+    if (legacy.disableBuiltInMcp === undefined) return;
+    // Patch shape is validated at runtime; field is absent from current generated types.
+    return { disableBuiltInMcp: undefined } as Partial<DataModel["projects"]["document"]>;
   },
 });
 

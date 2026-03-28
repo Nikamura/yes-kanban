@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { ensureBoardWithIssue } from "./helpers";
+import { ensureBoardWithIssue, waitForAppReady } from "./helpers";
 
 test.describe("Board", () => {
   test("shows app heading", async ({ page }) => {
@@ -10,11 +10,11 @@ test.describe("Board", () => {
 
   test("can create a project and see default columns", async ({ page }) => {
     await page.goto("/");
-    await page.waitForTimeout(1500);
+    await waitForAppReady(page);
 
     const addBtn = page.getByTestId("project-sidebar-add");
 
-    if (await addBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await addBtn.isVisible()) {
       await addBtn.click();
     } else {
       await page.getByRole("button", { name: "Create Project" }).click();
@@ -164,7 +164,7 @@ test.describe("Board", () => {
 
     await page.getByRole("heading", { name: "Yes Kanban" }).click();
 
-    await expect(page.getByTestId("column-name").first()).toBeVisible();
+    await expect(page.getByTestId("column-name").first()).toBeVisible({ timeout: 10_000 });
     await expect(page.getByRole("button", { name: "Board", exact: true })).toHaveClass(/bg-primary/);
   });
 
@@ -190,7 +190,7 @@ test.describe("Board", () => {
     expect(url).toContain(simpleId);
 
     await page.reload();
-    await page.waitForTimeout(1500);
+    await waitForAppReady(page);
 
     await expect(page.getByTestId("issue-detail-panel")).toBeVisible();
     await expect(page.getByTestId("issue-detail-simple-id")).toHaveText(simpleId);
@@ -198,10 +198,10 @@ test.describe("Board", () => {
 
   test("ESC closes create project dialog", async ({ page }) => {
     await page.goto("/");
-    await page.waitForTimeout(1500);
+    await waitForAppReady(page);
 
     const addBtn = page.getByTestId("project-sidebar-add");
-    if (await addBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await addBtn.isVisible()) {
       await addBtn.click();
     } else {
       await page.getByRole("button", { name: "Create Project" }).click();
@@ -248,7 +248,7 @@ test.describe("Board", () => {
     expect(page.url()).toContain(simpleId);
 
     await page.reload();
-    await page.waitForTimeout(1500);
+    await waitForAppReady(page);
 
     await expect(page.getByTestId("issue-detail-panel")).toBeVisible();
     await expect(page.getByTestId("issue-detail-simple-id")).toHaveText(simpleId);

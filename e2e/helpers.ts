@@ -1,5 +1,17 @@
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
+
+/**
+ * Wait for the app shell to finish loading after navigation/reload.
+ * Uses the project sidebar "add" control — it appears only once Convex `projects` has
+ * loaded, and it is a single element (avoids strict-mode violations from `.or()` when
+ * both columns and the sidebar are visible).
+ */
+export async function waitForAppReady(page: Page) {
+  await expect(page.getByTestId("project-sidebar-add")).toBeVisible({
+    timeout: 10_000,
+  });
+}
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 
@@ -293,15 +305,14 @@ export async function seedProjectWithIssue(): Promise<{ slug: string }> {
 export async function ensureBoardWithIssue(page: Page) {
   await page.goto("/");
 
-  // Wait for app to load
-  await page.waitForTimeout(1500);
+  await waitForAppReady(page);
 
-  const hasBoard = await page.getByTestId("column-name").first().isVisible({ timeout: 2000 }).catch(() => false);
+  const hasBoard = await page.getByTestId("column-name").first().isVisible();
 
   if (!hasBoard) {
     // Fresh DB — create a project first
     const createBtn = page.getByRole("button", { name: "Create Project" });
-    if (await createBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await createBtn.isVisible()) {
       await createBtn.click();
     } else {
       await page.getByTestId("project-sidebar-add").click();
@@ -320,7 +331,7 @@ export async function ensureBoardWithIssue(page: Page) {
   if (count === 0) {
     // Create a seed issue
     await page.getByTestId("column-add-btn").first().click();
-    await page.getByRole("textbox", { name: /needs to be done/i }).fill("Implement user authentication");
+    await page.getByRole("textbox", { name: "Title" }).fill("Implement user authentication");
     await page.getByRole("textbox", { name: /description/i }).fill("Add login/logout flow");
     await page.getByRole("textbox", { name: /tag/i }).fill("backend, auth");
     await page.getByRole("button", { name: "Create", exact: true }).click();
