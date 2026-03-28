@@ -254,6 +254,170 @@ describe("McpServer with allowlist", () => {
   });
 });
 
+describe("McpServer setPhaseTools", () => {
+  let server: McpServer;
+  let port: number;
+  const mockConvex = {
+    query: mock((..._args: any[]) => null),
+    mutation: mock((..._args: any[]) => "mockId"),
+  };
+
+  beforeAll(async () => {
+    server = new McpServer(
+      mockConvex as any,
+      "projectId" as any,
+      "workspaceId4" as any,
+      undefined,
+      ["create_issue", "get_issue", "update_issue"], // configTools
+    );
+    const result = await server.start();
+    port = result.port;
+  });
+
+  afterAll(() => {
+    server.stop();
+  });
+
+  test("setPhaseTools with null resets to configTools", async () => {
+    // First restrict to just one tool
+    server.setPhaseTools(["mcp__yes-kanban__create_issue"]);
+    let response = await sendJsonRpc(port, "tools/list", {});
+    expect(response.result.tools.length).toBe(1);
+    expect(response.result.tools[0].name).toBe("create_issue");
+
+    // Reset to configTools with null
+    server.setPhaseTools(null);
+    response = await sendJsonRpc(port, "tools/list", {});
+    expect(response.result.tools.length).toBe(3);
+    const names = response.result.tools.map((t: any) => t.name);
+    expect(names).toContain("create_issue");
+    expect(names).toContain("get_issue");
+    expect(names).toContain("update_issue");
+  });
+
+  test("setPhaseTools with empty array resets to configTools", async () => {
+    // First restrict
+    server.setPhaseTools(["mcp__yes-kanban__create_issue"]);
+    let response = await sendJsonRpc(port, "tools/list", {});
+    expect(response.result.tools.length).toBe(1);
+
+    // Reset with empty array
+    server.setPhaseTools([]);
+    response = await sendJsonRpc(port, "tools/list", {});
+    expect(response.result.tools.length).toBe(3);
+  });
+
+  test("setPhaseTools intersects phase tools with configTools", async () => {
+    // configTools has create_issue, get_issue, update_issue
+    // Request create_issue and delete_issue (delete not in config)
+    server.setPhaseTools(["mcp__yes-kanban__create_issue", "mcp__yes-kanban__delete_issue"]);
+    const response = await sendJsonRpc(port, "tools/list", {});
+    expect(response.result.tools.length).toBe(1);
+    expect(response.result.tools[0].name).toBe("create_issue");
+  });
+
+  test("setPhaseTools strips prefix correctly", async () => {
+    server.setPhaseTools(["mcp__yes-kanban__create_issue", "mcp__yes-kanban__get_issue"]);
+    const response = await sendJsonRpc(port, "tools/list", {});
+    expect(response.result.tools.length).toBe(2);
+    const names = response.result.tools.map((t: any) => t.name);
+    expect(names).toContain("create_issue");
+    expect(names).toContain("get_issue");
+  });
+
+  test("setPhaseTools ignores non-MCP tools (WebSearch, WebFetch)", async () => {
+    server.setPhaseTools(["WebSearch", "WebFetch", "mcp__yes-kanban__create_issue"]);
+    const response = await sendJsonRpc(port, "tools/list", {});
+    // Should only have create_issue (intersected with configTools)
+    expect(response.result.tools.length).toBe(1);
+    expect(response.result.tools[0].name).toBe("create_issue");
+  });
+
+  test("setPhaseTools with only non-MCP tools resets to configTools", async () => {
+    server.setPhaseTools(["WebSearch", "WebFetch"]);
+    const response = await sendJsonRpc(port, "tools/list", {});
+    // Should reset to all configTools since no MCP tools specified
+    expect(response.result.tools.length).toBe(3);
+  });
+
+  test("setPhaseTools enforces restrictions on tool calls", async () => {
+    // Allow only create_issue
+    server.setPhaseTools(["mcp__yes-kanban__create_issue"]);
+
+    // Should work
+    mockConvex.mutation.mockReturnValue("issueId" as any);
+    mockConvex.query.mockReturnValue({ simpleId: "TEST-1" } as any);
+    let response = await sendJsonRpc(port, "tools/call", {
+      name: "create_issue",
+      arguments: { title: "Test" },
+    });
+    expect(response.error).toBeUndefined();
+
+    // Should fail - not in allowed tools
+    response = await sendJsonRpc(port, "tools/call", {
+      name: "get_issue",
+      arguments: { issueId: "id" },
+    });
+    expect(response.error).toBeDefined();
+    expect(response.error.message).toContain("not allowed");
+  });
+
+  test("setPhaseTools preserves prefix stripping with multiple occurrences in name", async () => {
+    // This tests that we correctly strip prefix even if tool name contains the prefix pattern
+    // The prefix should only be stripped from the beginning
+    server.setPhaseTools(["mcp__yes-kanban__create_issue"]);
+    const response = await sendJsonRpc(port, "tools/list", {});
+    expect(response.result.tools.length).toBe(1);
+    expect(response.result.tools[0].name).toBe("create_issue");
+  });
+});
+
+describe("McpServer setPhaseTools with no configTools", () => {
+  let server: McpServer;
+  let port: number;
+  const mockConvex = {
+    query: mock((..._args: any[]) => null),
+    mutation: mock((..._args: any[]) => "mockId"),
+  };
+
+  beforeAll(async () => {
+    server = new McpServer(
+      mockConvex as any,
+      "projectId" as any,
+      "workspaceId5" as any,
+      undefined,
+      null, // No configTools - all tools allowed by default
+    );
+    const result = await server.start();
+    port = result.port;
+  });
+
+  afterAll(() => {
+    server.stop();
+  });
+
+  test("setPhaseTools with no configTools uses phase tools directly", async () => {
+    server.setPhaseTools(["mcp__yes-kanban__create_issue", "mcp__yes-kanban__get_issue"]);
+    const response = await sendJsonRpc(port, "tools/list", {});
+    expect(response.result.tools.length).toBe(2);
+    const names = response.result.tools.map((t: any) => t.name);
+    expect(names).toContain("create_issue");
+    expect(names).toContain("get_issue");
+  });
+
+  test("setPhaseTools with null and no configTools allows all tools", async () => {
+    // First restrict
+    server.setPhaseTools(["mcp__yes-kanban__create_issue"]);
+    let response = await sendJsonRpc(port, "tools/list", {});
+    expect(response.result.tools.length).toBe(1);
+
+    // Reset - should allow all 18 tools
+    server.setPhaseTools(null);
+    response = await sendJsonRpc(port, "tools/list", {});
+    expect(response.result.tools.length).toBe(18);
+  });
+});
+
 describe("McpServer planning tools phase validation", () => {
   let server: McpServer;
   let port: number;

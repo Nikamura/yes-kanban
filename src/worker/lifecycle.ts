@@ -1756,6 +1756,8 @@ export async function runAgent(
   // Update MCP server with current runAttemptId so tool calls are logged
   if (options?.mcpServer) {
     options.mcpServer.setRunAttemptId(runAttemptId);
+    // Always update phase-specific allowed tools - reset to configTools if not specified
+    options.mcpServer.setPhaseTools(options.allowedTools ?? null);
   }
   const cmd = adapter.buildCommand({
     config: agentConfig,

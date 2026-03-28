@@ -62,17 +62,57 @@ export class McpServer {
   private readonly MAX_CALLS_PER_MINUTE = 60;
   private _runAttemptId: Id<"runAttempts"> | undefined;
 
+  private configTools: string[] | null; // Original allowedTools from constructor
+  private allowedTools: string[] | null; // Current allowed tools (may be filtered by phase)
+
   constructor(
     private convex: ConvexClient,
     private projectId: Id<"projects">,
     private workspaceId: Id<"workspaces">,
     private issueId: Id<"issues"> | undefined,
-    private allowedTools: string[] | null,
-  ) {}
+    allowedTools: string[] | null,
+  ) {
+    this.configTools = allowedTools;
+    this.allowedTools = allowedTools; // Initially use constructor tools
+  }
 
   /** Update the runAttemptId so MCP tool calls are logged to the correct attempt. */
   setRunAttemptId(id: Id<"runAttempts">) {
     this._runAttemptId = id;
+  }
+
+  /**
+   * Set phase-specific allowed tools. Converts full MCP names (mcp__yes-kanban__tool_name)
+   * to short names and intersects with configTools if set.
+   * If tools is null/empty, resets to configTools (or null if configTools is null).
+   * Non-MCP tools (WebSearch, WebFetch) are silently skipped.
+   */
+  setPhaseTools(tools: string[] | null): void {
+    if (!tools || tools.length === 0) {
+      // Reset to configTools (allow all if configTools is null)
+      this.allowedTools = this.configTools;
+      return;
+    }
+
+    // Extract MCP tools matching mcp__yes-kanban__*, strip prefix
+    const prefix = "mcp__yes-kanban__";
+    const phaseMcpTools = tools
+      .filter(t => t.startsWith(prefix))
+      .map(t => t.slice(prefix.length));
+
+    // If no MCP tools found (all non-MCP), reset to configTools
+    if (phaseMcpTools.length === 0) {
+      this.allowedTools = this.configTools;
+      return;
+    }
+
+    // Intersect with configTools if configTools is set
+    const configTools = this.configTools;
+    if (configTools) {
+      this.allowedTools = phaseMcpTools.filter(t => configTools.includes(t));
+    } else {
+      this.allowedTools = phaseMcpTools;
+    }
   }
 
   async start(): Promise<{ port: number; configPath: string }> {
