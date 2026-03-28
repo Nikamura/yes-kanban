@@ -36,9 +36,7 @@ export function ArchiveView({ projectId, activeIssueSimpleId, activeWorkspaceId,
   const filtered = search
     ? issues.filter((i) => {
         const s = search.toLowerCase();
-        // description is optional at runtime for some client/query shapes; keep search crash-safe.
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- see above
-        return [i.title, i.description ?? "", i.simpleId].some((field) =>
+        return [i.title, i.description, i.simpleId].some((field) =>
           field.toLowerCase().includes(s),
         );
       })

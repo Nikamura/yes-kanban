@@ -48,14 +48,6 @@ interface TestResultsResponse {
   logs: Array<{ stream: string; line: string; timestamp: number }>;
 }
 
-/** Configuration for an external MCP server to include alongside yes-kanban. */
-export interface ExternalMcpConfig {
-  name: string;
-  command: string;
-  args: string[];
-  env?: Record<string, string>;
-}
-
 /**
  * MCP Server for agent ↔ board integration.
  * Exposes tools for issue management, comments, and board context.
@@ -76,8 +68,6 @@ export class McpServer {
     private workspaceId: Id<"workspaces">,
     private issueId: Id<"issues"> | undefined,
     private allowedTools: string[] | null,
-    private externalMcpConfigs: ExternalMcpConfig[] = [],
-    private disableBuiltIn: boolean = false,
   ) {}
 
   /** Update the runAttemptId so MCP tool calls are logged to the correct attempt. */
@@ -131,27 +121,14 @@ client.pipe(process.stdout);
 client.on("error", () => process.exit(1));
 `;
 
-        // Write MCP config for the agent — merge external servers alongside yes-kanban
+        // Write MCP config for the agent — only yes-kanban; other MCPs come from the agent's standard config
         const configPath = `/tmp/yes-kanban-mcp-${this.workspaceId}.json`;
-        const mcpServers: Record<string, { command: string; args: string[]; env?: Record<string, string> }> = {};
-        if (!this.disableBuiltIn) {
-          mcpServers["yes-kanban"] = {
+        const mcpServers: Record<string, { command: string; args: string[] }> = {
+          "yes-kanban": {
             command: "bun",
             args: ["run", bridgeScriptPath],
-          };
-        }
-        for (const ext of this.externalMcpConfigs) {
-          // Prevent overriding the built-in yes-kanban server
-          if (ext.name === "yes-kanban") continue;
-          const entry: { command: string; args: string[]; env?: Record<string, string> } = {
-            command: ext.command,
-            args: ext.args,
-          };
-          if (ext.env && Object.keys(ext.env).length > 0) {
-            entry.env = ext.env;
-          }
-          mcpServers[ext.name] = entry;
-        }
+          },
+        };
         const config = { mcpServers };
 
         void Promise.all([

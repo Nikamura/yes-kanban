@@ -12,7 +12,6 @@ export default defineSchema({
     reviewAgentConfigId: v.optional(v.id("agentConfigs")),
     maxReviewCycles: v.number(),
     cleanupDelayMs: v.number(),
-    disableBuiltInMcp: v.optional(v.boolean()),
     autoArchiveDelayMs: v.optional(v.number()),
     mergePolicy: v.optional(v.union(v.string(), v.null())),
     skipReview: v.optional(v.boolean()),
@@ -285,16 +284,6 @@ export default defineSchema({
     .index("by_project", ["projectId"])
     .index("by_type", ["type"])
     .index("by_project_type", ["projectId", "type"]),
-
-  mcpServerConfigs: defineTable({
-    projectId: v.id("projects"),
-    name: v.string(),
-    command: v.string(),
-    args: v.array(v.string()),
-    env: v.optional(v.record(v.string(), v.string())),
-    enabled: v.boolean(),
-    createdAt: v.number(),
-  }).index("by_project", ["projectId"]),
 
   // TODO: remove after YES-255 `deleteAllSkills` migration has run
   skills: defineTable({

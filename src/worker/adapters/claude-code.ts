@@ -54,7 +54,6 @@ export class ClaudeCodeAdapter implements IAgentAdapter {
 
     if (args.mcpConfigPath) {
       cmdArgs.push("--mcp-config", args.mcpConfigPath);
-      cmdArgs.push("--strict-mcp-config");
     }
 
     // Block built-in tools that conflict with our MCP equivalents.

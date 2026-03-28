@@ -85,7 +85,6 @@ export const update = mutation({
     reviewAgentConfigId: v.optional(v.union(v.id("agentConfigs"), v.null())),
     maxReviewCycles: v.optional(v.number()),
     cleanupDelayMs: v.optional(v.number()),
-    disableBuiltInMcp: v.optional(v.boolean()),
     autoArchiveDelayMs: v.optional(v.number()),
     mergePolicy: v.optional(v.union(v.string(), v.null())),
     skipReview: v.optional(v.boolean()),

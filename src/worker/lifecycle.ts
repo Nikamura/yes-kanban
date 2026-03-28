@@ -6,7 +6,7 @@ import { AgentExecutor, type StallPauseSignal } from "./agent-executor";
 import { getAdapter } from "./adapters";
 import { buildPrompt, buildReviewPrompt, buildPlanReviewPrompt, buildRebaseConflictPrompt, buildPlanningPrompt, buildGrillingPrompt, buildFixPrompt, buildTestFixPrompt } from "./prompt-builder";
 import { getForgeAdapter } from "./forge";
-import { McpServer, type ExternalMcpConfig } from "./mcp-server";
+import { McpServer } from "./mcp-server";
 import type { WorkerConfig, DispatchTask, WorktreeEntry, LogEntry, AgentEvent, AttachmentInfo, ScriptLogger } from "./types";
 import { computeBackoffDelay, shouldRetry, TERMINAL_STATUSES } from "./retry";
 import { consumeStreamLines } from "./stream-lines";
@@ -636,26 +636,8 @@ export async function runLifecycle(
     }
   }
 
-  // 1b. Fetch project-level MCP server configs; attribution-only settings file for Claude Code
-  let externalMcpConfigs: ExternalMcpConfig[] = [];
+  // 1b. Attribution-only settings file for Claude Code
   const settingsPath = `/tmp/yes-kanban-settings-${workspaceId}.json`;
-  let disableBuiltInMcp = false;
-  try {
-    const projectData = await convex.query(api.projects.get, { id: task.projectId });
-    disableBuiltInMcp = projectData?.disableBuiltInMcp ?? false;
-  } catch { /* project fetch is optional for this flag */ }
-  try {
-    const mcpConfigs = await convex.query(api.mcpServerConfigs.listEnabled, { projectId: task.projectId });
-    externalMcpConfigs = mcpConfigs.map((c) => ({
-      name: c.name,
-      command: c.command,
-      args: c.args,
-      env: c.env,
-    }));
-    if (externalMcpConfigs.length > 0) {
-      console.log(`[lifecycle] workspace=${workspaceId} loaded ${externalMcpConfigs.length} external MCP server(s)`);
-    }
-  } catch { /* external MCP configs are optional */ }
 
   const settingsContent = { attribution: { commit: "", pr: "" } };
   await Bun.write(settingsPath, JSON.stringify(settingsContent, null, 2));
@@ -671,8 +653,6 @@ export async function runLifecycle(
       workspaceId,
       issue?._id,
       agentConfig.mcpTools ?? null,
-      externalMcpConfigs,
-      disableBuiltInMcp,
     );
     const mcpResult = await mcpServer.start();
     mcpConfigPath = mcpResult.configPath;

@@ -191,7 +191,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
   const repos = useQuery(api.repos.list, { projectId });
   const agentConfigs = useQuery(api.agentConfigs.list, { projectId });
   const dispatchStatus = useQuery(api.dispatch.status);
-  const mcpServerConfigs = useQuery(api.mcpServerConfigs.list, { projectId });
 
   const updateColumn = useMutation(api.columns.update);
   const createRepo = useMutation(api.repos.create);
@@ -215,7 +214,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
     },
     SETTINGS_CONCURRENCY_DEBOUNCE_MS,
   );
-  const syncMcpFromJson = useMutation(api.mcpServerConfigs.syncFromJson);
 
   const [showAddRepo, setShowAddRepo] = useState(false);
   const [showAddAgent, setShowAddAgent] = useState(false);
@@ -251,10 +249,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
     permissionMode: "bypass" as string,
   });
   const [showEditAgentAdvanced, setShowEditAgentAdvanced] = useState(false);
-  const [mcpJsonValue, setMcpJsonValue] = useState("");
-  const [mcpJsonDirty, setMcpJsonDirty] = useState(false);
-  const [mcpJsonError, setMcpJsonError] = useState<string | null>(null);
-  const [mcpJsonSaving, setMcpJsonSaving] = useState(false);
 
   // Project settings local state (buffered to avoid mutation on every keystroke)
   const [localName, setLocalName] = useState<string>("");
@@ -330,19 +324,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
   // Danger zone state
   const [showDeleteProject, setShowDeleteProject] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
-
-  // Convert DB MCP configs to standard JSON format for the editor
-  useEffect(() => {
-    if (mcpJsonDirty || !mcpServerConfigs) return;
-    const mcpServers: Record<string, Record<string, unknown>> = {};
-    for (const c of mcpServerConfigs) {
-      const entry: Record<string, unknown> = { command: c.command, args: c.args };
-      if (c.env && Object.keys(c.env).length > 0) entry["env"] = c.env;
-      if (!c.enabled) entry["enabled"] = false;
-      mcpServers[c.name] = entry;
-    }
-    setMcpJsonValue(JSON.stringify({ mcpServers }, null, 2));
-  }, [mcpServerConfigs, mcpJsonDirty]);
 
   if (!project || !columns || !repos || !agentConfigs) {
     return (
@@ -1138,80 +1119,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
             </Button>
           </form>
         )}
-      </section>
-
-      <section className="mb-8 max-w-[800px] space-y-3">
-        <h2>MCP Servers</h2>
-        <p className="text-sm text-muted-foreground" style={{ fontSize: "0.85rem", opacity: 0.7, marginBottom: "0.5rem" }}>
-          Configure external MCP servers in standard JSON format. Set <code>"enabled": false</code> to disable a server.
-        </p>
-        <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground" style={{ marginBottom: "0.5rem" }}>
-          <input
-            type="checkbox"
-            checked={project.disableBuiltInMcp ?? false}
-            onChange={(e) => void updateProject({ id: projectId, disableBuiltInMcp: e.target.checked })}
-          />
-          Disable built-in yes-kanban MCP (only use configured servers below)
-        </label>
-        <textarea
-          className="min-h-[200px] w-full rounded-md border border-input bg-background p-2 font-mono text-[13px]"
-          spellCheck={false}
-          rows={14}
-          value={mcpJsonValue}
-          onChange={(e) => {
-            setMcpJsonValue(e.target.value);
-            setMcpJsonDirty(true);
-            setMcpJsonError(null);
-          }}
-          autoComplete="off"
-        />
-        {mcpJsonError && (
-          <p style={{ color: "var(--destructive)", fontSize: "0.85rem", marginTop: "0.25rem" }}>{mcpJsonError}</p>
-        )}
-        <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
-          <Button size="sm"
-            disabled={!mcpJsonDirty || mcpJsonSaving}
-            onClick={async () => {
-              try {
-                const parsed = JSON.parse(mcpJsonValue);
-                if (!parsed.mcpServers || typeof parsed.mcpServers !== "object" || Array.isArray(parsed.mcpServers)) {
-                  setMcpJsonError('JSON must have a "mcpServers" object at the top level');
-                  return;
-                }
-                for (const [name, config] of Object.entries(parsed.mcpServers)) {
-                  const cfg = config as Record<string, unknown>;
-                  if (!cfg["command"] || typeof cfg["command"] !== "string") {
-                    setMcpJsonError(`Server "${name}" must have a "command" string`);
-                    return;
-                  }
-                  if (cfg["args"] !== undefined && !Array.isArray(cfg["args"])) {
-                    setMcpJsonError(`Server "${name}": "args" must be an array of strings`);
-                    return;
-                  }
-                }
-                setMcpJsonSaving(true);
-                setMcpJsonError(null);
-                await syncMcpFromJson({ projectId, mcpServers: parsed.mcpServers });
-                setMcpJsonDirty(false);
-              } catch (err) {
-                setMcpJsonError(err instanceof SyntaxError ? `Invalid JSON: ${err.message}` : String(err));
-              } finally {
-                setMcpJsonSaving(false);
-              }
-            }}
-          >
-            {mcpJsonSaving ? "Saving..." : "Save"}
-          </Button>
-          <Button variant="outline" size="sm"
-            disabled={!mcpJsonDirty}
-            onClick={() => {
-              setMcpJsonDirty(false);
-              setMcpJsonError(null);
-            }}
-          >
-            Reset
-          </Button>
-        </div>
       </section>
 
       <PromptTemplatesSection projectId={projectId} />

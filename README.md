@@ -20,7 +20,7 @@ Built for solo developers. Mobile-first. Convention over configuration.
 
 **Agent dispatch** -- Supports Claude Code, Codex, and Cursor via pluggable adapters. Configurable concurrency limits, timeouts, and retry with exponential backoff. Plan mode and dangerously-skip mode.
 
-**MCP integration** -- Built-in MCP server gives agents tools for file operations, search, git status, test execution, and board interaction (create/move issues, ask questions, request permissions).
+**MCP integration** -- The worker injects a `yes-kanban` MCP server so agents can use board tools (issues, comments, questions, plans). Claude Code and other agents still use MCP servers from their normal configuration alongside that injection.
 
 **Code review** -- Lightweight unified diff (HTML/CSS, no editor bundle). Review feedback loop: leave notes and the agent re-runs.
 

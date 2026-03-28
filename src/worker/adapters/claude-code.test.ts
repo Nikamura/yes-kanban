@@ -139,25 +139,6 @@ describe("ClaudeCodeAdapter", () => {
       expect(result.args).toContain("/tmp/mcp.json");
     });
 
-    test("adds --strict-mcp-config when mcpConfigPath is present", () => {
-      const result = adapter.buildCommand({
-        config: { command: "claude", args: [], env: {} } as any,
-        prompt: "Task",
-        cwd: "/tmp",
-        mcpConfigPath: "/tmp/mcp.json",
-      });
-      expect(result.args).toContain("--strict-mcp-config");
-    });
-
-    test("does not add --strict-mcp-config without mcpConfigPath", () => {
-      const result = adapter.buildCommand({
-        config: { command: "claude", args: [], env: {} } as any,
-        prompt: "Task",
-        cwd: "/tmp",
-      });
-      expect(result.args).not.toContain("--strict-mcp-config");
-    });
-
     test("disallows AskUserQuestion built-in tool", () => {
       const result = adapter.buildCommand({
         config: { command: "claude", args: [], env: {} } as any,

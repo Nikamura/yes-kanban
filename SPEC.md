@@ -1773,19 +1773,14 @@ The worker passes the MCP connection to the agent. For Claude Code, this is done
 claude --mcp-config <path-to-mcp-config.json> ...
 ```
 
-Where `mcp-config.json` contains:
+The worker writes a temporary JSON file that defines only the `yes-kanban` MCP server (stdio bridge to the local TCP server). Claude Code merges this with the agent’s normal MCP configuration on the machine; it is not passed `--strict-mcp-config`, so other MCP servers the user configured in their standard Claude Code settings remain available.
 
 ```json
 {
   "mcpServers": {
     "yes-kanban": {
-      "command": "node",
-      "args": ["<path-to-mcp-server>"],
-      "env": {
-        "CONVEX_URL": "<convex-url>",
-        "WORKSPACE_ID": "<workspace-id>",
-        "PROJECT_ID": "<project-id>"
-      }
+      "command": "bun",
+      "args": ["run", "<path-to-stdio-bridge-script>"]
     }
   }
 }
