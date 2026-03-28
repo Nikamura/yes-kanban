@@ -13,7 +13,6 @@ export class ClaudeCodeAdapter implements IAgentAdapter {
     permissionMode?: "plan" | "dangerously-skip-permissions" | "accept";
     allowedTools?: string[];
     settingsPath?: string;
-    disableSlashCommands?: boolean;
   }): { command: string; args: string[]; env: Record<string, string> } {
     const mode = args.permissionMode ?? "dangerously-skip-permissions";
     const cmdArgs: string[] = [];
@@ -63,13 +62,7 @@ export class ClaudeCodeAdapter implements IAgentAdapter {
     // the agent should use the MCP ask_question tool instead.
     cmdArgs.push("--disallowedTools", "AskUserQuestion");
 
-    // Isolation: block loading user/project/local settings
-    cmdArgs.push("--setting-sources", "");
-
-    // Skills isolation
-    if (args.disableSlashCommands) {
-      cmdArgs.push("--disable-slash-commands");
-    }
+    // Attribution JSON (commit/PR placeholders); user and project Claude settings still load from disk
     if (args.settingsPath) {
       cmdArgs.push("--settings", args.settingsPath);
     }

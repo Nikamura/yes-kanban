@@ -32,7 +32,6 @@ export interface IAgentAdapter {
     permissionMode?: "plan" | "dangerously-skip-permissions" | "accept";
     allowedTools?: string[];
     settingsPath?: string;
-    disableSlashCommands?: boolean;
   }): { command: string; args: string[]; env: Record<string, string> };
 
   parseLine(line: string): AgentEvent[];

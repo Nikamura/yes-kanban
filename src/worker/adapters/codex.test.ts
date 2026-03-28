@@ -175,8 +175,6 @@ describe("CodexAdapter", () => {
         config: makeConfig(),
         prompt: "Task",
         cwd: "/tmp",
-        settingsPath: "/tmp/settings.json",
-        disableSlashCommands: true,
       });
       expect(result.args).not.toContain("--no-project-doc");
     });

@@ -13,11 +13,14 @@ const modules = import.meta.glob([
 ]);
 
 describe("migrations infrastructure", () => {
-  test("runAll serial order: projectId backfill before tokenUsageDaily backfill", () => {
+  test("runAll serial order: backfills and YES-255 migrations are appended in order", () => {
     const order = runAllSerialMigrations();
-    expect(order).toHaveLength(2);
+    expect(order).toHaveLength(5);
     expect(order[0]).toEqual(internal.migrations.backfillRunAttemptsProjectId);
     expect(order[1]).toEqual(internal.migrations.backfillTokenUsageDaily);
+    expect(order[2]).toEqual(internal.migrations.removeChecklistFromIssues);
+    expect(order[3]).toEqual(internal.migrations.deleteAllSkills);
+    expect(order[4]).toEqual(internal.migrations.clearAllowedToolPatterns);
   });
 
   beforeEach(() => {

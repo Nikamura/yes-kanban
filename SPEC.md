@@ -1177,6 +1177,7 @@ Behavior:
 - `--output-format stream-json` produces line-delimited JSON on stdout for real-time streaming.
 - Working directory is the worktree path.
 - Environment variables from the agent config are merged with the current environment.
+- **Skills and Claude settings** are not managed inside Yes Kanban. Agents inherit the user’s normal Claude Code settings and skills from the project and home directory. The worker may pass a minimal `--settings` JSON path used only for commit/PR attribution placeholders; it does not disable slash commands or strip setting sources.
 
 Stdout parsing:
 

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useAction } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -192,7 +192,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
   const agentConfigs = useQuery(api.agentConfigs.list, { projectId });
   const dispatchStatus = useQuery(api.dispatch.status);
   const mcpServerConfigs = useQuery(api.mcpServerConfigs.list, { projectId });
-  const skills = useQuery(api.skills.list, { projectId });
 
   const updateColumn = useMutation(api.columns.update);
   const createRepo = useMutation(api.repos.create);
@@ -201,7 +200,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
   const createAgentConfig = useMutation(api.agentConfigs.create);
   const updateAgentConfig = useMutation(api.agentConfigs.update);
   const removeAgentConfig = useMutation(api.agentConfigs.remove);
-  const removeAllowedTool = useMutation(api.agentConfigs.removeAllowedTool);
   const updateProject = useMutation(api.projects.update);
   const removeProject = useMutation(api.projects.remove);
   const updateMaxConcurrent = useMutation(api.dispatch.updateMaxConcurrent);
@@ -218,10 +216,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
     SETTINGS_CONCURRENCY_DEBOUNCE_MS,
   );
   const syncMcpFromJson = useMutation(api.mcpServerConfigs.syncFromJson);
-  const updateSkill = useMutation(api.skills.update);
-  const removeSkill = useMutation(api.skills.remove);
-  const installSkill = useAction(api.skills.installFromSource);
-  const updateSkillFromSource = useAction(api.skills.updateFromSource);
 
   const [showAddRepo, setShowAddRepo] = useState(false);
   const [showAddAgent, setShowAddAgent] = useState(false);
@@ -261,14 +255,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
   const [mcpJsonDirty, setMcpJsonDirty] = useState(false);
   const [mcpJsonError, setMcpJsonError] = useState<string | null>(null);
   const [mcpJsonSaving, setMcpJsonSaving] = useState(false);
-  const [showInstallSkill, setShowInstallSkill] = useState(false);
-  const [installSource, setInstallSource] = useState("");
-  const [installing, setInstalling] = useState(false);
-  const [installError, setInstallError] = useState<string | null>(null);
-  const [updatingSkillId, setUpdatingSkillId] = useState<Id<"skills"> | null>(null);
-  const [updateSkillError, setUpdateSkillError] = useState<{ id: Id<"skills">; message: string } | null>(null);
-  const [editingSkillId, setEditingSkillId] = useState<Id<"skills"> | null>(null);
-  const [editSkillForm, setEditSkillForm] = useState({ name: "", description: "", content: "" });
 
   // Project settings local state (buffered to avoid mutation on every keystroke)
   const [localName, setLocalName] = useState<string>("");
@@ -1044,29 +1030,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
                     Delete
                   </Button>
                 )}
-                {(ac.allowedToolPatterns ?? []).length > 0 && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Auto-approved:</span>
-                    {(ac.allowedToolPatterns ?? []).map((pattern) => (
-                      <span key={pattern} className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary px-2 py-0.5 font-mono text-[11px]">
-                        {pattern}
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          className="h-5 min-w-5 px-1 text-muted-foreground hover:text-destructive"
-                          title={`Revoke auto-approval for ${pattern}`}
-                          onClick={() => {
-                            if (window.confirm(`Revoke auto-approval for "${pattern}"? Future runs will require manual approval.`)) {
-                              void removeAllowedTool({ id: ac._id, toolPattern: pattern });
-                            }
-                          }}
-                        >
-                          ×
-                        </Button>
-                      </span>
-                    ))}
-                  </div>
-                )}
               </>
             )}
           </div>
@@ -1249,174 +1212,6 @@ export function SettingsView({ projectId }: { projectId: Id<"projects"> }) {
             Reset
           </Button>
         </div>
-      </section>
-
-      <section className="mb-8 max-w-[800px] space-y-3">
-        <h2>
-          Skills
-          <Button variant="outline" size="sm" onClick={() => { setShowInstallSkill(!showInstallSkill); setInstallError(null); }}>
-            + Install
-          </Button>
-        </h2>
-        <p className="text-sm text-muted-foreground" style={{ fontSize: "0.85rem", opacity: 0.7, marginBottom: "0.5rem" }}>
-          Install skills from remote sources. When no skills are configured, all slash commands are disabled.
-        </p>
-        {showInstallSkill && (
-          <form
-            className="mt-2 flex flex-wrap gap-2 items-center"
-            style={{ flexDirection: "column", alignItems: "stretch", marginBottom: "0.5rem" }}
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (!installSource.trim()) return;
-              setInstalling(true);
-              setInstallError(null);
-              try {
-                await installSkill({ projectId, sourceRef: installSource.trim() });
-                setInstallSource("");
-                setShowInstallSkill(false);
-              } catch (err) {
-                setInstallError(err instanceof Error ? err.message : String(err));
-              } finally {
-                setInstalling(false);
-              }
-            }}
-          >
-            <input
-              placeholder="URL, npm:package-name, or owner/repo"
-              value={installSource}
-              onChange={(e) => setInstallSource(e.target.value)}
-              autoComplete="off"
-              disabled={installing}
-            />
-            {installError && (
-              <p style={{ color: "var(--destructive)", fontSize: "0.85rem", margin: 0 }}>{installError}</p>
-            )}
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <Button type="submit" size="sm" disabled={!installSource.trim() || installing}>
-                {installing ? "Installing..." : "Install"}
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => { setShowInstallSkill(false); setInstallError(null); }} disabled={installing}>
-                Cancel
-              </Button>
-            </div>
-          </form>
-        )}
-        {skills?.map((skill) => (
-          <div key={skill._id} className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-secondary/40 p-2 px-3" style={{ flexDirection: "column", alignItems: "stretch" }}>
-            {editingSkillId === skill._id ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <input
-                  placeholder="Name"
-                  value={editSkillForm.name}
-                  onChange={(e) => setEditSkillForm({ ...editSkillForm, name: e.target.value })}
-                  autoComplete="off"
-                />
-                <input
-                  placeholder="Description (when to trigger)"
-                  value={editSkillForm.description}
-                  onChange={(e) => setEditSkillForm({ ...editSkillForm, description: e.target.value })}
-                  autoComplete="off"
-                />
-                <textarea
-                  placeholder="Skill content (Markdown)"
-                  value={editSkillForm.content}
-                  onChange={(e) => setEditSkillForm({ ...editSkillForm, content: e.target.value })}
-                  rows={6}
-                  style={{ fontFamily: "monospace", fontSize: "0.85rem" }}
-                />
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <Button size="sm"
-                    onClick={async () => {
-                      await updateSkill({
-                        id: skill._id,
-                        name: editSkillForm.name,
-                        description: editSkillForm.description,
-                        content: editSkillForm.content,
-                      });
-                      setEditingSkillId(null);
-                    }}
-                  >
-                    Save
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => setEditingSkillId(null)}>
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                <span>{skill.name}</span>
-                {skill.source && (
-                  <span
-                    style={{
-                      fontSize: "0.7rem",
-                      padding: "0.1rem 0.4rem",
-                      borderRadius: "3px",
-                      background: "var(--secondary)",
-                      opacity: 0.8,
-                    }}
-                    title={skill.sourceRef ?? undefined}
-                  >
-                    {skill.source}
-                  </span>
-                )}
-                <span className="font-mono text-xs text-muted-foreground" style={{ flex: 1 }}>{skill.description}</span>
-                <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={skill.enabled}
-                    onChange={(e) => updateSkill({ id: skill._id, enabled: e.target.checked })}
-                  />
-                  Enabled
-                </label>
-                {skill.sourceUrl && (
-                  <Button variant="outline" size="sm"
-                    disabled={updatingSkillId === skill._id}
-                    onClick={async () => {
-                      setUpdatingSkillId(skill._id);
-                      setUpdateSkillError(null);
-                      try {
-                        await updateSkillFromSource({ id: skill._id });
-                      } catch (err) {
-                        setUpdateSkillError({ id: skill._id, message: err instanceof Error ? err.message : String(err) });
-                      } finally {
-                        setUpdatingSkillId(null);
-                      }
-                    }}
-                  >
-                    {updatingSkillId === skill._id ? "Updating..." : "Update"}
-                  </Button>
-                )}
-                {!skill.sourceRef && (
-                  <Button variant="outline" size="sm"
-                    onClick={() => {
-                      setEditingSkillId(skill._id);
-                      setEditSkillForm({
-                        name: skill.name,
-                        description: skill.description,
-                        content: skill.content,
-                      });
-                    }}
-                  >
-                    Edit
-                  </Button>
-                )}
-                <Button variant="destructive" size="sm"
-                  onClick={() => {
-                    if (window.confirm(`Delete skill "${skill.name}"?`)) {
-                      void removeSkill({ id: skill._id });
-                    }
-                  }}
-                >
-                  Delete
-                </Button>
-              </div>
-            )}
-            {updateSkillError?.id === skill._id && (
-              <p className="mt-1 text-[0.85rem] text-destructive">{updateSkillError.message}</p>
-            )}
-          </div>
-        ))}
       </section>
 
       <PromptTemplatesSection projectId={projectId} />

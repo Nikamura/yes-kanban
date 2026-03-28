@@ -169,37 +169,6 @@ describe("ClaudeCodeAdapter", () => {
       expect(result.args[idx + 1]).toBe("AskUserQuestion");
     });
 
-    test("always adds --setting-sources with empty string", () => {
-      const result = adapter.buildCommand({
-        config: { command: "claude", args: [], env: {} } as any,
-        prompt: "Task",
-        cwd: "/tmp",
-      });
-      expect(result.args).toContain("--setting-sources");
-      const idx = result.args.indexOf("--setting-sources");
-      expect(result.args[idx + 1]).toBe("");
-    });
-
-    test("adds --disable-slash-commands when disableSlashCommands is true", () => {
-      const result = adapter.buildCommand({
-        config: { command: "claude", args: [], env: {} } as any,
-        prompt: "Task",
-        cwd: "/tmp",
-        disableSlashCommands: true,
-      });
-      expect(result.args).toContain("--disable-slash-commands");
-    });
-
-    test("does not add --disable-slash-commands when false", () => {
-      const result = adapter.buildCommand({
-        config: { command: "claude", args: [], env: {} } as any,
-        prompt: "Task",
-        cwd: "/tmp",
-        disableSlashCommands: false,
-      });
-      expect(result.args).not.toContain("--disable-slash-commands");
-    });
-
     test("adds --settings when settingsPath is provided", () => {
       const result = adapter.buildCommand({
         config: { command: "claude", args: [], env: {} } as any,

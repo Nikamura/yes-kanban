@@ -84,8 +84,6 @@ export class CodexAdapter implements IAgentAdapter {
     sessionId?: string;
     permissionMode?: "plan" | "dangerously-skip-permissions" | "accept";
     allowedTools?: string[];
-    settingsPath?: string;
-    disableSlashCommands?: boolean;
   }): { command: string; args: string[]; env: Record<string, string> } {
     const mode = args.permissionMode ?? "dangerously-skip-permissions";
     const env: Record<string, string> = { ...process.env, ...(args.config.env ?? {}) } as Record<string, string>;

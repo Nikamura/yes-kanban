@@ -95,7 +95,6 @@ src/
     worktree-manager.ts  Git worktree lifecycle
     prompt-builder.ts Dynamic prompt assembly
 e2e/                  Playwright end-to-end tests
-.agents/skills/       Agent skills (bun, convex, claude-code, codex)
 ```
 
 ## Configuration

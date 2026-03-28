@@ -636,10 +636,9 @@ export async function runLifecycle(
     }
   }
 
-  // 1b. Fetch project-level MCP server configs and skills for isolation
+  // 1b. Fetch project-level MCP server configs; attribution-only settings file for Claude Code
   let externalMcpConfigs: ExternalMcpConfig[] = [];
   const settingsPath = `/tmp/yes-kanban-settings-${workspaceId}.json`;
-  let disableSlashCommands = true;
   let disableBuiltInMcp = false;
   try {
     const projectData = await convex.query(api.projects.get, { id: task.projectId });
@@ -658,32 +657,8 @@ export async function runLifecycle(
     }
   } catch { /* external MCP configs are optional */ }
 
-  let skills: Doc<"skills">[] = [];
-  try {
-    skills = await convex.query(api.skills.listEnabled, { projectId: task.projectId });
-  } catch { /* skills fetch is optional */ }
-  const hasSkills = skills.length > 0;
-  const hasAllowedTools = (agentConfig.allowedToolPatterns ?? []).length > 0;
-  if (hasSkills) disableSlashCommands = false;
-
-  const settingsContent: Record<string, unknown> = {
-    attribution: { commit: "", pr: "" },
-  };
-  if (hasSkills) {
-    settingsContent["skills"] = skills.map((s) => ({
-      name: s.name,
-      description: s.description,
-      content: s.content,
-    }));
-  }
-  if (hasAllowedTools) {
-    settingsContent["permissions"] = {
-      allow: agentConfig.allowedToolPatterns,
-    };
-  }
+  const settingsContent = { attribution: { commit: "", pr: "" } };
   await Bun.write(settingsPath, JSON.stringify(settingsContent, null, 2));
-  if (hasSkills) console.log(`[lifecycle] workspace=${workspaceId} loaded ${skills.length} skill(s)`);
-  if (hasAllowedTools) console.log(`[lifecycle] workspace=${workspaceId} loaded ${agentConfig.allowedToolPatterns?.length ?? 0} allowed tool pattern(s)`);
 
   // Start MCP server if enabled
   let mcpServer: McpServer | null = null;
@@ -828,7 +803,7 @@ export async function runLifecycle(
       grillingPrompt, "grilling", abortSignal,
       {
         mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: previousGrillingSessionId,
-        settingsPath, disableSlashCommands,
+        settingsPath,
         allowedTools: GRILLING_TOOLS,
       },
     );
@@ -929,7 +904,7 @@ export async function runLifecycle(
       planningPrompt, "planning", abortSignal,
       {
         mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: planningResumeSessionId,
-        settingsPath, disableSlashCommands,
+        settingsPath,
         allowedTools: planningTools,
       },
     );
@@ -993,7 +968,7 @@ export async function runLifecycle(
       const retryResult = await runAgent(
         convex, config, executor, workspaceId, planningAgentConfig, agentCwd,
         submitReminder, "planning", abortSignal,
-        { mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: resumeSessionId, settingsPath, disableSlashCommands, allowedTools: planningTools },
+        { mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: resumeSessionId, settingsPath, allowedTools: planningTools },
       );
 
       if (abortSignal.aborted) return; // eslint-disable-line @typescript-eslint/no-unnecessary-condition
@@ -1039,7 +1014,7 @@ export async function runLifecycle(
           const reviewResult = await runAgent(
             convex, config, executor, workspaceId, reviewConfig, agentCwd,
             planReviewPrompt, "plan_review", abortSignal,
-            { mcpConfigPath, mcpServer, permissionMode: "plan", settingsPath, disableSlashCommands, allowedTools: READ_ONLY_TOOLS },
+            { mcpConfigPath, mcpServer, permissionMode: "plan", settingsPath, allowedTools: READ_ONLY_TOOLS },
           );
 
           if (!reviewResult.success) {
@@ -1066,7 +1041,7 @@ export async function runLifecycle(
               clarifyPrompt, "plan_review", abortSignal,
               {
                 mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: reviewResult.sessionId,
-                settingsPath, disableSlashCommands, allowedTools: READ_ONLY_TOOLS,
+                settingsPath, allowedTools: READ_ONLY_TOOLS,
               },
             );
             if (abortSignal.aborted) return; // eslint-disable-line @typescript-eslint/no-unnecessary-condition
@@ -1117,7 +1092,7 @@ export async function runLifecycle(
             const replanResult = await runAgent(
               convex, config, executor, workspaceId, planningAgentConfig, agentCwd,
               replanPrompt, "planning", abortSignal,
-              { mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: currentPlanningSessionId, settingsPath, disableSlashCommands, allowedTools: planningTools },
+              { mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: currentPlanningSessionId, settingsPath, allowedTools: planningTools },
             );
 
             if (!replanResult.success) {
@@ -1241,7 +1216,7 @@ export async function runLifecycle(
     const fixResult = await runAgent(
       convex, config, executor, workspaceId, agentConfig, agentCwd,
       fixPrompt, "coding", abortSignal,
-      { mcpConfigPath, mcpServer, sessionId: previousCodingSessionId, settingsPath, disableSlashCommands, allowedTools: CODING_TOOLS,
+      { mcpConfigPath, mcpServer, sessionId: previousCodingSessionId, settingsPath, allowedTools: CODING_TOOLS,
         permissionMode: agentConfig.permissionMode === "accept" ? "accept" : undefined,
         agentConfigId: agentConfig._id },
     );
@@ -1266,7 +1241,7 @@ export async function runLifecycle(
       buildPrompt(issue, task.additionalPrompt, worktrees, effectiveResumed, currentWorkspace?.lastError ?? undefined,
         workflowTemplate?.content, attachments,
         currentWorkspace?.plan ?? undefined, currentWorkspace?.experimentNumber ?? undefined),
-      "coding", abortSignal, { mcpConfigPath, mcpServer, sessionId: previousCodingSessionId, settingsPath, disableSlashCommands, allowedTools: CODING_TOOLS,
+      "coding", abortSignal, { mcpConfigPath, mcpServer, sessionId: previousCodingSessionId, settingsPath, allowedTools: CODING_TOOLS,
         permissionMode: agentConfig.permissionMode === "accept" ? "accept" : undefined,
         agentConfigId: agentConfig._id },
     );
@@ -1340,7 +1315,7 @@ export async function runLifecycle(
         const reviewResult = await runAgent(
           convex, config, executor, workspaceId, reviewConfig, agentCwd,
           reviewPrompt, "review", abortSignal,
-          { mcpConfigPath, mcpServer, permissionMode: "plan", settingsPath, disableSlashCommands, allowedTools: REVIEW_TOOLS },
+          { mcpConfigPath, mcpServer, permissionMode: "plan", settingsPath, allowedTools: REVIEW_TOOLS },
         );
 
         if (!reviewResult.success) {
@@ -1367,7 +1342,7 @@ export async function runLifecycle(
           const clarifyResult = await runAgent(
             convex, config, executor, workspaceId, reviewConfig, agentCwd,
             clarifyPrompt, "review", abortSignal,
-            { mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: reviewResult.sessionId, settingsPath, disableSlashCommands, allowedTools: REVIEW_TOOLS },
+            { mcpConfigPath, mcpServer, permissionMode: "plan", sessionId: reviewResult.sessionId, settingsPath, allowedTools: REVIEW_TOOLS },
           );
           if (abortSignal.aborted) return;
           if (clarifyResult.success) {
@@ -1415,7 +1390,7 @@ export async function runLifecycle(
         const fixResult = await runAgent(
           convex, config, executor, workspaceId, agentConfig, agentCwd,
           fixPrompt, "coding", abortSignal,
-          { mcpConfigPath, mcpServer, sessionId: lastCodingSessionId, settingsPath, disableSlashCommands, allowedTools: CODING_TOOLS,
+          { mcpConfigPath, mcpServer, sessionId: lastCodingSessionId, settingsPath, allowedTools: CODING_TOOLS,
             permissionMode: agentConfig.permissionMode === "accept" ? "accept" : undefined,
             agentConfigId: agentConfig._id },
         );
@@ -1447,7 +1422,7 @@ export async function runLifecycle(
     const twf = await runTestsWithFix(
       convex, config, executor, workspaceId, agentConfig, agentCwd,
       repos, worktrees, abortSignal, lastCodingSessionId,
-      mcpConfigPath, mcpServer, settingsPath, disableSlashCommands, issueRef, issue,
+      mcpConfigPath, mcpServer, settingsPath, issueRef, issue,
     );
     if (abortSignal.aborted) return;
     if (twf === null) return;
@@ -1468,7 +1443,7 @@ export async function runLifecycle(
       mcpServer.stop();
       console.log(`[lifecycle] MCP server stopped for workspace=${workspaceId}`);
     }
-    // Clean up temporary settings file to avoid stale permissions/skills on re-runs
+    // Clean up temporary settings file to avoid stale attribution on re-runs
     try { await unlink(settingsPath); } catch { /* best-effort */ }
   }
 
@@ -1689,18 +1664,6 @@ function handlePermissionRequest(args: {
         const approved = record.status === "approved" || record.status === "always_allowed";
         writeStdin(args.formatPermissionResponse(reqId, approved));
 
-        // If "always_allowed", persist the tool name to the agent config's
-        // allowedToolPatterns so it is auto-approved on future runs.
-        if (record.status === "always_allowed" && args.agentConfigId) {
-          try {
-            await convex.mutation(api.agentConfigs.addAllowedTool, {
-              id: args.agentConfigId,
-              toolPattern: toolName,
-            });
-            console.log(`[lifecycle] workspace=${workspaceId} persisted always-allow for tool=${toolName}`);
-          } catch { /* non-critical */ }
-        }
-
         resolveOnce(resolve);
       } catch {
         // Polling error — schedule retry unless exited
@@ -1739,7 +1702,6 @@ export async function runAgent(
     permissionMode?: "plan" | "dangerously-skip-permissions" | "accept";
     allowedTools?: string[];
     settingsPath?: string;
-    disableSlashCommands?: boolean;
     agentConfigId?: Id<"agentConfigs">;
   },
 ): Promise<{
@@ -1776,7 +1738,6 @@ export async function runAgent(
     permissionMode: options?.permissionMode,
     allowedTools: options?.allowedTools,
     settingsPath: options?.settingsPath,
-    disableSlashCommands: options?.disableSlashCommands,
   });
 
   // Prevent git from opening an editor during rebase/merge in agent subprocesses
@@ -2227,7 +2188,6 @@ async function runTestsWithFix(
   mcpConfigPath: string | undefined,
   mcpServer: McpServer | null,
   settingsPath: string,
-  disableSlashCommands: boolean,
   issueRef: string,
   issue: Doc<"issues"> | undefined,
 ): Promise<RunTestsWithFixResult | null> {
@@ -2271,7 +2231,6 @@ async function runTestsWithFix(
       mcpServer,
       sessionId: lastCodingSessionId,
       settingsPath,
-      disableSlashCommands,
       allowedTools: CODING_TOOLS,
       permissionMode: agentConfig.permissionMode === "accept" ? "accept" : undefined,
       agentConfigId: agentConfig._id,

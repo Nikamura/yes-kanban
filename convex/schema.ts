@@ -95,6 +95,7 @@ export default defineSchema({
     mcpEnabled: v.boolean(),
     mcpTools: v.optional(v.array(v.string())),
     permissionMode: v.optional(v.union(v.literal("bypass"), v.literal("accept"))),
+    // TODO: remove after YES-255 `clearAllowedToolPatterns` migration has run
     allowedToolPatterns: v.optional(v.array(v.string())),
   }).index("by_project", ["projectId"]),
 
@@ -295,6 +296,7 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_project", ["projectId"]),
 
+  // TODO: remove after YES-255 `deleteAllSkills` migration has run
   skills: defineTable({
     projectId: v.id("projects"),
     name: v.string(),

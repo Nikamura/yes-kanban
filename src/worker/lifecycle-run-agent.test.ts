@@ -386,51 +386,6 @@ describe("runAgent", () => {
     expect(createCalls[0]![1].requestId).toBe("req_1");
   });
 
-  test("accept mode always_allowed response persists tool pattern to agentConfig", async () => {
-    const convex = mockConvex();
-    // Mock query to return always_allowed status
-    (convex as any).query = mock(() => ({ status: "always_allowed", requestId: "req_1" }));
-
-    let stdinWritten = "";
-    const executor = {
-      execute: mock((args: any) => {
-        // Provide stdin writer first so polling can proceed
-        if (args.onStdinReady) {
-          args.onStdinReady((data: string) => { stdinWritten += data; });
-        }
-
-        // Emit a permission_request event
-        args.onLine("stdout", JSON.stringify({
-          type: "permission_request",
-          request_id: "req_1",
-          tool: { name: "Bash", input: { command: "ls" } },
-        }));
-
-        // Let the setTimeout-based poller run
-        return new Promise((resolve) => {
-          setTimeout(() => resolve({ exitCode: 0, timedOut: false, stalled: false }), 1500);
-        });
-      }),
-    };
-
-    await runAgent(
-      convex as any, baseConfig, executor as any, "wsId" as any,
-      baseAgentConfig, "/tmp/cwd", "Task", "coding",
-      new AbortController().signal,
-      { permissionMode: "accept", agentConfigId: "configId" as any },
-    );
-
-    // Verify addAllowedTool was called with the tool name
-    const addToolCalls = convex.mutation.mock.calls.filter((c: any[]) =>
-      c[1] && "toolPattern" in c[1]
-    );
-    expect(addToolCalls.length).toBe(1);
-    expect(addToolCalls[0]![1].toolPattern).toBe("Bash");
-
-    // Verify stdin received the approved response
-    expect(stdinWritten).toContain('"approved":true');
-  });
-
   test("sets MCP server runAttemptId when provided", async () => {
     const convex = mockConvex();
     const executor = makeExecutor({ exitCode: 0 });

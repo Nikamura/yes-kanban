@@ -36,7 +36,6 @@ export const create = mutation({
     mcpEnabled: v.optional(v.boolean()),
     mcpTools: v.optional(v.array(v.string())),
     permissionMode: v.optional(v.union(v.literal("bypass"), v.literal("accept"))),
-    allowedToolPatterns: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     validateAgentConfigArgs(args);
@@ -57,7 +56,6 @@ export const create = mutation({
       mcpEnabled: args.mcpEnabled ?? true,
       mcpTools: args.mcpTools,
       permissionMode: args.permissionMode,
-      allowedToolPatterns: args.allowedToolPatterns,
     });
   },
 });
@@ -81,7 +79,6 @@ export const update = mutation({
     mcpEnabled: v.optional(v.boolean()),
     mcpTools: v.optional(v.array(v.string())),
     permissionMode: v.optional(v.union(v.literal("bypass"), v.literal("accept"))),
-    allowedToolPatterns: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     validateAgentConfigArgs(args);
@@ -96,38 +93,6 @@ export const update = mutation({
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(id, patch as any);
     }
-  },
-});
-
-export const addAllowedTool = mutation({
-  args: {
-    id: v.id("agentConfigs"),
-    toolPattern: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const config = await ctx.db.get(args.id);
-    if (!config) throw new Error("Agent config not found");
-    const existing = config.allowedToolPatterns ?? [];
-    if (!existing.includes(args.toolPattern)) {
-      await ctx.db.patch(args.id, {
-        allowedToolPatterns: [...existing, args.toolPattern],
-      });
-    }
-  },
-});
-
-export const removeAllowedTool = mutation({
-  args: {
-    id: v.id("agentConfigs"),
-    toolPattern: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const config = await ctx.db.get(args.id);
-    if (!config) throw new Error("Agent config not found");
-    const existing = config.allowedToolPatterns ?? [];
-    await ctx.db.patch(args.id, {
-      allowedToolPatterns: existing.filter((p) => p !== args.toolPattern),
-    });
   },
 });
 

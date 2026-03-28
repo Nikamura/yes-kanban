@@ -47,10 +47,24 @@ export const backfillTokenUsageDaily = migrations.define({
 
 export const removeChecklistFromIssues = migrations.define({
   table: "issues",
-  migrateOne: async (_ctx, doc) => {
+  migrateOne: (_ctx, doc) => {
     if (doc.checklist === undefined) return;
     return { checklist: undefined };
   },
+});
+
+/** YES-255: Remove per-project skills; run before dropping the `skills` table from schema. */
+export const deleteAllSkills = migrations.define({
+  table: "skills",
+  migrateOne: async (ctx, doc) => {
+    await ctx.db.delete(doc._id);
+  },
+});
+
+/** YES-255: Remove tool-pattern sandboxing from agent configs. */
+export const clearAllowedToolPatterns = migrations.define({
+  table: "agentConfigs",
+  migrateOne: () => ({ allowedToolPatterns: undefined }),
 });
 
 /** Serial order for `runAll`. `backfillTokenUsageDaily` requires `projectId` on runAttempts. */
@@ -59,6 +73,8 @@ export function runAllSerialMigrations() {
     internal.migrations.backfillRunAttemptsProjectId,
     internal.migrations.backfillTokenUsageDaily,
     internal.migrations.removeChecklistFromIssues,
+    internal.migrations.deleteAllSkills,
+    internal.migrations.clearAllowedToolPatterns,
   ] as const;
 }
 
