@@ -718,7 +718,7 @@ export async function runLifecycle(
           }
           const opencodeMcp: Record<string, unknown> = {};
           for (const [name, entry] of Object.entries(bridge.mcpServers)) {
-            opencodeMcp[name] = entry;
+            opencodeMcp[name] = { type: "stdio", ...(entry as Record<string, unknown>) };
           }
           writeFileSync(join(wt.worktreePath, "opencode.json"), JSON.stringify({ mcp: opencodeMcp }, null, 2));
 
